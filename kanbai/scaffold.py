@@ -20,7 +20,8 @@ Columns follow a sprint workflow:
 - `backlog` — everything that needs doing eventually (future work). New cards land here.
 - `todo` — the current sprint: what is planned to be worked on now.
 - `doing` — in progress.
-- `done` — finished.
+- `review` — finished and awaiting the user's approval.
+- `done` — approved and complete.
 
 `kanbai next` reads the **todo** (sprint) column only, so backlog cards are not picked up
 until they are planned into the sprint.
@@ -33,7 +34,9 @@ When asked to work on the project, do **one card at a time** and stop:
 2. Run `kanbai start <id>` to move the card into `doing`.
 3. Implement the task. Consult `kanbai show <id> --json` for the full description and
    acceptance criteria.
-4. When it is complete and verified, run `kanbai done <id>` to move it into `done`.
+4. When it is complete and verified, run `kanbai review <id>` to move it into `review`.
+   **Do NOT run `kanbai done`** — only the user approves (they run `kanbai done <id>` to
+   move it from `review` to `done`).
 5. **Stop and report. Do NOT pick up the next card** — wait for the user to tell you to
    continue (they may want to review or commit first).
 
@@ -56,7 +59,7 @@ SKILL_NEXT = """---
 name: kanbai-next
 description: >-
   Work ONE kanbai task: pick the next actionable card, move it to "doing", implement it,
-  move it to "done", then stop. Use when the user asks to pick up the next task or work on
+  move it to "review", then stop. Use when the user asks to pick up the next task or work on
   the board. Does one card and waits — it does not continue to the next on its own.
 allowed-tools: Bash(kanbai *)
 ---
@@ -71,7 +74,8 @@ edit `.kanbai/` files directly):
 2. Note the card `id`. Run `kanbai start <id>` to move it into the in-progress column.
 3. Read the full task with `kanbai show <id> --json` and implement it, satisfying any
    acceptance criteria in the body.
-4. Once the work is complete and verified, run `kanbai done <id>`.
+4. Once the work is complete and verified, run `kanbai review <id>` to send it to review.
+   **Do NOT run `kanbai done`** — only the user approves (they move it from review to done).
 5. **Stop and report which card you finished. Do NOT start the next card** — wait for the
    user to ask for it (they may want to review or commit first).
 
@@ -95,7 +99,8 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
 1. Run `kanbai next --json`. If it prints `null`, the sprint is empty or fully blocked —
    report a summary of everything you did and stop.
 2. Run `kanbai start <id>`, implement the task (see `kanbai show <id> --json` for the
-   description and acceptance criteria), verify it, then run `kanbai done <id>`.
+   description and acceptance criteria), verify it, then run `kanbai review <id>` (send it
+   to review — the user approves it to done).
 3. Repeat from step 1 for the next card, reporting each card's outcome as you go.
 
 Note: this changes many files without committing along the way. Prefer `kanbai-next` (one

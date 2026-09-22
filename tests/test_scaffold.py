@@ -12,7 +12,7 @@ def test_init_creates_board_and_integration(tmp_path: Path) -> None:
 
     assert (tmp_path / ".kanbai" / "config.toml").exists()
     assert 'name = "Demo"' in (tmp_path / ".kanbai" / "config.toml").read_text()
-    for column in ("backlog", "todo", "doing", "done", "archive"):
+    for column in ("backlog", "todo", "doing", "review", "done", "archive"):
         assert (tmp_path / ".kanbai" / column / ".gitkeep").exists()
     assert (tmp_path / ".claude" / "rules" / "kanbai.md").exists()
     assert (tmp_path / ".claude" / "skills" / "kanbai-next" / "SKILL.md").exists()

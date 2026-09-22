@@ -53,6 +53,20 @@ def test_next_and_lifecycle(project: Path) -> None:
     assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
 
 
+def test_review_then_done_flow(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+    runner.invoke(app, ["start", "001"])
+
+    # `review` finishes the card into the review column (agent's step)...
+    assert runner.invoke(app, ["review", "001"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["list", "review", "--json"]).output)[0]["id"] == "001"
+    assert runner.invoke(app, ["list", "done", "--json"]).output.strip() == "[]"
+
+    # ...and `done` approves it (user's step).
+    assert runner.invoke(app, ["done", "001"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
+
+
 def test_next_ignores_backlog(project: Path) -> None:
     runner.invoke(app, ["add", "Backlog only"])  # defaults to backlog
     result = runner.invoke(app, ["next", "--json"])

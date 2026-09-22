@@ -262,17 +262,34 @@ def start(
 
 
 @app.command()
+def review(
+    card_id: str = typer.Argument(..., help="Card id."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the moved card as JSON."),
+) -> None:
+    """Finish a card: move it to the review column to await approval."""
+    board = _load()
+    target = board.config.review_column or board.config.done_column
+    card = board.move(card_id, target)
+    _emit_card(
+        card,
+        as_json,
+        f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold] "
+        "[dim](awaiting approval)[/dim]",
+    )
+
+
+@app.command()
 def done(
     card_id: str = typer.Argument(..., help="Card id."),
     as_json: bool = typer.Option(False, "--json", help="Emit the moved card as JSON."),
 ) -> None:
-    """Move a card to the done column."""
+    """Approve a card: move it to the done column."""
     board = _load()
     card = board.move(card_id, board.config.done_column)
     _emit_card(
         card,
         as_json,
-        f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
+        f"[green]✓[/green] Approved [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
 
 

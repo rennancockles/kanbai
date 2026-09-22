@@ -77,34 +77,45 @@ class BoardConfig(BaseModel):
     """Board-level configuration loaded from ``.kanbai/config.toml``."""
 
     name: str = "kanbai board"
-    columns: list[str] = Field(default_factory=lambda: ["backlog", "todo", "doing", "done"])
+    columns: list[str] = Field(
+        default_factory=lambda: ["backlog", "todo", "doing", "review", "done"]
+    )
     default_priority: Priority = Priority.medium
 
     def _column_from_end(self, offset: int) -> str:
-        """Column ``offset`` positions from the end (0 = last), clamped to the first column.
-
-        Roles are anchored to the end of the pipeline so the same logic works for the
-        4-column default (backlog / todo / doing / done) and a shorter custom board.
-        """
+        """Column ``offset`` positions from the end (0 = last), clamped to the first column."""
         index = max(len(self.columns) - 1 - offset, 0)
         return self.columns[index]
 
+    def _named_or(self, name: str, offset: int) -> str:
+        """The column called ``name`` if the board has it, else the positional fallback.
+
+        Roles resolve by well-known name first (so adding a ``review`` column doesn't shift
+        the others), falling back to an end-anchored position for boards with custom names.
+        """
+        return name if name in self.columns else self._column_from_end(offset)
+
     @property
     def add_column(self) -> str:
-        """Where `kanbai add` puts new cards by default (the first column — backlog)."""
-        return self.columns[0]
+        """Where `kanbai add` puts new cards by default (the backlog, or the first column)."""
+        return "backlog" if "backlog" in self.columns else self.columns[0]
 
     @property
     def sprint_column(self) -> str:
         """The column `next` pulls from — the planned work (``todo``), not the backlog."""
-        return self._column_from_end(2)
+        return self._named_or("todo", 2)
+
+    @property
+    def review_column(self) -> str | None:
+        """The column finished cards await approval in, if the board has a ``review`` stage."""
+        return "review" if "review" in self.columns else None
 
     @property
     def doing_column(self) -> str:
-        """The in-progress column `start` moves cards to (the one before done)."""
-        return self._column_from_end(1)
+        """The in-progress column `start` moves cards to."""
+        return self._named_or("doing", 1)
 
     @property
     def done_column(self) -> str:
-        """The terminal column `done` moves cards to (the last column)."""
-        return self._column_from_end(0)
+        """The terminal column `done` (approval) moves cards to (the last column)."""
+        return self._named_or("done", 0)
