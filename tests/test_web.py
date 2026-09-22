@@ -1,0 +1,189 @@
+"""Tests for the web UI (board rendering)."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from kanbai import scaffold
+from kanbai.board import Board
+from kanbai.cli import app as cli_app
+from kanbai.web.app import create_app
+from kanbai.web.watcher import watch_board
+from typer.testing import CliRunner
+
+cli_runner = CliRunner()
+
+
+def _client(tmp_path: Path) -> TestClient:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Sprint task", column="todo", priority="high", labels=["ui"])
+    board.add("Future idea")  # lands in backlog
+    return TestClient(create_app(board))
+
+
+def test_index_renders_all_columns(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/")
+    assert resp.status_code == 200
+    for column in ("backlog", "todo", "doing", "done"):
+        assert column in resp.text
+
+
+def test_index_shows_brand_name(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/")
+    assert "KanbAI" in resp.text  # app name is branded with AI uppercased
+
+
+def test_index_shows_cards_with_details(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert "Sprint task" in body
+    assert "Future idea" in body
+    assert "#001" in body  # card id
+    assert "ui" in body  # label
+    assert "pri-high" in body  # priority styling hook
+
+
+def test_static_assets_are_served(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    htmx = client.get("/static/htmx.min.js")
+    assert htmx.status_code == 200
+    assert "htmx" in htmx.text.lower()
+    sortable = client.get("/static/Sortable.min.js")
+    assert sortable.status_code == 200
+
+
+def test_create_card_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post(
+        "/cards", data={"title": "Nova tarefa", "column": "todo", "priority": "high"}
+    )
+    assert resp.status_code == 200
+    assert "Nova tarefa" in resp.text  # returned partial shows the new card
+    # ...and it was actually persisted to the board.
+    todo = board.list_column("todo")
+    assert [c.title for c in todo] == ["Nova tarefa"]
+    assert todo[0].priority.value == "high"
+
+
+def test_move_card_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task", column="todo")
+    client = TestClient(create_app(board))
+
+    resp = client.post(f"/cards/{card.id}/move", data={"column": "doing"})
+    assert resp.status_code == 200
+    assert board.list_column("doing")[0].id == card.id
+    assert board.list_column("todo") == []
+
+
+def test_create_card_invalid_column_is_ignored(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post("/cards", data={"title": "Nope", "column": "bogus", "priority": "low"})
+    assert resp.status_code == 200  # suppressed, board re-rendered unchanged
+    assert all(not cards for cards in board.board().values())
+
+
+def test_move_card_partial_reflects_new_column(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Slice", column="todo")
+    client = TestClient(create_app(board))
+
+    resp = client.post(f"/cards/{card.id}/move", data={"column": "done"})
+    # The returned partial places the card's markup after the "done" column header.
+    done_index = resp.text.index('data-column="done"')
+    assert resp.text.index(f'data-id="{card.id}"') > done_index
+
+
+def test_move_unknown_card_is_ignored(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post("/cards/999/move", data={"column": "doing"})
+    assert resp.status_code == 200  # no crash, board re-rendered unchanged
+
+
+def test_ui_command_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scaffold.init_board(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    calls: dict[str, object] = {}
+
+    def fake_serve(
+        board: Board, *, host: str, port: int, open_browser: bool, force_polling: bool
+    ) -> None:
+        calls.update(host=host, port=port, open_browser=open_browser, force_polling=force_polling)
+
+    # The `ui` command imports serve lazily, so patching the module attribute is enough.
+    monkeypatch.setattr("kanbai.web.server.serve", fake_serve)
+    result = cli_runner.invoke(cli_app, ["ui", "--port", "9999", "--no-browser", "--poll"])
+    assert result.exit_code == 0, result.output
+    assert calls == {
+        "host": "127.0.0.1",
+        "port": 9999,
+        "open_browser": False,
+        "force_polling": True,
+    }
+
+
+def test_ui_command_without_board_exits_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)  # no board here
+    result = cli_runner.invoke(cli_app, ["ui"])
+    assert result.exit_code == 1
+
+
+def test_board_partial_is_returned(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/board")
+    assert resp.status_code == 200
+    assert 'id="board"' in resp.text
+    assert "<!DOCTYPE html>" not in resp.text  # partial only, not the full page
+
+
+def test_events_streams_reload_on_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+
+    async def fake_watch(kanbai_dir: Path, *, force_polling: bool = False) -> AsyncIterator[None]:
+        yield None  # simulate a single filesystem change, then finish
+
+    monkeypatch.setattr("kanbai.web.watcher.watch_board", fake_watch)
+    resp = TestClient(create_app(board)).get("/events")
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    assert "data: reload" in resp.text
+
+
+def test_watch_board_detects_change_with_polling(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    kanbai_dir = tmp_path / ".kanbai"
+
+    async def run() -> None:
+        agen = watch_board(kanbai_dir, force_polling=True)
+
+        async def poke() -> None:
+            await asyncio.sleep(0.3)
+            (kanbai_dir / "todo" / "probe.md").write_text("x")
+
+        task = asyncio.create_task(poke())
+        try:
+            assert await asyncio.wait_for(agen.__anext__(), timeout=10) is None
+        finally:
+            await task
+            await agen.aclose()
+
+    asyncio.run(run())

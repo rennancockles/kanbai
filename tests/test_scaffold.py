@@ -16,6 +16,7 @@ def test_init_creates_board_and_integration(tmp_path: Path) -> None:
         assert (tmp_path / ".kanbai" / column / ".gitkeep").exists()
     assert (tmp_path / ".claude" / "rules" / "kanbai.md").exists()
     assert (tmp_path / ".claude" / "skills" / "kanbai-next" / "SKILL.md").exists()
+    assert (tmp_path / ".claude" / "skills" / "kanbai-sprint" / "SKILL.md").exists()
     assert (tmp_path / ".claude" / "skills" / "kanbai-status" / "SKILL.md").exists()
     assert result.created  # reported what it made
     assert not result.failed

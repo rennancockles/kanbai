@@ -1,0 +1,17 @@
+<main id="board" class="board">
+  {% for column in columns %}
+  <section class="column" data-column="{{ column.name }}">
+    <div class="column-head">
+      <h2 class="column-title">{{ column.name }}</h2>
+      <span class="count">{{ column.cards | length }}</span>
+    </div>
+    <div class="cards" data-column="{{ column.name }}">
+      {% for card in column.cards %}
+        {% include "_card.html" %}
+      {% else %}
+        <p class="empty">Nothing here yet</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</main>

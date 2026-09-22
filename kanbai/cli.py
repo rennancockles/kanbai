@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import scaffold
+from . import APP_NAME, scaffold
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
@@ -94,12 +94,12 @@ def init(
         raise typer.Exit(code=1) from exc
 
     if result.created:
-        console.print(f"[green]✓[/green] kanbai board at [cyan]{result.kanbai_dir}[/cyan]")
+        console.print(f"[green]✓[/green] {APP_NAME} board at [cyan]{result.kanbai_dir}[/cyan]")
         for line in result.created:
             console.print(f"  [dim]created[/dim] {line}")
     else:
         console.print(
-            f"[green]✓[/green] kanbai board already up to date at "
+            f"[green]✓[/green] {APP_NAME} board already up to date at "
             f"[cyan]{result.kanbai_dir}[/cyan]"
         )
 
@@ -120,7 +120,7 @@ def init(
         "  1. Allow the CLI for Claude without prompts by adding "
         '[cyan]Bash(kanbai *)[/cyan] to .claude/settings.json "permissions.allow".\n'
         '  2. Create your first card: [cyan]kanbai add "My first task"[/cyan]\n'
-        "  3. In Claude Code, ask it to work through the kanbai board."
+        f"  3. In Claude Code, ask it to work through the {APP_NAME} board."
     )
 
 
@@ -326,6 +326,37 @@ def rm(
         typer.confirm(f"Delete card {card.id} ({card.title})?", abort=True)
     board.remove(card_id)
     console.print(f"[green]✓[/green] Deleted [cyan]{card.id}[/cyan]")
+
+
+@app.command()
+def ui(
+    host: str = typer.Option("127.0.0.1", "--host", help="Host to bind."),
+    port: int = typer.Option(8000, "--port", help="Port to bind."),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser."),
+    poll: bool = typer.Option(
+        False,
+        "--poll",
+        help="Poll for board changes instead of OS file events "
+        "(use in sandboxes/containers where live updates don't fire).",
+    ),
+) -> None:
+    """Serve the board in a local web UI and open it in your browser."""
+    board = _load()
+    # Imported lazily so the core CLI never requires the optional "ui" extra.
+    try:
+        from .web.server import serve  # noqa: PLC0415 - optional extra, imported on demand
+    except ImportError as exc:
+        err_console.print(
+            "[red]error:[/red] the web UI needs the \"ui\" extra. Install it with "
+            "[cyan]pip install 'kanbai[ui]'[/cyan] (or [cyan]uv add 'kanbai[ui]'[/cyan])."
+        )
+        raise typer.Exit(code=1) from exc
+
+    console.print(
+        f"[green]›[/green] {APP_NAME} UI at [cyan]http://{host}:{port}[/cyan]  "
+        "[dim](Ctrl+C to stop)[/dim]"
+    )
+    serve(board, host=host, port=port, open_browser=not no_browser, force_polling=poll)
 
 
 if __name__ == "__main__":  # pragma: no cover

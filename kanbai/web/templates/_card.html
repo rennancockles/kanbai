@@ -1,0 +1,12 @@
+<article class="card {{ priority_class[card.priority.value] }}" data-id="{{ card.id }}">
+  <div class="card-head">
+    <span class="card-id">#{{ card.id }}</span>
+    <span class="card-pri">{{ card.priority.value }}</span>
+  </div>
+  <p class="card-title">{{ card.title }}</p>
+  {% if card.labels %}
+  <div class="card-labels">
+    {% for label in card.labels %}<span class="label">{{ label }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</article>

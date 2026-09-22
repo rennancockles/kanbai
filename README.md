@@ -1,9 +1,9 @@
-# kanbai
+# KanbAI
 
 A file-based Kanban board that lives in your repo, designed for **Claude Code** and
-other AI coding harnesses (and humans too).
+other AI coding harnesses (and humans too). Installed and invoked as `kanbai`.
 
-kanbai keeps a `.kanbai/` folder in your project. Each column of the board is a folder and
+KanbAI keeps a `.kanbai/` folder in your project. Each column of the board is a folder and
 each task is a single Markdown card. The default columns follow a sprint workflow:
 
 - **`backlog`** — everything to do eventually (future work). New cards land here.
@@ -21,7 +21,15 @@ kanbai done 001        # move card 001 to "done"
 ```
 
 A friendly local web UI (`kanbai ui`) lets you watch and manage the board while Claude
-works. *(web UI is planned for phase 2)*
+works — create cards, drag them between columns, and see the board update live as Claude
+moves cards from the CLI. Install the extra and launch it:
+
+```bash
+pip install 'kanbai[ui]'   # or: uv add 'kanbai[ui]'
+kanbai ui                  # serves the board and opens your browser
+```
+
+Use `kanbai ui --poll` in sandboxes/containers where OS file events don't fire.
 
 ## Install
 
@@ -55,6 +63,7 @@ Then open a Claude Code session and ask it to *"work through the kanbai board"*.
 | `kanbai start <id>` / `kanbai done <id>` | Shortcuts for moving to `doing` / `done`. |
 | `kanbai edit <id>` | Update fields of a card. |
 | `kanbai archive <id>` / `kanbai rm <id>` | Archive or delete a card. |
+| `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 
 Add `--json` to read-only commands for machine-readable output.
 

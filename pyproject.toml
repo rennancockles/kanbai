@@ -28,6 +28,7 @@ ui = [
     "uvicorn[standard]>=0.29",
     "jinja2>=3.1",
     "watchfiles>=0.21",
+    "python-multipart>=0.0.9",
 ]
 
 [dependency-groups]
@@ -48,6 +49,11 @@ kanbai = "kanbai.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["kanbai"]
+# Ship the web UI's Jinja2 templates and static assets (CSS, vendored htmx) in the wheel.
+artifacts = [
+    "kanbai/web/templates/**/*.html",
+    "kanbai/web/static/**/*",
+]
 
 
 [tool.ruff]
@@ -92,6 +98,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PLR0913",  # CLI commands legitimately expose many options.
     "PLR0917",
 ]
+"kanbai/web/app.py" = ["B008"]  # FastAPI's idiom is to call Form()/Depends() in defaults.
 
 [tool.ruff.lint.pylint]
 max-args = 7

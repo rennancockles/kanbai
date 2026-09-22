@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ board_name }} · {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+  <script src="/static/Sortable.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>{{ board_name }}</h1>
+    <span class="brand">{{ app_name }}</span>
+    <form class="add-card" hx-post="/cards" hx-target="#board" hx-swap="outerHTML"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+      <input type="text" name="title" placeholder="New card title…" required autocomplete="off">
+      <select name="column" aria-label="Column">
+        {% for name in column_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+      </select>
+      <select name="priority" aria-label="Priority">
+        {% for p in priorities %}
+        <option value="{{ p }}"{% if p == 'medium' %} selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Add</button>
+    </form>
+  </header>
+
+  {% include "_board.html" %}
+
+  <script>
+    // Drag-and-drop between columns; persist each move via HTMX, then swap in the
+    // server-rendered board so the UI always matches the .kanbai/ files.
+    function initSortables() {
+      document.querySelectorAll('.cards').forEach(function (el) {
+        if (el._sortable) return;
+        el._sortable = Sortable.create(el, {
+          group: 'kanbai',
+          animation: 150,
+          ghostClass: 'card-ghost',
+          onEnd: function (evt) {
+            var id = evt.item.getAttribute('data-id');
+            var column = evt.to.getAttribute('data-column');
+            if (!id || !column) return;
+            htmx.ajax('POST', '/cards/' + id + '/move', {
+              target: '#board', swap: 'outerHTML', values: { column: column }
+            });
+          }
+        });
+      });
+    }
+    document.addEventListener('DOMContentLoaded', initSortables);
+    document.body.addEventListener('htmx:afterSwap', initSortables);
+
+    // Live updates: when .kanbai/ changes on disk (e.g. Claude moves a card via the CLI),
+    // the server pushes an SSE event and we re-fetch just the board.
+    if (window.EventSource) {
+      var events = new EventSource('/events');
+      events.onmessage = function () {
+        htmx.ajax('GET', '/board', { target: '#board', swap: 'outerHTML' });
+      };
+    }
+  </script>
+</body>
+</html>
