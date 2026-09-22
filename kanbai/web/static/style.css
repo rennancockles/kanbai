@@ -22,8 +22,9 @@ body {
 }
 
 .topbar {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;  /* left · centered · right */
+  align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
@@ -33,6 +34,7 @@ body {
   z-index: 1;
 }
 
+.topbar-left { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
 .topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; }
 .brand {
   font-size: 0.7rem;
@@ -288,3 +290,38 @@ body {
   border-color: transparent;
 }
 .btn-danger:hover { border-color: var(--high); }
+
+/* "Plan sprint" button + modal */
+.plan-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.35rem 0.7rem;
+}
+.plan-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-bottom: 0.5rem;
+}
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.35rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.plan-item:hover { background: var(--surface-2); }
+.plan-item input { accent-color: var(--accent); }
+.plan-title { flex: 1; font-size: 0.88rem; }
+.plan-item .card-pri { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; }

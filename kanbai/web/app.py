@@ -70,6 +70,26 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
             request, "_detail.html", {"card": card, "priority_class": PRIORITY_CLASS}
         )
 
+    @app.get("/sprint/plan", response_class=HTMLResponse)
+    def sprint_plan_form(request: Request) -> Response:
+        backlog = resolved.list_column(resolved.config.add_column)
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "_plan.html",
+            {
+                "cards": backlog,
+                "sprint": resolved.config.sprint_column,
+                "priority_class": PRIORITY_CLASS,
+            },
+        )
+
+    @app.post("/sprint/plan", response_class=HTMLResponse)
+    def sprint_plan(request: Request, ids: list[str] = Form(default=[])) -> Response:
+        for card_id in ids:
+            with contextlib.suppress(KanbaiError):
+                resolved.move(card_id, resolved.config.sprint_column)
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
     @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)
     def card_edit_form(request: Request, card_id: str) -> Response:
         try:

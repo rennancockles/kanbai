@@ -130,6 +130,38 @@ def test_move_unknown_card_is_ignored(tmp_path: Path) -> None:
     assert resp.status_code == 200  # no crash, board re-rendered unchanged
 
 
+def test_board_has_plan_sprint_button(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-get="/sprint/plan"' in body
+
+
+def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Future A")  # backlog
+    board.add("Future B")  # backlog
+    resp = TestClient(create_app(board)).get("/sprint/plan")
+    assert resp.status_code == 200
+    assert "Future A" in resp.text
+    assert "Future B" in resp.text
+    assert 'name="ids"' in resp.text  # checkboxes
+    assert 'class="modal card' in resp.text  # opaque background (not transparent)
+
+
+def test_sprint_plan_moves_selected_cards_to_sprint(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("A")  # 001 backlog
+    board.add("B")  # 002 backlog
+    board.add("C")  # 003 backlog
+    client = TestClient(create_app(board))
+
+    resp = client.post("/sprint/plan", data={"ids": ["001", "003"]})
+    assert resp.status_code == 200
+    assert [c.id for c in board.list_column("todo")] == ["001", "003"]
+    assert [c.id for c in board.list_column("backlog")] == ["002"]
+
+
 def test_card_detail_shows_full_card(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
