@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from .errors import InvalidPriorityError
 from .models import Card, Priority
 
 KANBAI_DIRNAME = ".kanbai"
@@ -28,7 +29,7 @@ _ID_PREFIX_RE = re.compile(r"^(\d+)-")
 class _NoAliasDumper(yaml.SafeDumper):
     """YAML dumper that never emits anchors/aliases, keeping card files readable."""
 
-    def ignore_aliases(self, data: object) -> bool:
+    def ignore_aliases(self, _data: object) -> bool:
         return True
 
 
@@ -166,5 +167,15 @@ def now() -> datetime:
 
 
 def coerce_priority(value: str | Priority) -> Priority:
-    """Accept a priority as a string or enum and return the enum."""
-    return value if isinstance(value, Priority) else Priority(value)
+    """Accept a priority as a string or enum and return the enum.
+
+    Raises :class:`InvalidPriorityError` (a ``KanbaiError``) for an unknown value, so callers
+    that already handle board errors — like the web endpoints — degrade gracefully instead
+    of surfacing a raw ``ValueError`` (a 500).
+    """
+    if isinstance(value, Priority):
+        return value
+    try:
+        return Priority(value)
+    except ValueError as exc:
+        raise InvalidPriorityError(value) from exc

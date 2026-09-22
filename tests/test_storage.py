@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from kanbai import storage
+from kanbai.errors import KanbaiError
 from kanbai.models import Card, Priority
 
 
@@ -68,3 +70,10 @@ def test_next_id_increments(tmp_path: Path) -> None:
 def test_card_filename() -> None:
     card = _make_card(title="Fix the bug")
     assert storage.card_filename(card) == "001-fix-the-bug.md"
+
+
+def test_coerce_priority_rejects_unknown_value() -> None:
+    assert storage.coerce_priority("high") == Priority.high
+    assert storage.coerce_priority(Priority.low) == Priority.low
+    with pytest.raises(KanbaiError):  # not a raw ValueError
+        storage.coerce_priority("urgent")

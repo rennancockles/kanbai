@@ -102,6 +102,17 @@ def test_create_card_invalid_column_is_ignored(tmp_path: Path) -> None:
     assert all(not cards for cards in board.board().values())
 
 
+def test_create_card_invalid_priority_is_ignored(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    # A bad priority must not blow up with a 500.
+    resp = client.post("/cards", data={"title": "Nope", "column": "todo", "priority": "urgent"})
+    assert resp.status_code == 200
+    assert all(not cards for cards in board.board().values())
+
+
 def test_move_with_position_persists_reorder(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

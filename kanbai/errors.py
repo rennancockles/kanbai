@@ -32,3 +32,11 @@ class ColumnNotFoundError(KanbaiError):
         super().__init__(
             f"Unknown column '{column}'. Valid columns: {', '.join(columns)}."
         )
+
+
+class InvalidPriorityError(KanbaiError):
+    """Raised when a priority value is not one of low / medium / high."""
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+        super().__init__(f"Invalid priority '{value}'. Use one of: low, medium, high.")
