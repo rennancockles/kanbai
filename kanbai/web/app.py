@@ -50,6 +50,7 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
             "column_names": resolved.columns,
             "priorities": [p.value for p in Priority],
             "priority_class": PRIORITY_CLASS,
+            "blocked": resolved.blocked_ids(),
         }
 
     @app.get("/", response_class=HTMLResponse)

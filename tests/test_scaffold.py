@@ -22,6 +22,12 @@ def test_init_creates_board_and_integration(tmp_path: Path) -> None:
     assert not result.failed
 
 
+def test_workflow_docs_tell_agent_to_ask_when_unclear() -> None:
+    assert "unclear" in scaffold.RULE_DOC.lower()
+    assert "ask the user" in scaffold.RULE_DOC.lower()
+    assert "unclear" in scaffold.SKILL_NEXT.lower()
+
+
 def test_init_defaults_name_to_directory(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     config = (tmp_path / ".kanbai" / "config.toml").read_text()

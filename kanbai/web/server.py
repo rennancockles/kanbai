@@ -18,6 +18,10 @@ from .app import create_app
 # Import string uvicorn re-imports on each reload; `create_app()` loads the board from cwd.
 _APP_FACTORY = "kanbai.web.app:create_app"
 
+# The /events SSE stream holds a connection open indefinitely, so bound uvicorn's graceful
+# shutdown — otherwise a reload (or Ctrl+C) hangs on "Waiting for connections to close".
+_GRACEFUL_TIMEOUT = 1
+
 
 def serve(
     board: Board,
@@ -43,11 +47,20 @@ def serve(
         if force_polling:
             # watchfiles honours this for both uvicorn's reloader and the board watcher.
             os.environ["WATCHFILES_FORCE_POLLING"] = "true"
-        uvicorn.run(_APP_FACTORY, factory=True, reload=True, host=host, port=port, log_level="info")
+        uvicorn.run(
+            _APP_FACTORY,
+            factory=True,
+            reload=True,
+            host=host,
+            port=port,
+            log_level="info",
+            timeout_graceful_shutdown=_GRACEFUL_TIMEOUT,
+        )
     else:
         uvicorn.run(
             create_app(board, force_polling=force_polling),
             host=host,
             port=port,
             log_level="info",
+            timeout_graceful_shutdown=_GRACEFUL_TIMEOUT,
         )

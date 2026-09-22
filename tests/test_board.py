@@ -93,6 +93,20 @@ def test_next_none_when_empty(board: Board) -> None:
     assert board.next() is None
 
 
+def test_blocked_ids_tracks_unfinished_dependencies(board: Board) -> None:
+    blocker = board.add("Blocker", column="todo")
+    blocked = board.add("Blocked", column="todo", deps=[blocker.id])
+    assert board.blocked_ids() == {blocked.id}
+
+    board.move(blocker.id, "done")
+    assert board.blocked_ids() == set()  # dependency satisfied
+
+
+def test_blocked_ids_ignores_unknown_dependencies(board: Board) -> None:
+    card = board.add("Task", column="todo", deps=["999"])
+    assert card.id not in board.blocked_ids()  # missing dep is not blocking
+
+
 def test_next_missing_dependency_is_not_blocking(board: Board) -> None:
     card = board.add("Task", column="todo", deps=["999"])
     assert board.next().id == card.id  # type: ignore[union-attr]

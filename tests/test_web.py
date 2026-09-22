@@ -40,6 +40,12 @@ def test_index_shows_brand_name(tmp_path: Path) -> None:
     assert "KanbAI" in resp.text  # app name is branded with AI uppercased
 
 
+def test_index_wires_escape_to_close_modal(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert "keydown" in body
+    assert "Escape" in body  # ESC closes the modal
+
+
 def test_index_shows_cards_with_details(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert "Sprint task" in body
@@ -128,6 +134,17 @@ def test_move_unknown_card_is_ignored(tmp_path: Path) -> None:
 
     resp = client.post("/cards/999/move", data={"column": "doing"})
     assert resp.status_code == 200  # no crash, board re-rendered unchanged
+
+
+def test_blocked_card_is_flagged_in_ui(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    blocker = board.add("Blocker", column="todo")  # 001
+    board.add("Blocked", column="todo", deps=[blocker.id])  # 002 depends on 001
+    body = TestClient(create_app(board)).get("/").text
+    # The blocked card carries the marker; the blocker does not.
+    assert "card-lock" in body
+    assert "blocked" in body
 
 
 def test_board_has_plan_sprint_button(tmp_path: Path) -> None:
@@ -321,6 +338,8 @@ def test_serve_reload_uses_import_string_factory(
     assert calls["app"] == "kanbai.web.app:create_app"
     assert calls["reload"] is True
     assert calls["factory"] is True
+    # The SSE stream would otherwise hang reload on shutdown.
+    assert calls["timeout_graceful_shutdown"] == 1
 
 
 def test_ui_command_without_board_exits_nonzero(

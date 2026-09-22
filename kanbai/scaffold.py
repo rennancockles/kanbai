@@ -33,7 +33,8 @@ When asked to work on the project, do **one card at a time** and stop:
    user (they may need to move cards from `backlog` into `todo`) and stop.
 2. Run `kanbai start <id>` to move the card into `doing`.
 3. Implement the task. Consult `kanbai show <id> --json` for the full description and
-   acceptance criteria.
+   acceptance criteria. **If the scope, acceptance criteria, or a design decision is
+   unclear or open, stop and ask the user before writing code — do not assume.**
 4. When it is complete and verified, run `kanbai review <id>` to move it into `review`.
    **Do NOT run `kanbai done`** — only the user approves (they run `kanbai done <id>` to
    move it from `review` to `done`).
@@ -73,7 +74,8 @@ edit `.kanbai/` files directly):
    fully blocked and stop.
 2. Note the card `id`. Run `kanbai start <id>` to move it into the in-progress column.
 3. Read the full task with `kanbai show <id> --json` and implement it, satisfying any
-   acceptance criteria in the body.
+   acceptance criteria in the body. **If the scope or a design decision is unclear or open,
+   stop and ask the user before writing code — do not assume.**
 4. Once the work is complete and verified, run `kanbai review <id>` to send it to review.
    **Do NOT run `kanbai done`** — only the user approves (they move it from review to done).
 5. **Stop and report which card you finished. Do NOT start the next card** — wait for the
@@ -99,8 +101,9 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
 1. Run `kanbai next --json`. If it prints `null`, the sprint is empty or fully blocked —
    report a summary of everything you did and stop.
 2. Run `kanbai start <id>`, implement the task (see `kanbai show <id> --json` for the
-   description and acceptance criteria), verify it, then run `kanbai review <id>` (send it
-   to review — the user approves it to done).
+   description and acceptance criteria). If a card's scope or a design decision is unclear,
+   stop and ask the user before coding it. Verify the work, then run `kanbai review <id>`
+   (send it to review — the user approves it to done).
 3. Repeat from step 1 for the next card, reporting each card's outcome as you go.
 
 Note: this changes many files without committing along the way. Prefer `kanbai-next` (one

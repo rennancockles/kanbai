@@ -111,6 +111,8 @@ body {
 }
 
 .card-id { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.card.blocked { opacity: 0.55; }
+.card-lock { font-size: 0.72rem; }
 .card-pri { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .pri-high .card-pri { color: var(--high); }
 .pri-medium .card-pri { color: var(--medium); }

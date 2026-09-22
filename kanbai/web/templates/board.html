@@ -70,6 +70,11 @@
         htmx.ajax('GET', '/board', { target: '#board', swap: 'outerHTML' });
       };
     }
+
+    // Close any open modal (detail / edit / plan) with the Escape key.
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.getElementById('detail').innerHTML = '';
+    });
   </script>
 </body>
 </html>

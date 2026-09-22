@@ -147,6 +147,22 @@ class Board:
                 return card
         return None
 
+    def blocked_ids(self) -> set[str]:
+        """Return the ids of cards with at least one dependency not yet in the done column.
+
+        Mirrors the actionability check used by :meth:`next` (an unknown dependency id is
+        treated as satisfied), so the UI can flag exactly the cards `next` would skip.
+        """
+        columns = self.board()
+        location = {card.id: column for column, cards in columns.items() for card in cards}
+        done = self.config.done_column
+        blocked: set[str] = set()
+        for cards in columns.values():
+            for card in cards:
+                if card.deps and any(location.get(dep, done) != done for dep in card.deps):
+                    blocked.add(card.id)
+        return blocked
+
     def show(self, card_id: str) -> Card:
         """Return the full card for ``card_id``."""
         card, _, _ = self._locate(card_id)
