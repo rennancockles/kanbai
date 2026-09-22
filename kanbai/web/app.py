@@ -15,7 +15,7 @@ from starlette.responses import Response
 from .. import APP_NAME
 from ..board import Board
 from ..errors import KanbaiError
-from ..models import Priority
+from ..models import Card, Priority
 from . import watcher
 
 _WEB_DIR = Path(__file__).parent
@@ -43,10 +43,19 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
     app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
     def context() -> dict[str, object]:
+        def column_view(name: str, cards: list[Card]) -> dict[str, object]:
+            limit = resolved.config.wip_limit(name)
+            return {
+                "name": name,
+                "cards": cards,
+                "limit": limit,
+                "over": limit is not None and len(cards) > limit,
+            }
+
         return {
             "app_name": APP_NAME,
             "board_name": resolved.config.name,
-            "columns": [{"name": name, "cards": cards} for name, cards in resolved.board().items()],
+            "columns": [column_view(name, cards) for name, cards in resolved.board().items()],
             "column_names": resolved.columns,
             "priorities": [p.value for p in Priority],
             "priority_class": PRIORITY_CLASS,

@@ -3,7 +3,9 @@
   <section class="column" data-column="{{ column.name }}">
     <div class="column-head">
       <h2 class="column-title">{{ column.name }}</h2>
-      <span class="count">{{ column.cards | length }}</span>
+      <span class="count{% if column.over %} over{% endif %}"
+            {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
+        {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
     </div>
     <div class="cards" data-column="{{ column.name }}">
       {% for card in column.cards %}

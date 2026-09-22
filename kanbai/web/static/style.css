@@ -88,6 +88,7 @@ body {
   min-width: 1.5rem;
   text-align: center;
 }
+.count.over { color: #0d1b2f; background: var(--high); font-weight: 600; }
 
 .cards { display: flex; flex-direction: column; gap: 0.6rem; }
 

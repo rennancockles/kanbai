@@ -74,6 +74,15 @@ def test_next_ignores_backlog(project: Path) -> None:
     assert json.loads(result.output) is None
 
 
+def test_wip_limit_warns_when_exceeded(project: Path) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + "\n[wip]\ntodo = 1\n")
+    runner.invoke(app, ["add", "A", "-c", "todo"])  # todo now 1 (at limit, no warning)
+    result = runner.invoke(app, ["add", "B", "-c", "todo"])  # todo now 2 > 1
+    assert result.exit_code == 0
+    assert "WIP limit" in result.output
+
+
 def test_next_empty_returns_null(project: Path) -> None:
     result = runner.invoke(app, ["next", "--json"])
     assert result.exit_code == 0

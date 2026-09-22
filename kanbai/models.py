@@ -81,6 +81,12 @@ class BoardConfig(BaseModel):
         default_factory=lambda: ["backlog", "todo", "doing", "review", "done"]
     )
     default_priority: Priority = Priority.medium
+    # Optional work-in-progress limits per column; a column absent here has no limit.
+    wip: dict[str, int] = Field(default_factory=dict)
+
+    def wip_limit(self, column: str) -> int | None:
+        """The configured WIP limit for ``column``, or ``None`` if it has no limit."""
+        return self.wip.get(column)
 
     def _column_from_end(self, offset: int) -> str:
         """Column ``offset`` positions from the end (0 = last), clamped to the first column."""

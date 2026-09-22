@@ -1,7 +1,11 @@
-"""Tests for column-role resolution on BoardConfig."""
+"""Tests for column-role resolution and WIP config on BoardConfig."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from kanbai import scaffold
+from kanbai.config import load_config
 from kanbai.models import BoardConfig
 
 
@@ -34,3 +38,21 @@ def test_roles_fall_back_positionally_for_custom_names() -> None:
     assert config.doing_column == "wip"  # one before the end
     assert config.done_column == "shipped"  # last
     assert config.review_column is None
+
+
+def test_wip_limit_lookup() -> None:
+    config = BoardConfig(wip={"doing": 3})
+    assert config.wip_limit("doing") == 3
+    assert config.wip_limit("todo") is None  # no limit configured
+
+
+def test_load_config_reads_wip_section(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + "\n[wip]\ndoing = 3\ntodo = 8\n")
+    config = load_config(tmp_path / ".kanbai")
+    assert config.wip == {"doing": 3, "todo": 8}
+
+
+def test_config_without_wip_has_no_limits() -> None:
+    assert BoardConfig().wip == {}

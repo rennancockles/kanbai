@@ -163,6 +163,18 @@ def test_board_has_plan_sprint_button(tmp_path: Path) -> None:
     assert 'hx-get="/sprint/plan"' in body
 
 
+def test_column_over_wip_limit_is_flagged(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + "\n[wip]\ntodo = 1\n")
+    board = Board.load(tmp_path)
+    board.add("A", column="todo")
+    board.add("B", column="todo")  # 2 > 1
+    body = TestClient(create_app(board)).get("/").text
+    assert "2/1" in body  # count/limit shown
+    assert "count over" in body  # over-limit styling hook
+
+
 def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

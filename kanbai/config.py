@@ -26,6 +26,7 @@ def load_config(kanbai_dir: Path) -> BoardConfig:
 
     board = raw.get("board", {})
     defaults = raw.get("defaults", {})
+    wip = raw.get("wip", {})
 
     config = BoardConfig()
     name = board.get("name")
@@ -37,6 +38,8 @@ def load_config(kanbai_dir: Path) -> BoardConfig:
     priority = defaults.get("priority")
     if isinstance(priority, str):
         config.default_priority = Priority(priority)
+    if isinstance(wip, dict):
+        config.wip = {str(col): int(limit) for col, limit in wip.items() if isinstance(limit, int)}
     return config
 
 
@@ -50,4 +53,8 @@ def render_config(config: BoardConfig) -> str:
         "\n"
         "[defaults]\n"
         f'priority = "{config.default_priority.value}"\n'
+        "\n"
+        "# Optional work-in-progress limits per column (warn when exceeded).\n"
+        "# [wip]\n"
+        "# doing = 3\n"
     )

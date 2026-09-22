@@ -54,6 +54,18 @@ def _emit_card(card: Card, as_json: bool, message: str | None = None) -> None:
         console.print(message)
 
 
+def _warn_over_wip(board: Board, column: str) -> None:
+    """Warn (on stderr) when ``column`` is over its configured WIP limit — never blocks."""
+    limit = board.config.wip_limit(column)
+    if limit is None:
+        return
+    count = len(board.list_column(column))
+    if count > limit:
+        err_console.print(
+            f"[yellow]![/yellow] Column '{column}' is over its WIP limit ({count}/{limit})."
+        )
+
+
 def _priority_cell(priority: Priority) -> str:
     style = _PRIORITY_STYLE[priority]
     return f"[{style}]{priority.value}[/{style}]"
@@ -152,6 +164,7 @@ def add(
         f"[green]✓[/green] Created [cyan]{card.id}[/cyan] in "
         f"[bold]{card.status}[/bold]: {card.title}",
     )
+    _warn_over_wip(board, card.status)
 
 
 @app.command(name="list")
@@ -244,6 +257,7 @@ def move(
         as_json,
         f"[green]✓[/green] Moved [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
+    _warn_over_wip(board, card.status)
 
 
 @app.command()
@@ -259,6 +273,7 @@ def start(
         as_json,
         f"[green]✓[/green] Started [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
+    _warn_over_wip(board, card.status)
 
 
 @app.command()
@@ -276,6 +291,7 @@ def review(
         f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold] "
         "[dim](awaiting approval)[/dim]",
     )
+    _warn_over_wip(board, card.status)
 
 
 @app.command()
@@ -291,6 +307,7 @@ def done(
         as_json,
         f"[green]✓[/green] Approved [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
+    _warn_over_wip(board, card.status)
 
 
 @app.command()
