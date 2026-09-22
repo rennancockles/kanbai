@@ -29,7 +29,7 @@ _ID_PREFIX_RE = re.compile(r"^(\d+)-")
 class _NoAliasDumper(yaml.SafeDumper):
     """YAML dumper that never emits anchors/aliases, keeping card files readable."""
 
-    def ignore_aliases(self, _data: object) -> bool:
+    def ignore_aliases(self, data: object) -> bool:  # `data` name required by PyYAML's API
         return True
 
 

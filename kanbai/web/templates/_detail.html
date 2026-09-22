@@ -21,6 +21,19 @@
     <p class="empty">No description</p>
     {% endif %}
 
+    <label class="move-to">
+      <span>Move to</span>
+      <select name="column"
+              hx-post="/cards/{{ card.id }}/move" hx-target="#board" hx-swap="outerHTML"
+              hx-trigger="change"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
+        <option value="" selected disabled>Move to…</option>
+        {% for col in column_names %}
+        {% if col != card.status %}<option value="{{ col }}">{{ col }}</option>{% endif %}
+        {% endfor %}
+      </select>
+    </label>
+
     <div class="modal-actions">
       <button type="button" class="btn-danger"
               hx-post="/cards/{{ card.id }}/delete" hx-target="#board" hx-swap="outerHTML"

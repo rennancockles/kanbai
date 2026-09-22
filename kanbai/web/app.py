@@ -68,7 +68,13 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
         except KanbaiError:
             return Response(status_code=404)
         return _TEMPLATES.TemplateResponse(
-            request, "_detail.html", {"card": card, "priority_class": PRIORITY_CLASS}
+            request,
+            "_detail.html",
+            {
+                "card": card,
+                "priority_class": PRIORITY_CLASS,
+                "column_names": resolved.columns,
+            },
         )
 
     @app.get("/sprint/plan", response_class=HTMLResponse)

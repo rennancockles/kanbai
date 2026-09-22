@@ -264,6 +264,24 @@ body {
   resize: vertical;
 }
 
+.move-to {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.82rem;
+}
+.move-to > span { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.7rem; }
+.move-to select {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.3rem 0.5rem;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

@@ -207,6 +207,17 @@ def test_card_detail_shows_full_card(tmp_path: Path) -> None:
     assert "ui" in resp.text  # label
 
 
+def test_detail_offers_move_to_other_columns(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")  # 001, currently in todo
+    text = TestClient(create_app(board)).get("/cards/001").text
+    assert 'hx-post="/cards/001/move"' in text  # the select posts a move
+    assert 'name="column"' in text
+    assert "<option value=\"doing\">" in text  # can move to another column
+    assert "<option value=\"todo\">" not in text  # not to its current column
+
+
 def test_card_detail_unknown_returns_404(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
