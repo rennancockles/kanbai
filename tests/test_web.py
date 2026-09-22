@@ -145,6 +145,50 @@ def test_board_cards_link_to_detail(tmp_path: Path) -> None:
     assert 'id="detail"' in body  # modal target present
 
 
+def test_detail_has_edit_button(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).get("/cards/001")
+    assert 'hx-get="/cards/001/edit"' in resp.text
+
+
+def test_edit_form_prefills_current_values(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Old title", column="todo", description="old body", priority="low", labels=["a"])
+    resp = TestClient(create_app(board)).get("/cards/001/edit")
+    assert resp.status_code == 200
+    assert 'name="title"' in resp.text
+    assert "Old title" in resp.text
+    assert "old body" in resp.text
+
+
+def test_edit_card_persists_changes(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Old", column="todo", priority="low")
+    client = TestClient(create_app(board))
+
+    resp = client.post(
+        "/cards/001/edit",
+        data={"title": "New", "description": "desc", "priority": "high", "labels": "x, y"},
+    )
+    assert resp.status_code == 200
+    card = board.show("001")
+    assert card.title == "New"
+    assert card.body == "desc"
+    assert card.priority.value == "high"
+    assert card.labels == ["x", "y"]
+
+
+def test_edit_form_unknown_returns_404(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    resp = TestClient(create_app(board)).get("/cards/999/edit")
+    assert resp.status_code == 404
+
+
 def test_ui_command_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scaffold.init_board(tmp_path)
     monkeypatch.chdir(tmp_path)

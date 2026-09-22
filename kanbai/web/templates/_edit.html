@@ -1,0 +1,40 @@
+<div class="modal-overlay" onclick="if(event.target===this)this.parentElement.innerHTML=''">
+  <form class="modal card {{ priority_class[card.priority.value] }}"
+        hx-post="/cards/{{ card.id }}/edit" hx-target="#board" hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
+    <div class="modal-head">
+      <span class="card-id">#{{ card.id }}</span>
+      <span class="card-pri">editing</span>
+      <button class="modal-close" type="button" aria-label="Close"
+              onclick="document.getElementById('detail').innerHTML=''">✕</button>
+    </div>
+
+    <label class="field">
+      <span>Title</span>
+      <input type="text" name="title" value="{{ card.title }}" required autocomplete="off">
+    </label>
+    <label class="field">
+      <span>Priority</span>
+      <select name="priority">
+        {% for p in priorities %}
+        <option value="{{ p }}"{% if p == card.priority.value %} selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>Labels</span>
+      <input type="text" name="labels" value="{{ card.labels | join(', ') }}"
+             placeholder="comma, separated" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>Description</span>
+      <textarea name="description" rows="8">{{ card.body }}</textarea>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost"
+              hx-get="/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">Cancel</button>
+      <button type="submit" class="btn-primary">Save</button>
+    </div>
+  </form>
+</div>

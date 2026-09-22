@@ -20,5 +20,10 @@
     {% else %}
     <p class="empty">No description</p>
     {% endif %}
+
+    <div class="modal-actions">
+      <button type="button" class="btn-primary"
+              hx-get="/cards/{{ card.id }}/edit" hx-target="#detail" hx-swap="innerHTML">Edit</button>
+    </div>
   </div>
 </div>

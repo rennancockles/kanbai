@@ -70,6 +70,42 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
             request, "_detail.html", {"card": card, "priority_class": PRIORITY_CLASS}
         )
 
+    @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)
+    def card_edit_form(request: Request, card_id: str) -> Response:
+        try:
+            card = resolved.show(card_id)
+        except KanbaiError:
+            return Response(status_code=404)
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "_edit.html",
+            {
+                "card": card,
+                "priorities": [p.value for p in Priority],
+                "priority_class": PRIORITY_CLASS,
+            },
+        )
+
+    @app.post("/cards/{card_id}/edit", response_class=HTMLResponse)
+    def card_edit(
+        request: Request,
+        card_id: str,
+        title: str = Form(...),
+        description: str = Form(""),
+        priority: str = Form("medium"),
+        labels: str = Form(""),
+    ) -> Response:
+        label_list = [s.strip() for s in labels.split(",") if s.strip()]
+        with contextlib.suppress(KanbaiError):
+            resolved.edit(
+                card_id,
+                title=title,
+                description=description,
+                priority=priority,
+                labels=label_list,
+            )
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
     @app.get("/events")
     def events() -> StreamingResponse:
         async def stream() -> AsyncIterator[str]:
