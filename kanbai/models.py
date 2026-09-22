@@ -1,0 +1,110 @@
+"""Domain models for kanbai cards and board configuration."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class Priority(str, Enum):
+    """Card priority. Ordered so that ``high`` sorts before ``low``."""
+
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+    @property
+    def rank(self) -> int:
+        """Lower rank sorts first (high-priority cards come first)."""
+        return {Priority.high: 0, Priority.medium: 1, Priority.low: 2}[self]
+
+
+# Fields that live in the YAML frontmatter, in the order they are written to disk.
+FRONTMATTER_FIELDS = (
+    "id",
+    "title",
+    "status",
+    "priority",
+    "order",
+    "labels",
+    "deps",
+    "assignee",
+    "created",
+    "updated",
+)
+
+
+class Card(BaseModel):
+    """A single task on the board.
+
+    ``status`` mirrors the column folder the card lives in; the folder is the source of
+    truth and ``status`` is kept in sync on every write. ``body`` is the Markdown content
+    after the frontmatter and is not itself a frontmatter field.
+    """
+
+    model_config = ConfigDict(use_enum_values=False)
+
+    id: str
+    title: str
+    status: str
+    priority: Priority = Priority.medium
+    order: int = 0
+    labels: list[str] = Field(default_factory=list)
+    deps: list[str] = Field(default_factory=list)
+    assignee: str | None = None
+    created: datetime
+    updated: datetime
+    body: str = ""
+
+    def frontmatter(self) -> dict[str, object]:
+        """Return an ordered mapping of the frontmatter fields for serialization."""
+        data: dict[str, object] = {}
+        for field in FRONTMATTER_FIELDS:
+            value = getattr(self, field)
+            if isinstance(value, Priority):
+                value = value.value
+            data[field] = value
+        return data
+
+    def sort_key(self) -> tuple[int, int, str]:
+        """Ordering within a column: explicit order, then priority, then id."""
+        return (self.order, self.priority.rank, self.id)
+
+
+class BoardConfig(BaseModel):
+    """Board-level configuration loaded from ``.kanbai/config.toml``."""
+
+    name: str = "kanbai board"
+    columns: list[str] = Field(default_factory=lambda: ["backlog", "todo", "doing", "done"])
+    default_priority: Priority = Priority.medium
+
+    def _column_from_end(self, offset: int) -> str:
+        """Column ``offset`` positions from the end (0 = last), clamped to the first column.
+
+        Roles are anchored to the end of the pipeline so the same logic works for the
+        4-column default (backlog / todo / doing / done) and a shorter custom board.
+        """
+        index = max(len(self.columns) - 1 - offset, 0)
+        return self.columns[index]
+
+    @property
+    def add_column(self) -> str:
+        """Where `kanbai add` puts new cards by default (the first column — backlog)."""
+        return self.columns[0]
+
+    @property
+    def sprint_column(self) -> str:
+        """The column `next` pulls from — the planned work (``todo``), not the backlog."""
+        return self._column_from_end(2)
+
+    @property
+    def doing_column(self) -> str:
+        """The in-progress column `start` moves cards to (the one before done)."""
+        return self._column_from_end(1)
+
+    @property
+    def done_column(self) -> str:
+        """The terminal column `done` moves cards to (the last column)."""
+        return self._column_from_end(0)

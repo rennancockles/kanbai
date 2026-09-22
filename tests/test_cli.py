@@ -1,0 +1,77 @@
+"""End-to-end tests for the CLI via Typer's test runner."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from kanbai.cli import app
+from typer.testing import CliRunner
+
+runner = CliRunner()
+
+
+@pytest.fixture
+def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A temp dir that is the current working directory, with a board initialized."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--name", "Demo"])
+    assert result.exit_code == 0, result.output
+    return tmp_path
+
+
+def test_add_lands_in_backlog_json(project: Path) -> None:
+    add = runner.invoke(app, ["add", "First task", "--priority", "high", "--json"])
+    assert add.exit_code == 0, add.output
+    card = json.loads(add.output)
+    assert card["id"] == "001"
+    assert card["priority"] == "high"
+    assert card["status"] == "backlog"
+
+    listed = runner.invoke(app, ["list", "--json"])
+    assert listed.exit_code == 0, listed.output
+    board = json.loads(listed.output)
+    assert [c["id"] for c in board["backlog"]] == ["001"]
+    assert board["todo"] == []
+    assert board["doing"] == []
+
+
+def test_next_and_lifecycle(project: Path) -> None:
+    # Plan the work straight into the sprint so `next` can pick it up.
+    runner.invoke(app, ["add", "Task A", "-c", "todo"])
+    runner.invoke(app, ["add", "Task B", "-c", "todo"])
+
+    nxt = runner.invoke(app, ["next", "--json"])
+    assert nxt.exit_code == 0
+    assert json.loads(nxt.output)["id"] == "001"
+
+    assert runner.invoke(app, ["start", "001"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["list", "doing", "--json"]).output)[0]["id"] == "001"
+
+    assert runner.invoke(app, ["done", "001"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
+
+
+def test_next_ignores_backlog(project: Path) -> None:
+    runner.invoke(app, ["add", "Backlog only"])  # defaults to backlog
+    result = runner.invoke(app, ["next", "--json"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) is None
+
+
+def test_next_empty_returns_null(project: Path) -> None:
+    result = runner.invoke(app, ["next", "--json"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) is None
+
+
+def test_missing_card_exits_nonzero(project: Path) -> None:
+    result = runner.invoke(app, ["show", "404"])
+    assert result.exit_code == 1
+
+
+def test_no_board_exits_nonzero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 1
