@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from kanbai import scaffold
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
+from kanbai.errors import CardNotFoundError
 from kanbai.web.app import create_app
 from kanbai.web.watcher import watch_board
 from typer.testing import CliRunner
@@ -187,6 +188,36 @@ def test_edit_form_unknown_returns_404(tmp_path: Path) -> None:
     board = Board.load(tmp_path)
     resp = TestClient(create_app(board)).get("/cards/999/edit")
     assert resp.status_code == 404
+
+
+def test_detail_has_archive_and_delete_buttons(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    text = TestClient(create_app(board)).get("/cards/001").text
+    assert 'hx-post="/cards/001/archive"' in text
+    assert 'hx-post="/cards/001/delete"' in text
+    assert "hx-confirm" in text  # destructive actions ask for confirmation
+
+
+def test_archive_card_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).post("/cards/001/archive")
+    assert resp.status_code == 200
+    assert all("001" not in [c.id for c in cards] for cards in board.board().values())
+    assert list((board.kanbai_dir / "archive").glob("001-*.md"))  # moved to archive
+
+
+def test_delete_card_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).post("/cards/001/delete")
+    assert resp.status_code == 200
+    with pytest.raises(CardNotFoundError):
+        board.show("001")
 
 
 def test_ui_command_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -22,6 +22,14 @@
     {% endif %}
 
     <div class="modal-actions">
+      <button type="button" class="btn-danger"
+              hx-post="/cards/{{ card.id }}/delete" hx-target="#board" hx-swap="outerHTML"
+              hx-confirm="Delete card #{{ card.id }} permanently?"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">Delete</button>
+      <button type="button" class="btn-ghost"
+              hx-post="/cards/{{ card.id }}/archive" hx-target="#board" hx-swap="outerHTML"
+              hx-confirm="Archive card #{{ card.id }}? (moves it off the board)"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">Archive</button>
       <button type="button" class="btn-primary"
               hx-get="/cards/{{ card.id }}/edit" hx-target="#detail" hx-swap="innerHTML">Edit</button>
     </div>

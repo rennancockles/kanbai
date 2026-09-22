@@ -281,3 +281,10 @@ body {
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost { color: var(--text); background: var(--surface-2); }
 .btn-ghost:hover { border-color: var(--muted); }
+.btn-danger {
+  margin-right: auto;  /* separate the destructive action from Archive/Edit */
+  color: var(--high);
+  background: transparent;
+  border-color: transparent;
+}
+.btn-danger:hover { border-color: var(--high); }

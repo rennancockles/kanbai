@@ -106,6 +106,18 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
             )
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
 
+    @app.post("/cards/{card_id}/archive", response_class=HTMLResponse)
+    def card_archive(request: Request, card_id: str) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.archive(card_id)
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
+    @app.post("/cards/{card_id}/delete", response_class=HTMLResponse)
+    def card_delete(request: Request, card_id: str) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.remove(card_id)
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
     @app.get("/events")
     def events() -> StreamingResponse:
         async def stream() -> AsyncIterator[str]:
