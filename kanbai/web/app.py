@@ -42,24 +42,37 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
     app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
-    def context() -> dict[str, object]:
+    def context(search: str = "", label: str = "") -> dict[str, object]:
+        query = search.strip().lower()
+
+        def matches(card: Card) -> bool:
+            if query and query not in card.title.lower() and query != card.id:
+                return False
+            return not (label and label not in card.labels)
+
+        board_data = resolved.board()
+        all_labels = sorted({lb for cards in board_data.values() for c in cards for lb in c.labels})
+
         def column_view(name: str, cards: list[Card]) -> dict[str, object]:
             limit = resolved.config.wip_limit(name)
             return {
                 "name": name,
-                "cards": cards,
+                "cards": [c for c in cards if matches(c)],
                 "limit": limit,
-                "over": limit is not None and len(cards) > limit,
+                "over": limit is not None and len(cards) > limit,  # WIP uses the real count
             }
 
         return {
             "app_name": APP_NAME,
             "board_name": resolved.config.name,
-            "columns": [column_view(name, cards) for name, cards in resolved.board().items()],
+            "columns": [column_view(name, cards) for name, cards in board_data.items()],
             "column_names": resolved.columns,
             "priorities": [p.value for p in Priority],
             "priority_class": PRIORITY_CLASS,
             "blocked": resolved.blocked_ids(),
+            "labels": all_labels,
+            "search": search,
+            "label": label,
         }
 
     @app.get("/", response_class=HTMLResponse)
@@ -67,8 +80,8 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
         return _TEMPLATES.TemplateResponse(request, "board.html", context())
 
     @app.get("/board", response_class=HTMLResponse)
-    def board_partial(request: Request) -> Response:
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+    def board_partial(request: Request, q: str = "", label: str = "") -> Response:
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context(q, label))
 
     @app.get("/cards/{card_id}", response_class=HTMLResponse)
     def card_detail(request: Request, card_id: str) -> Response:

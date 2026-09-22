@@ -47,6 +47,24 @@ body {
   padding: 0.15rem 0.55rem;
 }
 
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem 0;
+}
+.toolbar .search,
+.toolbar .label-filter {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+.toolbar .search { flex: 1; max-width: 340px; }
+.toolbar .search::placeholder { color: var(--muted); }
+
 .board {
   display: grid;
   grid-auto-flow: column;

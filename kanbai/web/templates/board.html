@@ -33,6 +33,22 @@
     </form>
   </header>
 
+  <div class="toolbar">
+    <input class="search" type="search" name="q" placeholder="Search cards…" autocomplete="off"
+           value="{{ search }}"
+           hx-get="/board" hx-target="#board" hx-swap="outerHTML"
+           hx-trigger="input changed delay:250ms, search"
+           hx-include="[name='label']">
+    <select class="label-filter" name="label" aria-label="Filter by label"
+            hx-get="/board" hx-target="#board" hx-swap="outerHTML"
+            hx-trigger="change" hx-include="[name='q']">
+      <option value="">All labels</option>
+      {% for lb in labels %}
+      <option value="{{ lb }}"{% if lb == label %} selected{% endif %}>{{ lb }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
   {% include "_board.html" %}
 
   <!-- Card detail modal target (populated by HTMX when a card is clicked). -->

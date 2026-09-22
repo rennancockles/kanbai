@@ -176,6 +176,34 @@ def test_board_has_plan_sprint_button(tmp_path: Path) -> None:
     assert 'hx-get="/sprint/plan"' in body
 
 
+def test_toolbar_has_search_and_label_filter(tmp_path: Path) -> None:
+    board_client = _client(tmp_path)  # adds a card labelled "ui"
+    body = board_client.get("/").text
+    assert 'name="q"' in body  # search input
+    assert 'name="label"' in body  # label filter
+    assert '<option value="ui"' in body  # label present in the filter
+
+
+def test_board_filters_by_search_text(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Login screen", column="todo")
+    board.add("Signup flow", column="todo")
+    resp = TestClient(create_app(board)).get("/board", params={"q": "login"})
+    assert "Login screen" in resp.text
+    assert "Signup flow" not in resp.text
+
+
+def test_board_filters_by_label(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Alpha", column="todo", labels=["ui"])
+    board.add("Beta", column="todo", labels=["backend"])
+    resp = TestClient(create_app(board)).get("/board", params={"label": "ui"})
+    assert "Alpha" in resp.text
+    assert "Beta" not in resp.text
+
+
 def test_column_over_wip_limit_is_flagged(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     cfg = tmp_path / ".kanbai" / "config.toml"
