@@ -91,17 +91,38 @@ class Board:
         storage.write_card(self.kanbai_dir, card)
         return card
 
-    def move(self, card_id: str, column: str) -> Card:
-        """Move a card to ``column``, updating its status, order and timestamp."""
+    def move(self, card_id: str, column: str, *, position: int | None = None) -> Card:
+        """Move a card to ``column``, updating its status, order and timestamp.
+
+        When ``position`` is given, the card is inserted at that index within the column and
+        the column's ``order`` values are reflowed — this is what persists drag-to-reorder
+        (including reordering within the same column). When ``position`` is ``None`` the card
+        is appended to the end of a new column (unchanged when staying in the same column).
+        """
         self._require_column(column)
         card, old_path, old_column = self._locate(card_id)
         card.status = column
-        if column != old_column:
+        if position is None and column != old_column:
             card.order = self._next_order(column)
         card.updated = storage.now()
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
+        if position is not None:
+            self._place_at(column, card_id, position)
+            card, _, _ = self._locate(card_id)
         return card
+
+    def _place_at(self, column: str, card_id: str, position: int) -> None:
+        """Insert ``card_id`` at ``position`` within ``column`` and reflow order values."""
+        cards = storage.read_column(self.kanbai_dir, column)
+        moved = next(c for c in cards if c.id == card_id)
+        others = [c for c in cards if c.id != card_id]
+        index = max(0, min(position, len(others)))
+        ordered = [*others[:index], moved, *others[index:]]
+        for new_order, card in enumerate(ordered, start=1):
+            if card.order != new_order:
+                card.order = new_order
+                storage.write_card(self.kanbai_dir, card)
 
     def board(self) -> dict[str, list[Card]]:
         """Return every column and its cards."""

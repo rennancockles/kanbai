@@ -12,6 +12,7 @@ from kanbai import scaffold
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
+from kanbai.web import server
 from kanbai.web.app import create_app
 from kanbai.web.watcher import watch_board
 from typer.testing import CliRunner
@@ -93,6 +94,19 @@ def test_create_card_invalid_column_is_ignored(tmp_path: Path) -> None:
     resp = client.post("/cards", data={"title": "Nope", "column": "bogus", "priority": "low"})
     assert resp.status_code == 200  # suppressed, board re-rendered unchanged
     assert all(not cards for cards in board.board().values())
+
+
+def test_move_with_position_persists_reorder(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    a = board.add("A", column="todo")
+    b = board.add("B", column="todo")
+    c = board.add("C", column="todo")
+    client = TestClient(create_app(board))
+
+    resp = client.post(f"/cards/{c.id}/move", data={"column": "todo", "position": 0})
+    assert resp.status_code == 200
+    assert [x.id for x in board.list_column("todo")] == [c.id, a.id, b.id]
 
 
 def test_move_card_partial_reflects_new_column(tmp_path: Path) -> None:
@@ -226,20 +240,55 @@ def test_ui_command_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     calls: dict[str, object] = {}
 
     def fake_serve(
-        board: Board, *, host: str, port: int, open_browser: bool, force_polling: bool
+        board: Board,
+        *,
+        host: str,
+        port: int,
+        open_browser: bool,
+        force_polling: bool,
+        reload: bool,
     ) -> None:
-        calls.update(host=host, port=port, open_browser=open_browser, force_polling=force_polling)
+        calls.update(
+            host=host,
+            port=port,
+            open_browser=open_browser,
+            force_polling=force_polling,
+            reload=reload,
+        )
 
     # The `ui` command imports serve lazily, so patching the module attribute is enough.
     monkeypatch.setattr("kanbai.web.server.serve", fake_serve)
-    result = cli_runner.invoke(cli_app, ["ui", "--port", "9999", "--no-browser", "--poll"])
+    result = cli_runner.invoke(
+        cli_app, ["ui", "--port", "9999", "--no-browser", "--poll", "--reload"]
+    )
     assert result.exit_code == 0, result.output
     assert calls == {
         "host": "127.0.0.1",
         "port": 9999,
         "open_browser": False,
         "force_polling": True,
+        "reload": True,
     }
+
+
+def test_serve_reload_uses_import_string_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_run(app: object, **kwargs: object) -> None:
+        calls["app"] = app
+        calls.update(kwargs)
+
+    monkeypatch.setattr(server.uvicorn, "run", fake_run)
+    monkeypatch.setattr(server.webbrowser, "open", lambda *a: None)
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+
+    server.serve(board, reload=True, open_browser=False, port=1234)
+    assert calls["app"] == "kanbai.web.app:create_app"
+    assert calls["reload"] is True
+    assert calls["factory"] is True
 
 
 def test_ui_command_without_board_exits_nonzero(

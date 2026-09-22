@@ -41,13 +41,15 @@
         el._sortable = Sortable.create(el, {
           group: 'kanbai',
           animation: 150,
+          draggable: '.card',        // ignore the "empty" placeholder in index math
           ghostClass: 'card-ghost',
           onEnd: function (evt) {
             var id = evt.item.getAttribute('data-id');
             var column = evt.to.getAttribute('data-column');
             if (!id || !column) return;
             htmx.ajax('POST', '/cards/' + id + '/move', {
-              target: '#board', swap: 'outerHTML', values: { column: column }
+              target: '#board', swap: 'outerHTML',
+              values: { column: column, position: evt.newIndex }
             });
           }
         });

@@ -45,6 +45,24 @@ def test_move_unknown_column_raises(board: Board) -> None:
         board.move(card.id, "nope")
 
 
+def test_move_with_position_reorders_within_column(board: Board) -> None:
+    a = board.add("A", column="todo")
+    b = board.add("B", column="todo")
+    c = board.add("C", column="todo")
+    assert [x.id for x in board.list_column("todo")] == [a.id, b.id, c.id]
+
+    board.move(c.id, "todo", position=0)  # drag C to the top of its own column
+    assert [x.id for x in board.list_column("todo")] == [c.id, a.id, b.id]
+
+
+def test_move_with_position_across_columns(board: Board) -> None:
+    a = board.add("A", column="todo")
+    x = board.add("X", column="doing")
+    y = board.add("Y", column="doing")
+    board.move(a.id, "doing", position=1)  # insert A between X and Y
+    assert [c.id for c in board.list_column("doing")] == [x.id, a.id, y.id]
+
+
 def test_next_reads_the_sprint_not_the_backlog(board: Board) -> None:
     board.add("Backlog item")  # goes to backlog, must be ignored by next
     sprint_first = board.add("Sprint first", column="todo")

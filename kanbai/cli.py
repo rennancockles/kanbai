@@ -339,6 +339,11 @@ def ui(
         help="Poll for board changes instead of OS file events "
         "(use in sandboxes/containers where live updates don't fire).",
     ),
+    reload: bool = typer.Option(
+        False,
+        "--reload",
+        help="Auto-restart the server when the source changes (development only).",
+    ),
 ) -> None:
     """Serve the board in a local web UI and open it in your browser."""
     board = _load()
@@ -356,7 +361,14 @@ def ui(
         f"[green]›[/green] {APP_NAME} UI at [cyan]http://{host}:{port}[/cyan]  "
         "[dim](Ctrl+C to stop)[/dim]"
     )
-    serve(board, host=host, port=port, open_browser=not no_browser, force_polling=poll)
+    serve(
+        board,
+        host=host,
+        port=port,
+        open_browser=not no_browser,
+        force_polling=poll,
+        reload=reload,
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

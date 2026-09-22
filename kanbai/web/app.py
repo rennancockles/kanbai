@@ -140,10 +140,15 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/move", response_class=HTMLResponse)
-    def move_card(request: Request, card_id: str, column: str = Form(...)) -> Response:
+    def move_card(
+        request: Request,
+        card_id: str,
+        column: str = Form(...),
+        position: int | None = Form(None),
+    ) -> Response:
         # unknown card/column — re-render the board unchanged
         with contextlib.suppress(KanbaiError):
-            resolved.move(card_id, column)
+            resolved.move(card_id, column, position=position)
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
 
     return app
