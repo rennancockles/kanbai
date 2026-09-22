@@ -171,3 +171,67 @@ body {
 .card { cursor: grab; }
 .card:active { cursor: grabbing; }
 .card-ghost { opacity: 0.4; }
+
+/* card detail modal */
+#detail:empty { display: none; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 1rem;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10;
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: 84vh;
+  overflow-y: auto;
+  cursor: default;
+  padding: 1rem 1.15rem 1.25rem;
+  border-left-width: 4px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+.modal-head .card-id { font-size: 0.78rem; }
+.modal-head .card-pri { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.7rem; }
+.modal-close {
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-title { margin: 0 0 0.85rem; font-size: 1.05rem; line-height: 1.35; }
+
+.modal-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem 1rem;
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+}
+.modal-meta > div { display: flex; gap: 0.4rem; }
+.modal-meta dt { color: var(--muted); min-width: 4.5rem; }
+.modal-meta dd { margin: 0; }
+
+.modal-body {
+  white-space: pre-wrap;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}

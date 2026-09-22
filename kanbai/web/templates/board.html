@@ -29,6 +29,9 @@
 
   {% include "_board.html" %}
 
+  <!-- Card detail modal target (populated by HTMX when a card is clicked). -->
+  <div id="detail"></div>
+
   <script>
     // Drag-and-drop between columns; persist each move via HTMX, then swap in the
     // server-rendered board so the UI always matches the .kanbai/ files.

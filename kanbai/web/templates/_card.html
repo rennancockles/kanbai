@@ -1,4 +1,5 @@
-<article class="card {{ priority_class[card.priority.value] }}" data-id="{{ card.id }}">
+<article class="card {{ priority_class[card.priority.value] }}" data-id="{{ card.id }}"
+         hx-get="/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">
   <div class="card-head">
     <span class="card-id">#{{ card.id }}</span>
     <span class="card-pri">{{ card.priority.value }}</span>

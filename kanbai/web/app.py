@@ -25,7 +25,9 @@ _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
 PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
 
 
-def create_app(board: Board | None = None, *, force_polling: bool = False) -> FastAPI:
+def create_app(  # noqa: C901 - route-registration factory; "complexity" is the route count
+    board: Board | None = None, *, force_polling: bool = False
+) -> FastAPI:
     """Build the FastAPI app.
 
     ``board`` is injected in tests and by `kanbai ui`; when omitted it is loaded from the
@@ -57,6 +59,16 @@ def create_app(board: Board | None = None, *, force_polling: bool = False) -> Fa
     @app.get("/board", response_class=HTMLResponse)
     def board_partial(request: Request) -> Response:
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
+    @app.get("/cards/{card_id}", response_class=HTMLResponse)
+    def card_detail(request: Request, card_id: str) -> Response:
+        try:
+            card = resolved.show(card_id)
+        except KanbaiError:
+            return Response(status_code=404)
+        return _TEMPLATES.TemplateResponse(
+            request, "_detail.html", {"card": card, "priority_class": PRIORITY_CLASS}
+        )
 
     @app.get("/events")
     def events() -> StreamingResponse:

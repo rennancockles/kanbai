@@ -115,6 +115,36 @@ def test_move_unknown_card_is_ignored(tmp_path: Path) -> None:
     assert resp.status_code == 200  # no crash, board re-rendered unchanged
 
 
+def test_card_detail_shows_full_card(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add(
+        "Login screen",
+        column="todo",
+        description="## Criteria\n- do the thing",
+        priority="high",
+        labels=["ui"],
+    )
+    resp = TestClient(create_app(board)).get("/cards/001")
+    assert resp.status_code == 200
+    assert "Login screen" in resp.text
+    assert "do the thing" in resp.text  # the body/description is now visible
+    assert "ui" in resp.text  # label
+
+
+def test_card_detail_unknown_returns_404(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    resp = TestClient(create_app(board)).get("/cards/999")
+    assert resp.status_code == 404
+
+
+def test_board_cards_link_to_detail(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-get="/cards/001"' in body  # clicking a card opens its detail
+    assert 'id="detail"' in body  # modal target present
+
+
 def test_ui_command_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scaffold.init_board(tmp_path)
     monkeypatch.chdir(tmp_path)
