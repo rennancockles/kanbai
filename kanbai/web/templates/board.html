@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ board_name }} · {{ app_name }}</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
   <script src="/static/Sortable.min.js"></script>
@@ -11,8 +13,8 @@
 <body>
   <header class="topbar">
     <div class="topbar-left">
+      <img class="logo" src="/static/icon.png" alt="{{ app_name }}" width="28" height="28">
       <h1>{{ board_name }}</h1>
-      <span class="brand">{{ app_name }}</span>
     </div>
     <button class="plan-btn" type="button"
             hx-get="/sprint/plan" hx-target="#detail" hx-swap="innerHTML">Plan sprint</button>

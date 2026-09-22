@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="KanbAI" width="240">
+</p>
+
 # KanbAI
 
 A file-based Kanban board that lives in your repo, designed for **Claude Code** and

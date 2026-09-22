@@ -34,7 +34,8 @@ body {
   z-index: 1;
 }
 
-.topbar-left { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
+.topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.topbar .logo { border-radius: 7px; flex: none; }
 .topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; }
 .brand {
   font-size: 0.7rem;

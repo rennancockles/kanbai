@@ -40,6 +40,19 @@ def test_index_shows_brand_name(tmp_path: Path) -> None:
     assert "KanbAI" in resp.text  # app name is branded with AI uppercased
 
 
+def test_index_has_favicon_and_logo(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'rel="icon"' in body
+    assert "/static/icon.png" in body
+    assert 'class="logo"' in body  # logo shown in the topbar
+
+
+def test_icon_asset_is_served(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/static/icon.png")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("image/")
+
+
 def test_index_wires_escape_to_close_modal(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert "keydown" in body
