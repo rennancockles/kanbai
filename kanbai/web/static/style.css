@@ -345,6 +345,19 @@ body {
 }
 .plan-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+.board-actions { display: flex; gap: 0.5rem; justify-content: center; }
+
+.modal-note { margin: 0 0 0.85rem; font-size: 0.88rem; line-height: 1.45; color: var(--text); }
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.radio input { accent-color: var(--accent); }
+
 .plan-list {
   display: flex;
   flex-direction: column;

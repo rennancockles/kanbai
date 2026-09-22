@@ -31,6 +31,7 @@ FRONTMATTER_FIELDS = (
     "labels",
     "deps",
     "assignee",
+    "archived_from",
     "created",
     "updated",
 )
@@ -54,6 +55,8 @@ class Card(BaseModel):
     labels: list[str] = Field(default_factory=list)
     deps: list[str] = Field(default_factory=list)
     assignee: str | None = None
+    # The column a card was in before it was archived (so we know it was, e.g., finished).
+    archived_from: str | None = None
     created: datetime
     updated: datetime
     body: str = ""
@@ -63,6 +66,9 @@ class Card(BaseModel):
         data: dict[str, object] = {}
         for field in FRONTMATTER_FIELDS:
             value = getattr(self, field)
+            # Only archived cards carry this marker — keep it off every other card.
+            if field == "archived_from" and value is None:
+                continue
             if isinstance(value, Priority):
                 value = value.value
             data[field] = value

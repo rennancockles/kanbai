@@ -1,0 +1,28 @@
+<div class="modal-overlay" onclick="if(event.target===this)this.parentElement.innerHTML=''">
+  <form class="modal card" hx-post="/sprint/new" hx-target="#board" hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
+    <div class="modal-head">
+      <span class="card-id">New sprint</span>
+      <button class="modal-close" type="button" aria-label="Close"
+              onclick="document.getElementById('detail').innerHTML=''">✕</button>
+    </div>
+
+    <p class="modal-note">All <strong>done</strong> cards will be archived. What should happen to
+      the cards still in todo / doing / review?</p>
+
+    <label class="radio">
+      <input type="radio" name="reset" value="1" checked>
+      Move them back to the backlog
+    </label>
+    <label class="radio">
+      <input type="radio" name="reset" value="0">
+      Leave them where they are
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost"
+              onclick="document.getElementById('detail').innerHTML=''">Cancel</button>
+      <button type="submit" class="btn-primary">Start new sprint</button>
+    </div>
+  </form>
+</div>

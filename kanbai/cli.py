@@ -362,6 +362,27 @@ def rm(
     console.print(f"[green]✓[/green] Deleted [cyan]{card.id}[/cyan]")
 
 
+@app.command(name="new-sprint")
+def new_sprint(
+    to_backlog: bool = typer.Option(
+        False,
+        "--to-backlog",
+        help="Also move todo/doing/review cards back to the backlog.",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+) -> None:
+    """Start a new sprint: archive all done cards (optionally reset active columns)."""
+    board = _load()
+    if not yes:
+        extra = " and move active cards to the backlog" if to_backlog else ""
+        typer.confirm(f"Archive all done cards{extra}?", abort=True)
+    result = board.new_sprint(reset_to_backlog=to_backlog)
+    message = f"[green]✓[/green] New sprint: archived {result['archived']} done card(s)"
+    if to_backlog:
+        message += f", moved {result['reset']} back to backlog"
+    console.print(message)
+
+
 @app.command()
 def ui(
     host: str = typer.Option("127.0.0.1", "--host", help="Host to bind."),

@@ -137,6 +137,36 @@ def test_archive_moves_off_board(board: Board) -> None:
     assert list((board.kanbai_dir / "archive").glob("*.md"))
 
 
+def test_archive_records_origin_column(board: Board) -> None:
+    card = board.add("Done task", column="done")
+    board.archive(card.id)
+    archived = board.show(card.id)
+    assert archived.status == "archive"
+    assert archived.archived_from == "done"  # we can tell it was finished before archiving
+
+
+def test_new_sprint_archives_done_and_resets_active(board: Board) -> None:
+    board.add("A", column="todo")
+    board.add("B", column="doing")
+    board.add("C", column="done")
+    board.add("D")  # stays in backlog
+
+    result = board.new_sprint(reset_to_backlog=True)
+    assert result == {"archived": 1, "reset": 2}
+    assert board.list_column("done") == []
+    assert board.list_column("todo") == []
+    assert board.list_column("doing") == []
+    assert {c.title for c in board.list_column("backlog")} == {"A", "B", "D"}
+
+
+def test_new_sprint_can_leave_active_columns(board: Board) -> None:
+    board.add("A", column="todo")
+    board.add("C", column="done")
+    result = board.new_sprint(reset_to_backlog=False)
+    assert result == {"archived": 1, "reset": 0}
+    assert [c.title for c in board.list_column("todo")] == ["A"]  # left in place
+
+
 def test_remove_deletes_card(board: Board) -> None:
     card = board.add("Task")
     board.remove(card.id)

@@ -72,6 +72,18 @@ def test_card_filename() -> None:
     assert storage.card_filename(card) == "001-fix-the-bug.md"
 
 
+def test_archived_from_round_trips_and_is_omitted_when_none(tmp_path: Path) -> None:
+    archived = _make_card(archived_from="done")
+    text = storage.dump_card(archived)
+    assert "archived_from: done" in text
+    path = tmp_path / "archive" / storage.card_filename(archived)
+    storage.atomic_write(path, text)
+    assert storage.parse_card(path, "archive").archived_from == "done"
+
+    # A normal card carries no archived_from marker.
+    assert "archived_from" not in storage.dump_card(_make_card())
+
+
 def test_coerce_priority_rejects_unknown_value() -> None:
     assert storage.coerce_priority("high") == Priority.high
     assert storage.coerce_priority(Priority.low) == Priority.low

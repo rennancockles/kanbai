@@ -216,6 +216,27 @@ def test_column_over_wip_limit_is_flagged(tmp_path: Path) -> None:
     assert "count over" in body  # over-limit styling hook
 
 
+def test_board_has_new_sprint_button(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-get="/sprint/new"' in body
+
+
+def test_new_sprint_modal_and_action(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("A", column="todo")
+    board.add("B", column="done")
+    client = TestClient(create_app(board))
+
+    modal = client.get("/sprint/new").text
+    assert 'name="reset"' in modal  # the reset choice is offered
+
+    resp = client.post("/sprint/new", data={"reset": "1"})
+    assert resp.status_code == 200
+    assert board.list_column("done") == []  # done archived
+    assert [c.title for c in board.list_column("backlog")] == ["A"]  # active reset to backlog
+
+
 def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

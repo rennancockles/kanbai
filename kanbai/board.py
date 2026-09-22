@@ -202,8 +202,10 @@ class Board:
         return card
 
     def archive(self, card_id: str) -> Card:
-        """Move a card into the ``.kanbai/archive/`` folder (off the board)."""
-        card, old_path, _ = self._locate(card_id)
+        """Move a card into the ``.kanbai/archive/`` folder, recording where it came from."""
+        card, old_path, old_column = self._locate(card_id)
+        if old_column != storage.ARCHIVE_DIRNAME:
+            card.archived_from = old_column
         card.status = storage.ARCHIVE_DIRNAME
         card.updated = storage.now()
         storage.delete_card_file(old_path)
@@ -215,6 +217,31 @@ class Board:
         card, path, _ = self._locate(card_id)
         storage.delete_card_file(path)
         return card
+
+    def new_sprint(self, *, reset_to_backlog: bool) -> dict[str, int]:
+        """Start a fresh sprint: archive every done card, then optionally send the active
+        columns (everything except backlog and done) back to the backlog.
+
+        Returns counts of what happened: ``{"archived": n, "reset": m}``.
+        """
+        backlog = self.config.add_column
+        done = self.config.done_column
+
+        archived = 0
+        for card in self.list_column(done):
+            self.archive(card.id)
+            archived += 1
+
+        reset = 0
+        if reset_to_backlog:
+            for column in self.columns:
+                if column in (backlog, done):
+                    continue
+                for card in self.list_column(column):
+                    self.move(card.id, backlog)
+                    reset += 1
+
+        return {"archived": archived, "reset": reset}
 
     # ------------------------------------------------------------------ helpers
 

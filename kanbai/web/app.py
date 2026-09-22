@@ -119,6 +119,15 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
                 resolved.move(card_id, resolved.config.sprint_column)
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
 
+    @app.get("/sprint/new", response_class=HTMLResponse)
+    def sprint_new_form(request: Request) -> Response:
+        return _TEMPLATES.TemplateResponse(request, "_new_sprint.html", {})
+
+    @app.post("/sprint/new", response_class=HTMLResponse)
+    def sprint_new(request: Request, reset: str = Form("")) -> Response:
+        resolved.new_sprint(reset_to_backlog=reset == "1")
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
     @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)
     def card_edit_form(request: Request, card_id: str) -> Response:
         try:

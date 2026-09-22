@@ -16,8 +16,12 @@
       <img class="logo" src="/static/icon.png" alt="{{ app_name }}" width="28" height="28">
       <h1>{{ board_name }}</h1>
     </div>
-    <button class="plan-btn" type="button"
-            hx-get="/sprint/plan" hx-target="#detail" hx-swap="innerHTML">Plan sprint</button>
+    <div class="board-actions">
+      <button class="plan-btn" type="button"
+              hx-get="/sprint/plan" hx-target="#detail" hx-swap="innerHTML">Plan sprint</button>
+      <button class="plan-btn" type="button"
+              hx-get="/sprint/new" hx-target="#detail" hx-swap="innerHTML">New sprint</button>
+    </div>
     <form class="add-card" hx-post="/cards" hx-target="#board" hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
       <input type="text" name="title" placeholder="New card title…" required autocomplete="off">

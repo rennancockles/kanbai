@@ -67,6 +67,26 @@ def test_review_then_done_flow(project: Path) -> None:
     assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
 
 
+def test_new_sprint_archives_done_and_keeps_active(project: Path) -> None:
+    runner.invoke(app, ["add", "A", "-c", "todo"])
+    runner.invoke(app, ["add", "B", "-c", "done"])
+    result = runner.invoke(app, ["new-sprint", "--yes"])
+    assert result.exit_code == 0
+    assert runner.invoke(app, ["list", "done", "--json"]).output.strip() == "[]"
+    todo = json.loads(runner.invoke(app, ["list", "todo", "--json"]).output)
+    assert [c["title"] for c in todo] == ["A"]  # active columns left in place
+
+
+def test_new_sprint_to_backlog(project: Path) -> None:
+    runner.invoke(app, ["add", "A", "-c", "todo"])
+    runner.invoke(app, ["add", "B", "-c", "done"])
+    result = runner.invoke(app, ["new-sprint", "--to-backlog", "--yes"])
+    assert result.exit_code == 0
+    assert runner.invoke(app, ["list", "todo", "--json"]).output.strip() == "[]"
+    backlog = json.loads(runner.invoke(app, ["list", "backlog", "--json"]).output)
+    assert any(c["title"] == "A" for c in backlog)
+
+
 def test_next_ignores_backlog(project: Path) -> None:
     runner.invoke(app, ["add", "Backlog only"])  # defaults to backlog
     result = runner.invoke(app, ["next", "--json"])
