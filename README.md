@@ -5,10 +5,10 @@
 # KanbAI
 
 <p align="center">
-  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/v/kanbai.svg?logo=pypi&logoColor=green&color=5865f9" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/pyversions/kanbai.svg" alt="Python versions"></a>
+  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/v/kanbai?logo=pypi&logoColor=green&color=5865f9" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/pyversions/kanbai" alt="Python versions"></a>
   <a href="https://github.com/rennancockles/kanbai/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rennancockles/kanbai/ci.yml?branch=main&label=CI" alt="CI"></a>
-  <a href="https://github.com/rennancockles/kanbai/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rennancockles/kanbai.svg" alt="License"></a>
+  <a href="https://github.com/rennancockles/kanbai/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rennancockles/kanbai" alt="License"></a>
 </p>
 
 A file-based Kanban board that lives in your repo, built for **Claude Code** and other AI

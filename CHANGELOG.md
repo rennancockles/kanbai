@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-23
+
+### Added
+
+- README badges (PyPI, Python versions, CI, license) via shields.io.
+- Trove classifiers in the package metadata (Python 3.10–3.13, license, topics).
+
+### Fixed
+
+- README images and links now use absolute URLs so they render on PyPI — relative paths
+  only worked on GitHub.
+- Corrected the repository owner in the changelog links.
+
 ## [0.1.0] - 2026-09-23
 
 Initial release: a file-based Kanban board for Claude Code and other AI coding harnesses.
@@ -42,5 +55,6 @@ Initial release: a file-based Kanban board for Claude Code and other AI coding h
 - Packaged with hatchling; `kanbai` console entry point. Optional `ui` extra
   (fastapi, uvicorn, jinja2, watchfiles, python-multipart). MIT licensed.
 
-[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/rennancockles/kanbai/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rennancockles/kanbai/releases/tag/v0.1.0
