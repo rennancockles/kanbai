@@ -8,6 +8,7 @@ copyright: Made with MkDocs Material · MIT licensed
 
 theme:
   name: material
+  custom_dir: overrides
   logo: assets/logo.png
   favicon: assets/favicon.png
   icon:
@@ -75,6 +76,9 @@ markdown_extensions:
 
 plugins:
   - search
+
+extra_css:
+  - assets/stylesheets/extra.css
 
 extra:
   social:

@@ -1,0 +1,30 @@
+{% extends "main.html" %}
+
+<!--
+  Custom landing hero for the home page. The hero is injected into the `tabs` block so it
+  renders full-width right under the header; the page's markdown (feature grid, etc.) then
+  flows below in the normal content block.
+-->
+{% block tabs %}
+  {{ super() }}
+  <section class="kx-hero">
+    <div class="kx-hero__inner md-grid">
+      <img class="kx-hero__logo" src="{{ 'assets/logo.png' | url }}" alt="KanbAI" width="520">
+      <p class="kx-hero__tagline">
+        A file-based Kanban board that lives in your repo — driven by
+        <strong>Claude Code</strong> and other AI coding harnesses.
+      </p>
+      <div class="kx-hero__actions">
+        <a href="{{ 'installation/' | url }}" class="md-button md-button--primary">
+          Get started
+        </a>
+        <a href="{{ config.repo_url }}" class="md-button" target="_blank" rel="noopener">
+          View on GitHub
+        </a>
+      </div>
+      <div class="kx-hero__install">
+        <code>pip install kanbai</code>
+      </div>
+    </div>
+  </section>
+{% endblock %}

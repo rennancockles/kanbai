@@ -1,0 +1,72 @@
+/* ------------------------------------------------------------------ landing hero */
+.kx-hero {
+  padding: 3.5rem 0 2.75rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(110, 168, 254, 0.18), transparent 55%),
+    var(--md-default-bg-color);
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.kx-hero__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.kx-hero__logo {
+  width: min(520px, 82vw);
+  height: auto;
+}
+
+.kx-hero__tagline {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+
+.kx-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+
+.kx-hero__actions .md-button {
+  margin: 0;
+}
+
+.kx-hero__install {
+  margin-top: 0.4rem;
+}
+
+.kx-hero__install code {
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  font-size: 0.85rem;
+}
+
+/* ------------------------------------------------------------------ home content */
+/* A little more breathing room, since the home page hides the sidebars. */
+.md-typeset .kx-shot img {
+  display: block;
+  margin: 1.5rem auto;
+  border-radius: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.35);
+}
+
+/* Feature grid cards: subtle lift on hover to feel interactive. */
+.md-typeset .grid.cards > ul > li {
+  transition: border-color 125ms, transform 125ms;
+}
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  transform: translateY(-2px);
+}
