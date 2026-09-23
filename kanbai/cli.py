@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, scaffold, storage
+from . import APP_NAME, registry, scaffold, storage
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
@@ -443,6 +443,65 @@ def ui(
         force_polling=poll,
         reload=reload,
     )
+
+
+# --------------------------------------------------------------------------- hub (multi-board)
+
+hub_app = typer.Typer(
+    name="hub",
+    help="Manage the multi-board hub registry (~/.kanbai/boards.toml).",
+    no_args_is_help=True,
+    add_completion=False,
+)
+app.add_typer(hub_app, name="hub")
+
+
+@hub_app.command("add")
+def hub_add(
+    path: Path = typer.Argument(..., help="Path to a project containing a .kanbai board."),
+    name: str | None = typer.Option(
+        None, "--name", help="Name for the board (default: the directory name)."
+    ),
+) -> None:
+    """Register a board in the hub."""
+    try:
+        registered, replaced = registry.add_board(path, name)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    verb = "Updated" if replaced else "Registered"
+    console.print(f"[green]✓[/green] {verb} board [cyan]{registered}[/cyan]")
+
+
+@hub_app.command("list")
+def hub_list(
+    as_json: bool = typer.Option(False, "--json", help="Emit the registry as JSON."),
+) -> None:
+    """List the registered boards."""
+    boards = registry.load_boards()
+    if as_json:
+        console.print_json(data=boards)
+        return
+    if not boards:
+        console.print("[dim]No boards registered. Add one with `kanbai hub add <path>`.[/dim]")
+        return
+    table = Table(title="hub boards", title_justify="left")
+    table.add_column("name", style="cyan", no_wrap=True)
+    table.add_column("path")
+    for name, location in boards.items():
+        table.add_row(name, location)
+    console.print(table)
+
+
+@hub_app.command("remove")
+def hub_remove(name: str = typer.Argument(..., help="Registered board name.")) -> None:
+    """Remove a board from the hub."""
+    try:
+        registry.remove_board(name)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]✓[/green] Removed [cyan]{name}[/cyan]")
 
 
 if __name__ == "__main__":  # pragma: no cover
