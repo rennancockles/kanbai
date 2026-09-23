@@ -57,6 +57,31 @@ def test_default_base_path_has_no_prefix(tmp_path: Path) -> None:
     assert "/b/" not in html
 
 
+def test_board_switcher_shown_with_boards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    switcher = [{"name": "a", "url": "/b/a/"}, {"name": "b", "url": "/b/b/"}]
+    client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
+    html = client.get("/").text
+    assert 'class="board-switcher"' in html
+    assert '<option value="/b/a/" selected>a</option>' in html
+    assert '<option value="/b/b/">b</option>' in html
+
+
+def test_no_switcher_for_single_board(tmp_path: Path) -> None:
+    assert "board-switcher" not in _client(tmp_path).get("/").text
+
+
+def test_hub_board_pages_have_switcher(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    page = TestClient(create_hub_app({"a": str(board_a), "b": str(board_b)})).get("/b/a/").text
+    assert 'class="board-switcher"' in page
+    assert "/b/b/" in page  # can switch to the other board
+
+
 def test_hub_lists_and_serves_boards(tmp_path: Path) -> None:
     board_a = tmp_path / "a"
     board_b = tmp_path / "b"

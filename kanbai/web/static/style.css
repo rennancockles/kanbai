@@ -37,6 +37,16 @@ body {
 .topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
 .topbar .logo { border-radius: 7px; flex: none; }
 .topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; }
+.board-switcher {
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
 .brand {
   font-size: 0.7rem;
   text-transform: uppercase;
