@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="KanbAI" width="470">
+  <img src="assets/logo.png" alt="KanbAI" width="650">
 </p>
 
 # KanbAI
@@ -113,6 +113,9 @@ Claude then works one card at a time:
 5. You review the work and approve it with `kanbai done <id>`.
 
 Allow the CLI without prompts by adding `Bash(kanbai *)` to your `.claude/settings.json`.
+
+Using another assistant (Cursor, Windsurf, Aider, Copilot, …)? The board is harness-agnostic
+— see [docs/other-harnesses.md](docs/other-harnesses.md).
 
 ## Web UI
 
