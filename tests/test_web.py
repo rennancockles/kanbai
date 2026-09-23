@@ -310,6 +310,12 @@ def test_board_has_archive_button(tmp_path: Path) -> None:
     assert 'hx-get="/archive"' in body
 
 
+def test_backlog_toggle_button_and_marker(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'id="toggle-backlog"' in body  # topbar toggle rendered
+    assert "is-backlog" in body  # backlog column tagged for the CSS hide rule
+
+
 def test_archive_view_lists_cards_with_origin(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

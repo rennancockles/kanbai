@@ -111,6 +111,13 @@ body {
   padding: 0.75rem;
 }
 
+/* Backlog toggle: hidden column drops out of the grid, sprint columns reflow to fill. */
+body.hide-backlog .column.is-backlog { display: none; }
+.icon-eye-off { display: none; }
+body.hide-backlog #toggle-backlog .icon-eye { display: none; }
+body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
+#toggle-backlog[aria-pressed="true"] { color: var(--accent); }
+
 .column-head {
   display: flex;
   align-items: center;
