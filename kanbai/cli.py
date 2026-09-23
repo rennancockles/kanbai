@@ -176,9 +176,7 @@ def list_cards(
     board = _load()
     if column is not None:
         cards = (
-            board.list_archive()
-            if column == storage.ARCHIVE_DIRNAME
-            else board.list_column(column)
+            board.list_archive() if column == storage.ARCHIVE_DIRNAME else board.list_column(column)
         )
         if as_json:
             console.print_json(data=[_card_dict(c) for c in cards])
@@ -426,7 +424,7 @@ def ui(
         from .web.server import serve  # noqa: PLC0415 - optional extra, imported on demand
     except ImportError as exc:
         err_console.print(
-            "[red]error:[/red] the web UI needs the \"ui\" extra. Install it with "
+            '[red]error:[/red] the web UI needs the "ui" extra. Install it with '
             "[cyan]pip install 'kanbai[ui]'[/cyan] (or [cyan]uv add 'kanbai[ui]'[/cyan])."
         )
         raise typer.Exit(code=1) from exc
@@ -497,7 +495,7 @@ def hub_serve(
         from .web.server import serve_hub  # noqa: PLC0415 - optional extra, imported on demand
     except ImportError as exc:
         err_console.print(
-            "[red]error:[/red] the hub needs the \"ui\" extra. Install it with "
+            '[red]error:[/red] the hub needs the "ui" extra. Install it with '
             "[cyan]pip install 'kanbai[ui]'[/cyan]."
         )
         raise typer.Exit(code=1) from exc

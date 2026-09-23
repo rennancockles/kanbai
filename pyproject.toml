@@ -123,7 +123,7 @@ docstring-quotes = "double"
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-# known-first-party = ["app", "tests"]
+# known-first-party = ["kanbai", "tests"]
 # extra-standard-library = ["typing_extensions"]
 
 [tool.ruff.format]
@@ -177,7 +177,7 @@ markers = [
 
 
 [tool.coverage.run]
-source = ["app"]
+source = ["kanbai"]
 
 [tool.coverage.report]
 fail_under = 75

@@ -163,9 +163,7 @@ def test_hub_add_rejects_path_without_board(
     assert result.exit_code == 1
 
 
-def test_hub_serve_without_boards_exits(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hub_serve_without_boards_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
     result = runner.invoke(app, ["hub"])
     assert result.exit_code == 1
@@ -179,9 +177,7 @@ def test_hub_serve_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     calls: dict[str, object] = {}
 
-    def fake_serve_hub(
-        boards: dict[str, str], *, host: str, port: int, open_browser: bool
-    ) -> None:
+    def fake_serve_hub(boards: dict[str, str], *, host: str, port: int, open_browser: bool) -> None:
         calls.update(host=host, port=port, count=len(boards), open_browser=open_browser)
 
     monkeypatch.setattr("kanbai.web.server.serve_hub", fake_serve_hub)
