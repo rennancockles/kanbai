@@ -25,12 +25,21 @@
       {% endif %}
     </div>
     <div class="board-actions">
-      <button class="plan-btn" type="button"
-              hx-get="{{ base }}/sprint/plan" hx-target="#detail" hx-swap="innerHTML">Plan sprint</button>
-      <button class="plan-btn" type="button"
-              hx-get="{{ base }}/sprint/new" hx-target="#detail" hx-swap="innerHTML">New sprint</button>
-      <button class="plan-btn" type="button"
-              hx-get="{{ base }}/archive" hx-target="#detail" hx-swap="innerHTML">Archive</button>
+      <button class="icon-btn" type="button" title="Plan the sprint from the backlog"
+              hx-get="{{ base }}/sprint/plan" hx-target="#detail" hx-swap="innerHTML">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+        <span>Plan sprint</span>
+      </button>
+      <button class="icon-btn" type="button" title="Start a new sprint"
+              hx-get="{{ base }}/sprint/new" hx-target="#detail" hx-swap="innerHTML">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+        <span>New sprint</span>
+      </button>
+      <button class="icon-btn" type="button" title="Browse archived cards"
+              hx-get="{{ base }}/archive" hx-target="#detail" hx-swap="innerHTML">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <span>Archive</span>
+      </button>
     </div>
     <form class="add-card" hx-post="{{ base }}/cards" hx-target="#board" hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
@@ -43,7 +52,10 @@
         <option value="{{ p }}"{% if p == 'medium' %} selected{% endif %}>{{ p }}</option>
         {% endfor %}
       </select>
-      <button type="submit">Add</button>
+      <button type="submit" class="add-btn" title="Add card">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add</span>
+      </button>
     </form>
   </header>
 
