@@ -450,8 +450,8 @@ def test_detail_offers_move_to_other_columns(tmp_path: Path) -> None:
     text = TestClient(create_app(board)).get("/cards/001").text
     assert 'hx-post="/cards/001/move"' in text  # the select posts a move
     assert 'name="column"' in text
-    assert "<option value=\"doing\">" in text  # can move to another column
-    assert "<option value=\"todo\">" not in text  # not to its current column
+    assert '<option value="doing">' in text  # can move to another column
+    assert '<option value="todo">' not in text  # not to its current column
 
 
 def test_card_detail_unknown_returns_404(tmp_path: Path) -> None:
@@ -615,9 +615,7 @@ def test_board_partial_is_returned(tmp_path: Path) -> None:
     assert "<!DOCTYPE html>" not in resp.text  # partial only, not the full page
 
 
-def test_events_streams_reload_on_change(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_events_streams_reload_on_change(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
 

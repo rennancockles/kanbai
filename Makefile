@@ -39,13 +39,13 @@ help: ## Show this help message
 start: install pre-commit ## Start local environment
 
 install: ## Install project dev dependencies
-	@echo "$(YELLOW)Installing dev dependencies with Poetry...$(RESET)"
-	@poetry install --with dev --all-extras
+	@echo "$(YELLOW)Installing dev dependencies with uv...$(RESET)"
+	@uv install --with dev --all-extras
 	@echo "$(GREEN)✓ Dev dependencies installed$(RESET)"
 
 pre-commit: ## Install and configure pre-commit hooks
 	@echo "$(YELLOW)Setting up pre-commit hooks...$(RESET)"
-	@poetry run pre-commit install
+	@uv run pre-commit install
 	@echo "$(GREEN)✓ Pre-commit hooks configured$(RESET)"
 
 
@@ -58,54 +58,54 @@ type-check: mypy ty ## Run MyPy and Ty type checks
 
 ruff-check: ## Run Ruff linting
 	@echo "$(YELLOW)Running Ruff linting...$(RESET)"
-	@poetry run ruff check .
+	@uv run ruff check .
 
 format-check: ## Check code formatting without making changes
 	@echo "$(YELLOW)Checking code formatting...$(RESET)"
-	@poetry run ruff format . --check
+	@uv run ruff format . --check
 
 ruff-fix: ## Run Ruff linting with auto-fix (matches pre-commit behavior)
 	@echo "$(YELLOW)Running Ruff linting with auto-fix...$(RESET)"
-	@poetry run ruff check . --fix || true
+	@uv run ruff check . --fix || true
 
 fmt: ## Run code formatting
 	@echo "$(YELLOW)Running code formatting...$(RESET)"
-	@poetry run ruff format .
+	@uv run ruff format .
 
 pre-commit-sim: ## Simulate pre-commit hooks exactly (for troubleshooting)
 	@echo "$(YELLOW)Simulating pre-commit hooks...$(RESET)"
-	@poetry run ruff check . --fix --exit-non-zero-on-fix || echo "Ruff applied fixes"
-	@poetry run ruff format .
+	@uv run ruff check . --fix --exit-non-zero-on-fix || echo "Ruff applied fixes"
+	@uv run ruff format .
 
 mypy: ## Run MyPy type checking
 	@echo "$(YELLOW)Running MyPy type checking...$(RESET)"
-	@poetry run mypy
+	@uv run mypy
 
 ty: ## Run Ty type checking
 	@echo "$(YELLOW)Running Ty check...$(RESET)"
-	@poetry run ty check
+	@uv run ty check
 
 test: ## Run all tests with coverage (parallel via pytest-xdist)
 	@echo "$(YELLOW)Running all tests with coverage...$(RESET)"
-	@poetry run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing:skip-covered --cov-report=html
+	@uv run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing:skip-covered --cov-report=html
 
 test-unit: ## Run all unit tests with coverage (parallel via pytest-xdist)
 	@echo "$(YELLOW)Running unit tests with coverage...$(RESET)"
-	@poetry run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing:skip-covered --cov-report=html -m "unit"
+	@uv run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing:skip-covered --cov-report=html -m "unit"
 
 # Jenkins CI/CD specific test targets with XML output
 test-ci: ## Run all tests with CI-friendly output (JUnit XML + Coverage XML)
 	@echo "$(YELLOW)Running tests with CI-friendly output...$(RESET)"
-	@poetry run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing --cov-report=html --cov-report=xml:coverage.xml --cov-fail-under=75 --junitxml=test-results.xml -m "not integration"
+	@uv run pytest $(PYTEST_PARALLEL) --cov --cov-report=term-missing --cov-report=html --cov-report=xml:coverage.xml --cov-fail-under=75 --junitxml=test-results.xml -m "not integration"
 
 # Security and Quality Assurance
 security-scan: ## Run security scans
 	@echo "$(YELLOW)Running security scans...$(RESET)"
-	@poetry run gitleaks dir -v .
+	@uv run gitleaks dir -v .
 
 pre-commit-run: ## Run pre-commit on all files
 	@echo "$(YELLOW)Running pre-commit on all files...$(RESET)"
-	@poetry run pre-commit run --all-files
+	@uv run pre-commit run --all-files
 
 # Development shortcuts
 dev: start ## Alias for start command
@@ -113,20 +113,20 @@ dev: start ## Alias for start command
 # Release and versioning
 release-dry: ## Dry run semantic release
 	@echo "$(YELLOW)Running semantic release dry run...$(RESET)"
-	@poetry run semantic-release version --print
+	@uv run semantic-release version --print
 
 release: ## Create a new release
 	@echo "$(YELLOW)Creating new release...$(RESET)"
-	@poetry run semantic-release version
+	@uv run semantic-release version
 
 # Environment management
 env-check: ## Check environment setup
 	@echo "$(YELLOW)Checking environment setup...$(RESET)"
 	@echo "$(BLUE)Python version:$(RESET) $$(python --version 2>/dev/null || echo 'Not found')"
-	@echo "$(BLUE)Poetry version:$(RESET) $$(poetry --version 2>/dev/null || echo 'Not found')"
+	@echo "$(BLUE)uv version:$(RESET) $$(uv --version 2>/dev/null || echo 'Not found')"
 	@echo "$(BLUE)Docker version:$(RESET) $$(docker --version 2>/dev/null || echo 'Not found')"
 	@echo "$(BLUE)Docker Compose version:$(RESET) $$(docker compose version 2>/dev/null || echo 'Not found')"
-	@echo "$(BLUE)Pre-commit installed:$(RESET) $$(poetry run pre-commit --version 2>/dev/null || echo 'Not found')"
+	@echo "$(BLUE)Pre-commit installed:$(RESET) $$(uv run pre-commit --version 2>/dev/null || echo 'Not found')"
 	@if [ -f .env ]; then \
 		echo "$(GREEN)✓ .env file exists$(RESET)"; \
 	else \

@@ -11,9 +11,7 @@ class BoardNotFoundError(KanbaiError):
     """Raised when no `.kanbai/` board can be found from the current directory."""
 
     def __init__(self) -> None:
-        super().__init__(
-            "No kanbai board found. Run `kanbai init` in your project root first."
-        )
+        super().__init__("No kanbai board found. Run `kanbai init` in your project root first.")
 
 
 class CardNotFoundError(KanbaiError):
@@ -29,9 +27,7 @@ class ColumnNotFoundError(KanbaiError):
 
     def __init__(self, column: str, columns: list[str]) -> None:
         self.column = column
-        super().__init__(
-            f"Unknown column '{column}'. Valid columns: {', '.join(columns)}."
-        )
+        super().__init__(f"Unknown column '{column}'. Valid columns: {', '.join(columns)}.")
 
 
 class InvalidPriorityError(KanbaiError):
