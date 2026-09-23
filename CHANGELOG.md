@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
+### Added
+
+- **Multi-board hub** — serve several boards from one port under `/b/<name>/`, with a board
+  switcher and a landing page. Manage the registry with `kanbai hub add/list/remove` (stored
+  in `~/.kanbai/boards.toml`); install globally via pipx/uvx.
+- **Sort the backlog** — a sort control on the backlog column (by id, priority, or title,
+  ascending/descending) that persists the new order, plus a `kanbai sort` CLI command.
+- **Hide/show the backlog column** in the web UI, remembered per browser.
+- **Documentation site** built with MkDocs Material and published to GitHub Pages — a landing
+  hero plus guides for concepts, the CLI, harness integrations, the web UI, the hub,
+  configuration, and an FAQ.
+
+### Changed
+
+- Polished the web UI: friendlier top-bar buttons (icons, tooltips, visual hierarchy) and
+  richer Plan sprint / Archive modal listings (priority accents, labels, friendly empty states).
+
+### Fixed
+
+- `--json` output is now always plain text, even when `FORCE_COLOR` is set — it previously
+  emitted ANSI escape codes that broke machine parsing.
+- Development tooling: `make lint` (ruff formatting) and `make test` (coverage now measures the
+  `kanbai` package), and the Makefile `install` target (uses `uv sync`).
+
 ## [0.1.1] - 2026-09-23
 
 ### Added
@@ -55,6 +81,7 @@ Initial release: a file-based Kanban board for Claude Code and other AI coding h
 - Packaged with hatchling; `kanbai` console entry point. Optional `ui` extra
   (fastapi, uvicorn, jinja2, watchfiles, python-multipart). MIT licensed.
 
-[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rennancockles/kanbai/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rennancockles/kanbai/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rennancockles/kanbai/releases/tag/v0.1.0
