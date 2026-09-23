@@ -1,6 +1,7 @@
 <main id="board" class="board">
   {% for column in columns %}
-  <section class="column" data-column="{{ column.name }}">
+  <section class="column{% if column.name == backlog_column %} is-backlog{% endif %}"
+           data-column="{{ column.name }}">
     <div class="column-head">
       <h2 class="column-title">{{ column.name }}</h2>
       {% if column.name == backlog_column %}

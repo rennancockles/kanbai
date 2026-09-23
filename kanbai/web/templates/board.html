@@ -40,6 +40,14 @@
         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
         <span>Archive</span>
       </button>
+      {% if backlog_column in column_names %}
+      <button class="icon-btn" id="toggle-backlog" type="button" aria-pressed="false"
+              title="Show or hide the backlog column">
+        <svg class="icon icon-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="icon icon-eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <span>Backlog</span>
+      </button>
+      {% endif %}
     </div>
     <form class="add-card" hx-post="{{ base }}/cards" hx-target="#board" hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
@@ -122,6 +130,24 @@
         });
       };
     }
+
+    // Hide/show the backlog column to free space for the sprint. Purely client-side:
+    // toggles a class on <body> (survives board re-renders) and remembers it per browser.
+    (function () {
+      var btn = document.getElementById('toggle-backlog');
+      if (!btn) return;
+      var KEY = 'kanbai:hide-backlog';
+      function apply(hidden) {
+        document.body.classList.toggle('hide-backlog', hidden);
+        btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+      }
+      apply(localStorage.getItem(KEY) === '1');
+      btn.addEventListener('click', function () {
+        var hidden = !document.body.classList.contains('hide-backlog');
+        localStorage.setItem(KEY, hidden ? '1' : '0');
+        apply(hidden);
+      });
+    })();
 
     // Close any open modal (detail / edit / plan) with the Escape key.
     document.addEventListener('keydown', function (e) {
