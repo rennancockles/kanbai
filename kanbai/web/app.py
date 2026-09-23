@@ -26,7 +26,12 @@ PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
 
 
 def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == route count
-    board: Board | None = None, *, force_polling: bool = False, base_path: str = ""
+    board: Board | None = None,
+    *,
+    force_polling: bool = False,
+    base_path: str = "",
+    boards: list[dict[str, str]] | None = None,
+    current: str | None = None,
 ) -> FastAPI:
     """Build the FastAPI app.
 
@@ -77,6 +82,8 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "labels": all_labels,
             "search": search,
             "label": label,
+            "boards": boards or [],
+            "current": current,
         }
 
     @app.get("/", response_class=HTMLResponse)

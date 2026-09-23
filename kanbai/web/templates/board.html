@@ -15,6 +15,14 @@
     <div class="topbar-left">
       <img class="logo" src="{{ base }}/static/icon.png" alt="{{ app_name }}" width="28" height="28">
       <h1>{{ board_name }}</h1>
+      {% if boards %}
+      <select class="board-switcher" aria-label="Switch board"
+              onchange="if(this.value)location.href=this.value">
+        {% for b in boards %}
+        <option value="{{ b.url }}"{% if b.name == current %} selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
     </div>
     <div class="board-actions">
       <button class="plan-btn" type="button"

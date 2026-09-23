@@ -28,15 +28,19 @@ def create_hub_app(boards: dict[str, str]) -> FastAPI:
     hub = FastAPI(title=f"{APP_NAME} hub", docs_url=None, redoc_url=None)
     hub.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
-    mounted: list[dict[str, str]] = []
+    # Resolve which boards actually load first, so every board's switcher lists the same set.
+    loaded: list[tuple[str, str, Board]] = []
     for name, path in sorted(boards.items()):
         try:
-            board = Board.load(Path(path))
+            loaded.append((name, path, Board.load(Path(path))))
         except KanbaiError:
             continue
+    mounted = [{"name": name, "path": path, "url": f"/b/{name}/"} for name, path, _ in loaded]
+    switcher = [{"name": item["name"], "url": item["url"]} for item in mounted]
+
+    for name, _path, board in loaded:
         base = f"/b/{name}"
-        hub.mount(base, create_app(board, base_path=base))
-        mounted.append({"name": name, "path": path, "url": f"{base}/"})
+        hub.mount(base, create_app(board, base_path=base, boards=switcher, current=name))
 
     @hub.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Response:
