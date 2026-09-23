@@ -113,7 +113,13 @@
     if (window.EventSource) {
       var events = new EventSource(BASE + '/events');
       events.onmessage = function () {
-        htmx.ajax('GET', BASE + '/board', { target: '#board', swap: 'outerHTML' });
+        // Carry the current search/label so a live refresh keeps the active filter.
+        var q = document.querySelector('[name=q]');
+        var label = document.querySelector('[name=label]');
+        htmx.ajax('GET', BASE + '/board', {
+          target: '#board', swap: 'outerHTML',
+          values: { q: q ? q.value : '', label: label ? label.value : '' }
+        });
       };
     }
 

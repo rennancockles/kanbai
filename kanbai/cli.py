@@ -445,6 +445,27 @@ def ui(
     )
 
 
+@app.command()
+def sort(
+    column: str = typer.Argument(..., help="Column to sort."),
+    by: str = typer.Option("id", "--by", help="Sort key: id, priority, or title."),
+    desc: bool = typer.Option(False, "--desc", help="Sort descending."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the sorted column as JSON."),
+) -> None:
+    """Sort a column and persist the new card order."""
+    board = _load()
+    try:
+        cards = board.sort_column(column, by, descending=desc)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if as_json:
+        console.print_json(data=[_card_dict(c) for c in cards])
+    else:
+        suffix = " desc" if desc else ""
+        console.print(f"[green]✓[/green] Sorted [bold]{column}[/bold] by {by}{suffix}")
+
+
 # --------------------------------------------------------------------------- hub (multi-board)
 
 hub_app = typer.Typer(
