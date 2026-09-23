@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from kanbai import scaffold
 from kanbai.cli import app
 from typer.testing import CliRunner
 
@@ -129,4 +130,26 @@ def test_missing_card_exits_nonzero(project: Path) -> None:
 def test_no_board_exits_nonzero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["list"])
+    assert result.exit_code == 1
+
+
+def test_hub_add_list_remove(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "proj"
+    scaffold.init_board(board)
+
+    assert runner.invoke(app, ["hub", "add", str(board)]).exit_code == 0
+    listed = json.loads(runner.invoke(app, ["hub", "list", "--json"]).output)
+    assert listed == {"proj": str(board.resolve())}
+
+    assert runner.invoke(app, ["hub", "remove", "proj"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["hub", "list", "--json"]).output) == {}
+
+
+def test_hub_add_rejects_path_without_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    (tmp_path / "empty").mkdir()
+    result = runner.invoke(app, ["hub", "add", str(tmp_path / "empty")])
     assert result.exit_code == 1
