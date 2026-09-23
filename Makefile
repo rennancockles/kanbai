@@ -1,4 +1,4 @@
-.PHONY: help start install pre-commit lint-fix lint ruff mypy ty ruff-check format-check ruff-fix fmt pre-commit-sim type-check test test-unit test-ci pre-commit-run dev release-dry release release-info tag-release inspect-release publish-docs docs env-check mcp-run mcp-inspector
+.PHONY: help start install pre-commit lint-fix lint ruff mypy ty ruff-check format-check ruff-fix fmt pre-commit-sim type-check test test-unit test-ci pre-commit-run dev release-dry release release-info tag-release inspect-release publish-docs docs docs-build env-check mcp-run mcp-inspector
 .DEFAULT_GOAL := help
 # .ONESHELL:
 
@@ -106,6 +106,15 @@ security-scan: ## Run security scans
 pre-commit-run: ## Run pre-commit on all files
 	@echo "$(YELLOW)Running pre-commit on all files...$(RESET)"
 	@uv run pre-commit run --all-files
+
+# Documentation (MkDocs Material -> GitHub Pages)
+docs: ## Serve the documentation site locally with live reload
+	@echo "$(YELLOW)Serving docs at http://127.0.0.1:8000 ...$(RESET)"
+	@uv run --group docs mkdocs serve
+
+docs-build: ## Build the documentation site (strict)
+	@echo "$(YELLOW)Building docs...$(RESET)"
+	@uv run --group docs mkdocs build --strict
 
 # Development shortcuts
 dev: start ## Alias for start command

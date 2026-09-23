@@ -9,11 +9,14 @@
   <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/pyversions/kanbai" alt="Python versions"></a>
   <a href="https://github.com/rennancockles/kanbai/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rennancockles/kanbai/ci.yml?branch=main&label=CI" alt="CI"></a>
   <a href="https://github.com/rennancockles/kanbai/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rennancockles/kanbai" alt="License"></a>
+  <a href="https://rennancockles.github.io/kanbai/"><img src="https://img.shields.io/badge/docs-mkdocs--material-526cfe?logo=materialformkdocs&logoColor=white" alt="Documentation"></a>
 </p>
 
 A file-based Kanban board that lives in your repo, built for **Claude Code** and other AI
 coding harnesses (and humans too). The board is plain Markdown files under `.kanbai/`,
 driven by a simple `kanbai` CLI and a local web UI. Installed and invoked as `kanbai`.
+
+📖 **Full documentation: [rennancockles.github.io/kanbai](https://rennancockles.github.io/kanbai/)**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/webui.png" alt="KanbAI web UI" width="840">

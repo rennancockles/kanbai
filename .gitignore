@@ -15,6 +15,7 @@
 # Build and Compiled
 dist/
 _build/
+site/
 *.pyc
 .DS_Store
 

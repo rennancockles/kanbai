@@ -1,0 +1,84 @@
+site_name: KanbAI
+site_description: A file-based Kanban board for Claude Code and other AI coding harnesses.
+site_url: https://rennancockles.github.io/kanbai/
+site_author: Rennan Cockles
+repo_url: https://github.com/rennancockles/kanbai
+repo_name: rennancockles/kanbai
+copyright: Made with MkDocs Material · MIT licensed
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: light blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Concepts: concepts.md
+  - CLI reference: cli.md
+  - Working with Claude Code: claude-code.md
+  - Other AI harnesses: other-harnesses.md
+  - Web UI: web-ui.md
+  - Multi-board hub: hub.md
+  - Configuration: configuration.md
+  - FAQ: faq.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rennancockles/kanbai
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/kanbai/

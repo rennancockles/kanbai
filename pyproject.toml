@@ -58,6 +58,9 @@ dev = [
     "pytest-xdist>=3.8.0",
     "types-pyyaml>=6.0",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+]
 
 [project.scripts]
 kanbai = "kanbai.cli:app"
