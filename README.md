@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="KanbAI" width="650">
+  <img src="assets/logo.png" alt="KanbAI" width="470">
 </p>
 
 # KanbAI
