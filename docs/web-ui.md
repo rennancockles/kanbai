@@ -10,7 +10,7 @@ kanbai ui --reload           # auto-restart on code changes (development)
 kanbai ui --poll             # for sandboxes/containers without OS file events
 ```
 
-![KanbAI web UI](assets/webui.png)
+![The KanbAI web UI](assets/board.png)
 
 ## What you can do
 
@@ -22,6 +22,27 @@ kanbai ui --poll             # for sandboxes/containers without OS file events
 - **Search** cards and **filter by label**.
 - Browse and **restore** archived cards.
 - See **WIP-limit** and **blocked-by-dependency** indicators.
+
+## Card details
+
+Click any card to open its details — description and acceptance criteria, labels,
+dependencies, and assignee — and **move**, **edit**, **archive**, or **delete** it right from
+the modal.
+
+![The card detail modal](assets/card_modal.png)
+
+## Planning a sprint
+
+The **Plan sprint** button opens a picker of your backlog cards — check the ones you want and
+move them into the sprint (`todo`) in one go.
+
+![The Plan sprint modal](assets/plan_sprint_modal.png)
+
+## Search and filter
+
+Use the search box and the label filter to focus the board on what matters right now.
+
+![The board filtered by a label](assets/filtered_board.png)
 
 ## Live updates
 
@@ -43,6 +64,8 @@ back to the cards, so it sticks everywhere — including the CLI. Ascending prio
 
 Use the **eye toggle** in the top bar to hide the backlog column and give the sprint columns
 the full width. The choice is remembered in your browser.
+
+![The board with the backlog hidden, focused on the sprint](assets/sprint.png)
 
 ## Multiple projects
 

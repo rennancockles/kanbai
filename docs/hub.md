@@ -33,8 +33,14 @@ kanbai hub                     # serve all registered boards; opens a landing to
 kanbai hub --port 9000 --no-browser
 ```
 
-Each board is served at `/b/<name>/`, and the hub root is a landing page that lists them. A
-board switcher in the top bar lets you jump between boards without leaving the page.
+The hub root is a landing page that lists every registered board:
+
+![The hub landing page listing registered boards](assets/hub.png)
+
+Each board is served at `/b/<name>/`, and a **board switcher** in the top bar lets you jump
+between boards without leaving the page:
+
+![A board served through the hub, with the board switcher in the top bar](assets/hub_board.png)
 
 ## Where the registry lives
 

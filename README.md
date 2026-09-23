@@ -19,7 +19,7 @@ driven by a simple `kanbai` CLI and a local web UI. Installed and invoked as `ka
 📖 **Full documentation: [rennancockles.github.io/kanbai](https://rennancockles.github.io/kanbai/)**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/webui.png" alt="KanbAI web UI" width="840">
+  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/board.png" alt="KanbAI web UI" width="840">
 </p>
 
 ## Why

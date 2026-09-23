@@ -58,7 +58,7 @@ hide:
 Then open a Claude Code session and ask it to *“work through the KanbAI board”*.
 
 <div class="kx-shot" markdown>
-![The KanbAI web UI](assets/webui.png)
+![The KanbAI web UI](assets/board.png)
 </div>
 
 ## Explore the docs
