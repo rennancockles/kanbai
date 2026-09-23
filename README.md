@@ -1,73 +1,170 @@
 <p align="center">
-  <img src="assets/logo.png" alt="KanbAI" width="240">
+  <img src="assets/logo.png" alt="KanbAI" width="650">
 </p>
 
 # KanbAI
 
-A file-based Kanban board that lives in your repo, designed for **Claude Code** and
-other AI coding harnesses (and humans too). Installed and invoked as `kanbai`.
+A file-based Kanban board that lives in your repo, built for **Claude Code** and other AI
+coding harnesses (and humans too). The board is plain Markdown files under `.kanbai/`,
+driven by a simple `kanbai` CLI and a local web UI. Installed and invoked as `kanbai`.
 
-KanbAI keeps a `.kanbai/` folder in your project. Each column of the board is a folder and
-each task is a single Markdown card. The default columns follow a sprint workflow:
+<p align="center">
+  <img src="assets/webui.png" alt="KanbAI web UI" width="840">
+</p>
 
-- **`backlog`** — everything to do eventually (future work). New cards land here.
-- **`todo`** — the current sprint: what is planned to be worked on now.
-- **`doing`** — in progress.
-- **`done`** — finished.
+## Why
 
-Claude reads the `todo` (sprint) column to know **what** to build and in **which order**,
-and moves cards across columns as it works — all through a simple CLI:
+- **The board lives in your repo.** One Markdown card per task, one folder per column —
+  git-friendly, diffable, no external service, no database.
+- **Claude drives it.** `kanbai init` installs a rule + skills so Claude picks the next
+  task, implements it, and moves it across the board while you review.
+- **You stay in control.** Finished work waits in `review` for your approval, and a
+  friendly local web UI lets you watch and manage everything live.
 
-```bash
-kanbai next            # next actionable card in the sprint (todo)
-kanbai start 001       # move card 001 to "doing"
-kanbai done 001        # move card 001 to "done"
+## How it works
+
+`kanbai init` creates a `.kanbai/` folder — one directory per column, one Markdown card
+per task:
+
+```
+.kanbai/
+├── config.toml
+├── backlog/
+│   └── 004-add-oauth-login.md
+├── todo/
+├── doing/
+├── review/
+├── done/
+└── archive/
 ```
 
-A friendly local web UI (`kanbai ui`) lets you watch and manage the board while Claude
-works — create cards, drag them between columns, and see the board update live as Claude
-moves cards from the CLI. Install the extra and launch it:
+Each card is Markdown with YAML frontmatter (managed by the CLI — don't edit by hand):
 
-```bash
-pip install 'kanbai[ui]'   # or: uv add 'kanbai[ui]'
-kanbai ui                  # serves the board and opens your browser
+```markdown
+---
+id: "004"
+title: Add OAuth login
+status: backlog
+priority: high
+order: 1
+labels: [auth, backend]
+deps: []
+---
+
+## Description
+Support "Sign in with Google".
+
+## Acceptance criteria
+- [ ] OAuth flow works end to end
 ```
 
-Use `kanbai ui --poll` in sandboxes/containers where OS file events don't fire.
+### The sprint workflow
+
+Cards flow through five columns:
+
+| Column | Meaning |
+|--------|---------|
+| `backlog` | Everything to do eventually. New cards land here. |
+| `todo` | The current sprint — what's planned for now. |
+| `doing` | In progress. |
+| `review` | Finished, awaiting your approval. |
+| `done` | Approved and complete. |
+
+`kanbai next` only reads the **sprint** (`todo`), respecting card order and blocking
+dependencies — so the backlog stays out of the way until you plan work into the sprint.
+When work is finished it goes to `review`; **you** approve it into `done`.
 
 ## Install
 
 ```bash
-uv add --dev kanbai        # add to your project as a dev dependency
+uv add --dev kanbai          # add to your project as a dev dependency
 # or
 pip install kanbai
+
+# for the web UI, install the extra:
+uv add --dev 'kanbai[ui]'    # or: pip install 'kanbai[ui]'
 ```
 
 ## Quick start
 
 ```bash
-kanbai init                          # scaffold .kanbai/ + Claude integration
-kanbai add "Build the login screen" --priority high   # lands in the backlog
-kanbai move 001 todo                 # plan it into the sprint
-kanbai list                          # show the board
+kanbai init                              # scaffold .kanbai/ + Claude integration
+kanbai add "Build the login screen" -p high   # lands in the backlog
+kanbai move 001 todo                     # plan it into the sprint
+kanbai list                              # show the board
 ```
 
-Then open a Claude Code session and ask it to *"work through the kanbai board"*.
+Then open a Claude Code session and ask it to *"work through the KanbAI board"*.
+
+## Working with Claude Code
+
+`kanbai init` installs the integration into `.claude/`:
+
+- **`.claude/rules/kanbai.md`** — teaches Claude the board convention, loaded every session.
+- **Skills** — `kanbai-next` (work one card and stop), `kanbai-sprint` (work the whole
+  sprint), and `kanbai-status` (summarize the board).
+
+Claude then works one card at a time:
+
+1. `kanbai next --json` — pick the next actionable sprint task.
+2. `kanbai start <id>` — move it to `doing`.
+3. Implement it (reading `kanbai show <id> --json` for the details).
+4. `kanbai review <id>` — send it to `review` and **stop**.
+5. You review the work and approve it with `kanbai done <id>`.
+
+Allow the CLI without prompts by adding `Bash(kanbai *)` to your `.claude/settings.json`.
+
+## Web UI
+
+```bash
+kanbai ui                    # serves the board and opens your browser
+kanbai ui --reload           # auto-restart on code changes (development)
+kanbai ui --poll             # for sandboxes/containers without OS file events
+```
+
+The UI (FastAPI + HTMX, assets vendored so it works offline) lets you:
+
+- View the board and **create, edit, move, archive, or delete** cards.
+- **Drag-and-drop** between columns (with persisted reordering) or move from a card's modal.
+- **Plan a sprint** (move several backlog cards to `todo` at once) and **start a new sprint**
+  (archive done cards, optionally reset the active columns).
+- **Search** cards and **filter by label**.
+- Browse and **restore** archived cards.
+- See **WIP-limit** and **blocked-by-dependency** indicators, and **live updates** as Claude
+  moves cards from the CLI (via Server-Sent Events).
+
+## Configuration
+
+`.kanbai/config.toml` is created by `init` and can be edited:
+
+```toml
+[board]
+name = "my-project"
+columns = ["backlog", "todo", "doing", "review", "done"]
+
+[defaults]
+priority = "medium"
+
+# Optional work-in-progress limits per column (the CLI and UI warn when exceeded).
+[wip]
+doing = 3
+```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `kanbai init` | Scaffold `.kanbai/` and install the Claude Code integration. |
-| `kanbai add "title"` | Create a new card in `backlog` (use `-c todo` for the sprint). |
-| `kanbai list [column]` | Show the board (or a single column). |
+| `kanbai add "title"` | Create a card in `backlog` (use `-c todo` for the sprint). |
+| `kanbai list [column]` | Show the board, a single column, or the `archive`. |
 | `kanbai next` | Print the next actionable card in the sprint (`todo`). |
 | `kanbai show <id>` | Show full details of a card. |
 | `kanbai move <id> <column>` | Move a card to a column. |
 | `kanbai start <id>` | Move a card to `doing`. |
 | `kanbai review <id>` / `kanbai done <id>` | Send a card to `review` / approve it to `done`. |
 | `kanbai edit <id>` | Update fields of a card. |
-| `kanbai archive <id>` / `kanbai rm <id>` | Archive or delete a card. |
+| `kanbai archive <id>` / `kanbai restore <id>` | Archive a card / restore it from the archive. |
+| `kanbai rm <id>` | Delete a card permanently. |
 | `kanbai new-sprint` | Archive done cards (optionally reset active columns to the backlog). |
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 
