@@ -278,6 +278,25 @@ def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
     assert 'class="modal card' in resp.text  # opaque background (not transparent)
 
 
+def test_plan_and_archive_modals_have_client_side_search(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Backlog card")  # so the plan modal has a list
+    done = board.add("Done card", column="done")
+    board.archive(done.id)  # so the archive modal has a list
+    client = TestClient(create_app(board))
+
+    for path in ("/sprint/plan", "/archive"):
+        html = client.get(path).text
+        assert 'class="modal-search"' in html
+        assert "kanbaiFilterModal(this)" in html
+
+
+def test_board_defines_modal_filter_function(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert "function kanbaiFilterModal" in body  # client-side filter preserves selection
+
+
 def test_sprint_plan_moves_selected_cards_to_sprint(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

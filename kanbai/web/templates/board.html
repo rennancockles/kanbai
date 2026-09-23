@@ -99,6 +99,17 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') document.getElementById('detail').innerHTML = '';
     });
+
+    // Filter the items in a modal list (Plan sprint / Archive) client-side, so checkbox
+    // selections are preserved across filtering — just hide the rows that don't match.
+    function kanbaiFilterModal(input) {
+      var query = input.value.trim().toLowerCase();
+      var list = input.closest('.modal').querySelector('.plan-list');
+      if (!list) return;
+      list.querySelectorAll('.plan-item, .archive-item').forEach(function (item) {
+        item.style.display = item.textContent.toLowerCase().includes(query) ? '' : 'none';
+      });
+    }
   </script>
 </body>
 </html>

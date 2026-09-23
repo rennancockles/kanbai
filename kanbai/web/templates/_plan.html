@@ -9,6 +9,8 @@
     </div>
 
     {% if cards %}
+    <input class="modal-search" type="search" placeholder="Filter cards…" autocomplete="off"
+           oninput="kanbaiFilterModal(this)">
     <div class="plan-list">
       {% for card in cards %}
       <label class="plan-item">

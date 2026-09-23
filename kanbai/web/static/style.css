@@ -358,6 +358,19 @@ body {
 }
 .radio input { accent-color: var(--accent); }
 
+.modal-search {
+  width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.modal-search::placeholder { color: var(--muted); }
+
 .plan-list {
   display: flex;
   flex-direction: column;
