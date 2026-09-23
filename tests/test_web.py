@@ -287,6 +287,24 @@ def test_board_has_new_sprint_button(tmp_path: Path) -> None:
     assert 'hx-get="/sprint/new"' in body
 
 
+def test_backlog_has_sort_control(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-post="/columns/backlog/sort"' in body
+    assert body.count('class="col-sort"') == 1  # only the backlog column
+
+
+def test_sort_backlog_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("zeta", priority="low")
+    board.add("alpha", priority="high")
+    resp = TestClient(create_app(board)).post(
+        "/columns/backlog/sort", data={"by": "priority", "dir": "desc"}
+    )
+    assert resp.status_code == 200
+    assert [c.title for c in board.list_column("backlog")] == ["alpha", "zeta"]  # desc: high first
+
+
 def test_board_has_archive_button(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert 'hx-get="/archive"' in body

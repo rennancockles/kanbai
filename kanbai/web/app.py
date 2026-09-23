@@ -84,6 +84,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "label": label,
             "boards": boards or [],
             "current": current,
+            "backlog_column": resolved.config.add_column,
         }
 
     @app.get("/", response_class=HTMLResponse)
@@ -92,6 +93,19 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
 
     @app.get("/board", response_class=HTMLResponse)
     def board_partial(request: Request, q: str = "", label: str = "") -> Response:
+        return render(request, "_board.html", context(q, label))
+
+    @app.post("/columns/{column}/sort", response_class=HTMLResponse)
+    def sort_column(
+        request: Request,
+        column: str,
+        by: str = Form("id"),
+        dir: str = Form("asc"),
+        q: str = Form(""),
+        label: str = Form(""),
+    ) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.sort_column(column, by, descending=dir == "desc")
         return render(request, "_board.html", context(q, label))
 
     @app.get("/cards/{card_id}", response_class=HTMLResponse)

@@ -189,3 +189,33 @@ def test_list_archive_and_restore_to_origin(board: Board) -> None:
 def test_show_unknown_raises(board: Board) -> None:
     with pytest.raises(CardNotFoundError):
         board.show("404")
+
+
+def test_sort_column_by_priority_persists_order(board: Board) -> None:
+    board.add("low one", priority="low")
+    board.add("high one", priority="high")
+    board.add("medium one", priority="medium")
+
+    board.sort_column("backlog", "priority")  # ascending: low -> high
+    assert [c.title for c in board.list_column("backlog")] == ["low one", "medium one", "high one"]
+    assert [c.order for c in board.list_column("backlog")] == [1, 2, 3]  # persisted
+
+    board.sort_column("backlog", "priority", descending=True)  # descending: high first
+    assert [c.title for c in board.list_column("backlog")] == ["high one", "medium one", "low one"]
+
+
+def test_sort_column_by_title_descending(board: Board) -> None:
+    board.add("banana")
+    board.add("apple")
+    board.add("cherry")
+    board.sort_column("backlog", "title", descending=True)
+    assert [c.title for c in board.list_column("backlog")] == ["cherry", "banana", "apple"]
+
+
+def test_sort_column_by_id(board: Board) -> None:
+    board.add("A")
+    board.add("B")
+    c = board.add("C")
+    board.edit(c.id, order=0)  # C floats to the top
+    board.sort_column("backlog", "id")
+    assert [x.id for x in board.list_column("backlog")] == ["001", "002", "003"]

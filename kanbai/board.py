@@ -7,6 +7,7 @@ archive / remove.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from . import storage
@@ -132,6 +133,28 @@ class Board:
         """Return the cards in a single column."""
         self._require_column(column)
         return storage.read_column(self.kanbai_dir, column)
+
+    #: Sort keys available for :meth:`sort_column` (``priority`` puts high first;
+    #: ``id`` already follows creation order, so there is no separate date key).
+    SORT_KEYS = ("id", "priority", "title")
+
+    def sort_column(self, column: str, key: str = "id", *, descending: bool = False) -> list[Card]:
+        """Reorder ``column`` by ``key`` and persist the new ``order`` on every card."""
+        self._require_column(column)
+        keyfns: dict[str, Callable[[Card], object]] = {
+            "id": lambda c: int(c.id) if c.id.isdigit() else c.id,
+            # rank is high=0..low=2; negate so ascending reads low -> high like the other keys.
+            "priority": lambda c: -c.priority.rank,
+            "title": lambda c: c.title.lower(),
+        }
+        keyfn = keyfns.get(key, keyfns["id"])
+        cards = storage.read_column(self.kanbai_dir, column)
+        cards.sort(key=keyfn, reverse=descending)  # type: ignore[arg-type]
+        for new_order, card in enumerate(cards, start=1):
+            if card.order != new_order:
+                card.order = new_order
+                storage.write_card(self.kanbai_dir, card)
+        return cards
 
     def next(self) -> Card | None:
         """Return the next actionable card in the sprint (the ``todo`` column).

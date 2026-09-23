@@ -114,9 +114,24 @@ body {
 .column-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.4rem;
   margin-bottom: 0.75rem;
 }
+
+.col-sort { display: flex; gap: 0.2rem; margin-left: auto; }
+.col-sort select {
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1rem 0.2rem;
+  cursor: pointer;
+}
+/* keep the count hugging the right edge whether or not the sort control is present */
+.column-head .count { margin-left: auto; }
+.col-sort + .count { margin-left: 0; }
 
 .column-title {
   margin: 0;

@@ -3,6 +3,22 @@
   <section class="column" data-column="{{ column.name }}">
     <div class="column-head">
       <h2 class="column-title">{{ column.name }}</h2>
+      {% if column.name == backlog_column %}
+      <form id="backlog-sort" hx-preserve="true" class="col-sort"
+            hx-post="{{ base }}/columns/{{ column.name }}/sort"
+            hx-target="#board" hx-swap="outerHTML" hx-trigger="change"
+            hx-include="[name='q'], [name='label']" title="Sort the backlog">
+        <select name="by" aria-label="Sort backlog by">
+          <option value="id">id</option>
+          <option value="priority">priority</option>
+          <option value="title">title</option>
+        </select>
+        <select name="dir" aria-label="Direction">
+          <option value="asc">↑</option>
+          <option value="desc">↓</option>
+        </select>
+      </form>
+      {% endif %}
       <span class="count{% if column.over %} over{% endif %}"
             {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
         {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>

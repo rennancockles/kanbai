@@ -88,6 +88,14 @@ def test_new_sprint_to_backlog(project: Path) -> None:
     assert any(c["title"] == "A" for c in backlog)
 
 
+def test_sort_backlog_by_priority(project: Path) -> None:
+    runner.invoke(app, ["add", "zeta", "-p", "low"])
+    runner.invoke(app, ["add", "alpha", "-p", "high"])
+    assert runner.invoke(app, ["sort", "backlog", "--by", "priority", "--desc"]).exit_code == 0
+    backlog = json.loads(runner.invoke(app, ["list", "backlog", "--json"]).output)
+    assert [c["title"] for c in backlog] == ["alpha", "zeta"]  # desc: high first, persisted
+
+
 def test_next_ignores_backlog(project: Path) -> None:
     runner.invoke(app, ["add", "Backlog only"])  # defaults to backlog
     result = runner.invoke(app, ["next", "--json"])
