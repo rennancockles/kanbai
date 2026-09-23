@@ -13,11 +13,16 @@
            oninput="kanbaiFilterModal(this)">
     <div class="plan-list">
       {% for card in cards %}
-      <label class="plan-item">
+      <label class="plan-item {{ priority_class[card.priority.value] }}">
         <input type="checkbox" name="ids" value="{{ card.id }}">
         <span class="card-id">#{{ card.id }}</span>
         <span class="plan-title">{{ card.title }}</span>
-        <span class="card-pri {{ priority_class[card.priority.value] }}">{{ card.priority.value }}</span>
+        {% if card.labels %}
+        <span class="item-labels">
+          {% for label in card.labels %}<span class="label">{{ label }}</span>{% endfor %}
+        </span>
+        {% endif %}
+        <span class="item-pri">{{ card.priority.value }}</span>
       </label>
       {% endfor %}
     </div>
@@ -27,7 +32,10 @@
       <button type="submit" class="btn-primary">Move to sprint</button>
     </div>
     {% else %}
-    <p class="empty">The backlog is empty</p>
+    <div class="modal-empty">
+      <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      <p>The backlog is empty — nothing to plan yet.</p>
+    </div>
     {% endif %}
   </form>
 </div>
