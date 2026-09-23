@@ -26,7 +26,7 @@ PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
 
 
 def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == route count
-    board: Board | None = None, *, force_polling: bool = False
+    board: Board | None = None, *, force_polling: bool = False, base_path: str = ""
 ) -> FastAPI:
     """Build the FastAPI app.
 
@@ -41,6 +41,10 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
     resolved = board if board is not None else Board.load()
     app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
+
+    def render(request: Request, name: str, ctx: dict[str, object] | None = None) -> Response:
+        """Render a template, injecting ``base`` so URLs work under the hub's ``/b/<name>``."""
+        return _TEMPLATES.TemplateResponse(request, name, {**(ctx or {}), "base": base_path})
 
     def context(search: str = "", label: str = "") -> dict[str, object]:
         query = search.strip().lower()
@@ -77,11 +81,11 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Response:
-        return _TEMPLATES.TemplateResponse(request, "board.html", context())
+        return render(request, "board.html", context())
 
     @app.get("/board", response_class=HTMLResponse)
     def board_partial(request: Request, q: str = "", label: str = "") -> Response:
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context(q, label))
+        return render(request, "_board.html", context(q, label))
 
     @app.get("/cards/{card_id}", response_class=HTMLResponse)
     def card_detail(request: Request, card_id: str) -> Response:
@@ -117,7 +121,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         for card_id in ids:
             with contextlib.suppress(KanbaiError):
                 resolved.move(card_id, resolved.config.sprint_column)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.get("/archive", response_class=HTMLResponse)
     def archive_view(request: Request) -> Response:
@@ -129,16 +133,16 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
     def restore_card(request: Request, card_id: str) -> Response:
         with contextlib.suppress(KanbaiError):
             resolved.restore(card_id)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.get("/sprint/new", response_class=HTMLResponse)
     def sprint_new_form(request: Request) -> Response:
-        return _TEMPLATES.TemplateResponse(request, "_new_sprint.html", {})
+        return render(request, "_new_sprint.html", {})
 
     @app.post("/sprint/new", response_class=HTMLResponse)
     def sprint_new(request: Request, reset: str = Form("")) -> Response:
         resolved.new_sprint(reset_to_backlog=reset == "1")
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)
     def card_edit_form(request: Request, card_id: str) -> Response:
@@ -174,19 +178,19 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 priority=priority,
                 labels=label_list,
             )
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/archive", response_class=HTMLResponse)
     def card_archive(request: Request, card_id: str) -> Response:
         with contextlib.suppress(KanbaiError):
             resolved.archive(card_id)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/delete", response_class=HTMLResponse)
     def card_delete(request: Request, card_id: str) -> Response:
         with contextlib.suppress(KanbaiError):
             resolved.remove(card_id)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.get("/events")
     def events() -> StreamingResponse:
@@ -207,7 +211,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         # invalid column/priority — re-render the board unchanged
         with contextlib.suppress(KanbaiError):
             resolved.add(title, column=column, priority=priority)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/move", response_class=HTMLResponse)
     def move_card(
@@ -219,6 +223,6 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         # unknown card/column — re-render the board unchanged
         with contextlib.suppress(KanbaiError):
             resolved.move(card_id, column, position=position)
-        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+        return render(request, "_board.html", context())
 
     return app
