@@ -39,8 +39,8 @@ help: ## Show this help message
 start: install pre-commit ## Start local environment
 
 install: ## Install project dev dependencies
-	@echo "$(YELLOW)Installing dev dependencies with uv...$(RESET)"
-	@uv install --with dev --all-extras
+	@echo "$(YELLOW)Installing dev dependencies with UV...$(RESET)"
+	@uv sync --all-extras
 	@echo "$(GREEN)✓ Dev dependencies installed$(RESET)"
 
 pre-commit: ## Install and configure pre-commit hooks
