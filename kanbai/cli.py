@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
@@ -47,9 +48,19 @@ def _card_dict(card: Card) -> dict[str, object]:
     return card.model_dump(mode="json")
 
 
+def _emit_json(data: object) -> None:
+    """Print machine-readable JSON — always plain text.
+
+    We use ``json.dumps`` (not rich's ``print_json``) so ``--json`` output stays parseable
+    even when a color-forcing env var like ``FORCE_COLOR`` is set, which would otherwise make
+    rich wrap the JSON in ANSI escape codes.
+    """
+    print(json.dumps(data, indent=2, ensure_ascii=False))
+
+
 def _emit_card(card: Card, as_json: bool, message: str | None = None) -> None:
     if as_json:
-        console.print_json(data=_card_dict(card))
+        _emit_json(_card_dict(card))
     elif message:
         console.print(message)
 
@@ -179,14 +190,14 @@ def list_cards(
             board.list_archive() if column == storage.ARCHIVE_DIRNAME else board.list_column(column)
         )
         if as_json:
-            console.print_json(data=[_card_dict(c) for c in cards])
+            _emit_json([_card_dict(c) for c in cards])
         else:
             console.print(_render_column_table(column, cards))
         return
 
     data = board.board()
     if as_json:
-        console.print_json(data={c: [_card_dict(x) for x in cs] for c, cs in data.items()})
+        _emit_json({c: [_card_dict(x) for x in cs] for c, cs in data.items()})
         return
     for col, cards in data.items():
         console.print(_render_column_table(col, cards))
@@ -201,12 +212,12 @@ def next(  # noqa: A001 - "next" mirrors the user-facing verb
     card = board.next()
     if card is None:
         if as_json:
-            console.print_json(data=None)
+            _emit_json(None)
         else:
             console.print("[dim]Nothing to do — the backlog is empty or fully blocked.[/dim]")
         raise typer.Exit(code=0)
     if as_json:
-        console.print_json(data=_card_dict(card))
+        _emit_json(_card_dict(card))
     else:
         body = f"\n\n{card.body}" if card.body else ""
         console.print(
@@ -227,7 +238,7 @@ def show(
     board = _load()
     card = board.show(card_id)
     if as_json:
-        console.print_json(data=_card_dict(card))
+        _emit_json(_card_dict(card))
         return
     deps = ", ".join(card.deps) or "—"
     labels = ", ".join(card.labels) or "—"
@@ -458,7 +469,7 @@ def sort(
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     if as_json:
-        console.print_json(data=[_card_dict(c) for c in cards])
+        _emit_json([_card_dict(c) for c in cards])
     else:
         suffix = " desc" if desc else ""
         console.print(f"[green]✓[/green] Sorted [bold]{column}[/bold] by {by}{suffix}")
@@ -530,7 +541,7 @@ def hub_list(
     """List the registered boards."""
     boards = registry.load_boards()
     if as_json:
-        console.print_json(data=boards)
+        _emit_json(boards)
         return
     if not boards:
         console.print("[dim]No boards registered. Add one with `kanbai hub add <path>`.[/dim]")

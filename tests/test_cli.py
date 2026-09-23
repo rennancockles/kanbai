@@ -38,6 +38,17 @@ def test_add_lands_in_backlog_json(project: Path) -> None:
     assert board["doing"] == []
 
 
+def test_json_output_is_plain_under_force_color(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # rich would wrap JSON in ANSI codes when FORCE_COLOR is set; --json must stay parseable.
+    monkeypatch.setenv("FORCE_COLOR", "3")
+    result = runner.invoke(app, ["add", "Task", "--json"])
+    assert result.exit_code == 0, result.output
+    assert "\x1b[" not in result.output  # no ANSI escape codes
+    assert json.loads(result.output)["title"] == "Task"  # parseable
+
+
 def test_next_and_lifecycle(project: Path) -> None:
     # Plan the work straight into the sprint so `next` can pick it up.
     runner.invoke(app, ["add", "Task A", "-c", "todo"])
