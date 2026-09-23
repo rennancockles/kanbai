@@ -64,12 +64,18 @@ Then open a Claude Code session and ask it to *"work through the kanbai board"*.
 | `kanbai next` | Print the next actionable card in the sprint (`todo`). |
 | `kanbai show <id>` | Show full details of a card. |
 | `kanbai move <id> <column>` | Move a card to a column. |
-| `kanbai start <id>` / `kanbai done <id>` | Shortcuts for moving to `doing` / `done`. |
+| `kanbai start <id>` | Move a card to `doing`. |
+| `kanbai review <id>` / `kanbai done <id>` | Send a card to `review` / approve it to `done`. |
 | `kanbai edit <id>` | Update fields of a card. |
 | `kanbai archive <id>` / `kanbai rm <id>` | Archive or delete a card. |
+| `kanbai new-sprint` | Archive done cards (optionally reset active columns to the backlog). |
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 
 Add `--json` to read-only commands for machine-readable output.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
