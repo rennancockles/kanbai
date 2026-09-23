@@ -47,7 +47,7 @@ def test_base_path_prefixes_urls(tmp_path: Path) -> None:
     board.add("Task", column="todo")
     html = TestClient(create_app(board, base_path="/b/proj")).get("/").text
     assert "/b/proj/static/style.css" in html
-    assert 'hx-post="/b/proj/cards"' in html
+    assert 'hx-get="/b/proj/cards/new"' in html
     assert 'var BASE = "/b/proj"' in html
 
 
@@ -159,6 +159,43 @@ def test_create_card_via_post(tmp_path: Path) -> None:
     assert todo[0].priority.value == "high"
 
 
+def test_create_card_with_labels_and_description_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post(
+        "/cards",
+        data={
+            "title": "Nova tarefa",
+            "column": "todo",
+            "priority": "high",
+            "labels": "a, b",
+            "description": "some details",
+        },
+    )
+    assert resp.status_code == 200
+    card = board.list_column("todo")[0]
+    assert card.labels == ["a", "b"]
+    assert card.body == "some details"
+
+
+def test_new_card_form_renders_all_fields(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/cards/new")
+    assert resp.status_code == 200
+    assert 'name="title"' in resp.text
+    assert 'name="column"' in resp.text
+    assert 'name="priority"' in resp.text
+    assert 'name="type"' in resp.text
+    assert 'name="labels"' in resp.text
+    assert 'name="description"' in resp.text
+
+
+def test_board_has_new_card_button(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-get="/cards/new"' in body
+
+
 def test_move_card_via_post(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
@@ -188,6 +225,30 @@ def test_create_card_invalid_priority_is_ignored(tmp_path: Path) -> None:
 
     # A bad priority must not blow up with a 500.
     resp = client.post("/cards", data={"title": "Nope", "column": "todo", "priority": "urgent"})
+    assert resp.status_code == 200
+    assert all(not cards for cards in board.board().values())
+
+
+def test_create_card_with_type_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post(
+        "/cards", data={"title": "Fix it", "column": "todo", "priority": "high", "type": "bug"}
+    )
+    assert resp.status_code == 200
+    assert board.list_column("todo")[0].type == "bug"
+
+
+def test_create_card_invalid_type_is_ignored(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.post(
+        "/cards", data={"title": "Nope", "column": "todo", "priority": "low", "type": "bogus"}
+    )
     assert resp.status_code == 200
     assert all(not cards for cards in board.board().values())
 
@@ -270,6 +331,44 @@ def test_board_filters_by_label(tmp_path: Path) -> None:
     assert "Beta" not in resp.text
 
 
+def test_toolbar_has_type_filter(tmp_path: Path) -> None:
+    board_client = _client(tmp_path)
+    body = board_client.get("/").text
+    assert 'class="type-filter"' in body
+    assert '<option value="bug"' in body
+
+
+def test_board_filters_by_type(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Alpha", column="todo", type="bug")
+    board.add("Beta", column="todo", type="feature")
+    resp = TestClient(create_app(board)).get("/board", params={"type": "bug"})
+    assert "Alpha" in resp.text
+    assert "Beta" not in resp.text
+
+
+def test_custom_type_color_renders_as_inline_style(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[types.colors]\nbug = "#ff0000"\n')
+    board = Board.load(tmp_path)
+    board.add("Alpha", column="todo", type="bug")
+    resp = TestClient(create_app(board)).get("/board")
+    assert 'style="color: #ff0000; background: rgba(255, 0, 0, 0.14);"' in resp.text
+    # the CSS fallback class is dropped in favor of the inline color
+    assert 'card-type type-bug' not in resp.text
+
+
+def test_type_without_color_override_still_uses_css_class(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Alpha", column="todo", type="bug")
+    resp = TestClient(create_app(board)).get("/board")
+    assert 'card-type type-bug' in resp.text
+    assert 'style="color:' not in resp.text
+
+
 def test_column_over_wip_limit_is_flagged(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     cfg = tmp_path / ".kanbai" / "config.toml"
@@ -282,15 +381,18 @@ def test_column_over_wip_limit_is_flagged(tmp_path: Path) -> None:
     assert "count over" in body  # over-limit styling hook
 
 
-def test_board_has_new_sprint_button(tmp_path: Path) -> None:
+def test_board_has_close_sprint_button(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert 'hx-get="/sprint/new"' in body
+    assert "Close sprint" in body
+    assert "New sprint" not in body
 
 
 def test_backlog_has_sort_control(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert 'hx-post="/columns/backlog/sort"' in body
     assert body.count('class="col-sort"') == 1  # only the backlog column
+    assert '<option value="type">type</option>' in body
 
 
 def test_sort_backlog_via_post(tmp_path: Path) -> None:
@@ -303,6 +405,16 @@ def test_sort_backlog_via_post(tmp_path: Path) -> None:
     )
     assert resp.status_code == 200
     assert [c.title for c in board.list_column("backlog")] == ["alpha", "zeta"]  # desc: high first
+
+
+def test_sort_backlog_by_type_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("fix it", type="bug")
+    board.add("new thing", type="feature")
+    resp = TestClient(create_app(board)).post("/columns/backlog/sort", data={"by": "type"})
+    assert resp.status_code == 200
+    assert [c.title for c in board.list_column("backlog")] == ["fix it", "new thing"]
 
 
 def test_board_has_archive_button(tmp_path: Path) -> None:
@@ -326,6 +438,15 @@ def test_archive_view_lists_cards_with_origin(tmp_path: Path) -> None:
     assert "Done task" in resp.text
     assert "from done" in resp.text  # archived_from shown
     assert f'hx-post="/cards/{card.id}/restore"' in resp.text
+
+
+def test_archive_view_shows_version_when_set(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Done task", column="done", version="v1.2.0")
+    board.archive(card.id)
+    resp = TestClient(create_app(board)).get("/archive")
+    assert "v1.2.0" in resp.text
 
 
 def test_plan_and_archive_modals_render_priority_and_labels(tmp_path: Path) -> None:
@@ -372,12 +493,36 @@ def test_new_sprint_modal_and_action(tmp_path: Path) -> None:
     client = TestClient(create_app(board))
 
     modal = client.get("/sprint/new").text
+    assert "Close sprint" in modal
     assert 'name="reset"' in modal  # the reset choice is offered
+    assert 'name="version"' in modal  # optional version stamp
 
     resp = client.post("/sprint/new", data={"reset": "1"})
     assert resp.status_code == 200
     assert board.list_column("done") == []  # done archived
     assert [c.title for c in board.list_column("backlog")] == ["A"]  # active reset to backlog
+
+
+def test_close_sprint_stamps_version_on_archived_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("B", column="done")
+    client = TestClient(create_app(board))
+
+    resp = client.post("/sprint/new", data={"reset": "0", "version": "v1.2.0"})
+    assert resp.status_code == 200
+    assert board.list_archive()[0].version == "v1.2.0"
+
+
+def test_close_sprint_without_version_leaves_it_unset(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("B", column="done")
+    client = TestClient(create_app(board))
+
+    resp = client.post("/sprint/new", data={"reset": "0"})
+    assert resp.status_code == 200
+    assert board.list_archive()[0].version is None
 
 
 def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
@@ -434,6 +579,7 @@ def test_card_detail_shows_full_card(tmp_path: Path) -> None:
         column="todo",
         description="## Criteria\n- do the thing",
         priority="high",
+        type="feature",
         labels=["ui"],
     )
     resp = TestClient(create_app(board)).get("/cards/001")
@@ -441,6 +587,16 @@ def test_card_detail_shows_full_card(tmp_path: Path) -> None:
     assert "Login screen" in resp.text
     assert "do the thing" in resp.text  # the body/description is now visible
     assert "ui" in resp.text  # label
+    assert "feature" in resp.text  # type badge
+
+
+def test_card_detail_does_not_show_assignee(tmp_path: Path) -> None:
+    # assignee is fully supported in model/CLI/board but unused today, so the UI hides it.
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo", assignee="claude")
+    resp = TestClient(create_app(board)).get("/cards/001")
+    assert "assignee" not in resp.text.lower()
 
 
 def test_detail_offers_move_to_other_columns(tmp_path: Path) -> None:
@@ -478,12 +634,16 @@ def test_detail_has_edit_button(tmp_path: Path) -> None:
 def test_edit_form_prefills_current_values(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
-    board.add("Old title", column="todo", description="old body", priority="low", labels=["a"])
+    board.add(
+        "Old title", column="todo", description="old body", priority="low", type="bug", labels=["a"]
+    )
     resp = TestClient(create_app(board)).get("/cards/001/edit")
     assert resp.status_code == 200
     assert 'name="title"' in resp.text
     assert "Old title" in resp.text
     assert "old body" in resp.text
+    assert 'name="type"' in resp.text
+    assert '<option value="bug" selected>' in resp.text
 
 
 def test_edit_card_persists_changes(tmp_path: Path) -> None:
@@ -494,13 +654,20 @@ def test_edit_card_persists_changes(tmp_path: Path) -> None:
 
     resp = client.post(
         "/cards/001/edit",
-        data={"title": "New", "description": "desc", "priority": "high", "labels": "x, y"},
+        data={
+            "title": "New",
+            "description": "desc",
+            "priority": "high",
+            "type": "bug",
+            "labels": "x, y",
+        },
     )
     assert resp.status_code == 200
     card = board.show("001")
     assert card.title == "New"
     assert card.body == "desc"
     assert card.priority.value == "high"
+    assert card.type == "bug"
     assert card.labels == ["x", "y"]
 
 

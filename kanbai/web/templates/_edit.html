@@ -22,6 +22,15 @@
       </select>
     </label>
     <label class="field">
+      <span>Type</span>
+      <select name="type">
+        <option value=""{% if not card.type %} selected{% endif %}>—</option>
+        {% for t in types %}
+        <option value="{{ t }}"{% if t == card.type %} selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
       <span>Labels</span>
       <input type="text" name="labels" value="{{ card.labels | join(', ') }}"
              placeholder="comma, separated" autocomplete="off">

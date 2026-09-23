@@ -25,15 +25,20 @@
       {% endif %}
     </div>
     <div class="board-actions">
+      <button class="icon-btn" type="button" title="Add a new card"
+              hx-get="{{ base }}/cards/new" hx-target="#detail" hx-swap="innerHTML">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>New card</span>
+      </button>
       <button class="icon-btn" type="button" title="Plan the sprint from the backlog"
               hx-get="{{ base }}/sprint/plan" hx-target="#detail" hx-swap="innerHTML">
         <svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
         <span>Plan sprint</span>
       </button>
-      <button class="icon-btn" type="button" title="Start a new sprint"
+      <button class="icon-btn" type="button" title="Close the current sprint and start a new one"
               hx-get="{{ base }}/sprint/new" hx-target="#detail" hx-swap="innerHTML">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
-        <span>New sprint</span>
+        <span>Close sprint</span>
       </button>
       <button class="icon-btn" type="button" title="Browse archived cards"
               hx-get="{{ base }}/archive" hx-target="#detail" hx-swap="innerHTML">
@@ -49,22 +54,6 @@
       </button>
       {% endif %}
     </div>
-    <form class="add-card" hx-post="{{ base }}/cards" hx-target="#board" hx-swap="outerHTML"
-          hx-on::after-request="if(event.detail.successful) this.reset()">
-      <input type="text" name="title" placeholder="New card title…" required autocomplete="off">
-      <select name="column" aria-label="Column">
-        {% for name in column_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-      </select>
-      <select name="priority" aria-label="Priority">
-        {% for p in priorities %}
-        <option value="{{ p }}"{% if p == 'medium' %} selected{% endif %}>{{ p }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="add-btn" title="Add card">
-        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span>Add</span>
-      </button>
-    </form>
   </header>
 
   <div class="toolbar">
@@ -72,15 +61,25 @@
            value="{{ search }}"
            hx-get="{{ base }}/board" hx-target="#board" hx-swap="outerHTML"
            hx-trigger="input changed delay:250ms, search"
-           hx-include="[name='label']">
+           hx-include="[name='label'], .type-filter">
     <select class="label-filter" name="label" aria-label="Filter by label"
             hx-get="{{ base }}/board" hx-target="#board" hx-swap="outerHTML"
-            hx-trigger="change" hx-include="[name='q']">
+            hx-trigger="change" hx-include="[name='q'], .type-filter">
       <option value="">All labels</option>
       {% for lb in labels %}
       <option value="{{ lb }}"{% if lb == label %} selected{% endif %}>{{ lb }}</option>
       {% endfor %}
     </select>
+    {% if types %}
+    <select class="type-filter" name="type" aria-label="Filter by type"
+            hx-get="{{ base }}/board" hx-target="#board" hx-swap="outerHTML"
+            hx-trigger="change" hx-include="[name='q'], [name='label']">
+      <option value="">All types</option>
+      {% for t in types %}
+      <option value="{{ t }}"{% if t == type %} selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
   </div>
 
   {% include "_board.html" %}
@@ -121,12 +120,13 @@
     if (window.EventSource) {
       var events = new EventSource(BASE + '/events');
       events.onmessage = function () {
-        // Carry the current search/label so a live refresh keeps the active filter.
+        // Carry the current search/label/type so a live refresh keeps the active filter.
         var q = document.querySelector('[name=q]');
         var label = document.querySelector('[name=label]');
+        var type = document.querySelector('.type-filter');
         htmx.ajax('GET', BASE + '/board', {
           target: '#board', swap: 'outerHTML',
-          values: { q: q ? q.value : '', label: label ? label.value : '' }
+          values: { q: q ? q.value : '', label: label ? label.value : '', type: type ? type.value : '' }
         });
       };
     }

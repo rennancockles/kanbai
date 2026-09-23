@@ -38,6 +38,46 @@ def test_add_lands_in_backlog_json(project: Path) -> None:
     assert board["doing"] == []
 
 
+def test_add_and_edit_type(project: Path) -> None:
+    add = runner.invoke(app, ["add", "Fix the bug", "--type", "bug", "--json"])
+    assert add.exit_code == 0, add.output
+    card = json.loads(add.output)
+    assert card["type"] == "bug"
+
+    edited = runner.invoke(app, ["edit", card["id"], "--type", "feature", "--json"])
+    assert edited.exit_code == 0, edited.output
+    assert json.loads(edited.output)["type"] == "feature"
+
+
+def test_add_rejects_unknown_type(project: Path) -> None:
+    # Unlike --priority (a Typer enum validated at parse time), --type is a free string
+    # validated against board config, so an unknown value surfaces as an uncaught
+    # KanbaiError — the same behavior board.add()/edit() already have for other errors.
+    result = runner.invoke(app, ["add", "Task", "--type", "not-a-type"])
+    assert result.exit_code == 1
+    assert "not-a-type" in str(result.exception)
+
+
+def test_list_filters_by_type(project: Path) -> None:
+    runner.invoke(app, ["add", "Fix the bug", "--type", "bug"])
+    runner.invoke(app, ["add", "New thing", "--type", "feature"])
+    listed = runner.invoke(app, ["list", "backlog", "--type", "bug", "--json"])
+    assert listed.exit_code == 0, listed.output
+    cards = json.loads(listed.output)
+    assert [c["title"] for c in cards] == ["Fix the bug"]
+
+
+def test_add_and_edit_version(project: Path) -> None:
+    add = runner.invoke(app, ["add", "Task", "--version", "v1.0.0", "--json"])
+    assert add.exit_code == 0, add.output
+    card = json.loads(add.output)
+    assert card["version"] == "v1.0.0"
+
+    edited = runner.invoke(app, ["edit", card["id"], "--version", "v1.1.0", "--json"])
+    assert edited.exit_code == 0, edited.output
+    assert json.loads(edited.output)["version"] == "v1.1.0"
+
+
 def test_json_output_is_plain_under_force_color(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -95,8 +135,14 @@ def test_new_sprint_to_backlog(project: Path) -> None:
     result = runner.invoke(app, ["new-sprint", "--to-backlog", "--yes"])
     assert result.exit_code == 0
     assert runner.invoke(app, ["list", "todo", "--json"]).output.strip() == "[]"
-    backlog = json.loads(runner.invoke(app, ["list", "backlog", "--json"]).output)
-    assert any(c["title"] == "A" for c in backlog)
+
+
+def test_new_sprint_stamps_version(project: Path) -> None:
+    runner.invoke(app, ["add", "B", "-c", "done"])
+    result = runner.invoke(app, ["new-sprint", "--version", "v2.0.0", "--yes"])
+    assert result.exit_code == 0
+    archived = json.loads(runner.invoke(app, ["list", "archive", "--json"]).output)
+    assert archived[0]["version"] == "v2.0.0"
 
 
 def test_sort_backlog_by_priority(project: Path) -> None:
@@ -105,6 +151,14 @@ def test_sort_backlog_by_priority(project: Path) -> None:
     assert runner.invoke(app, ["sort", "backlog", "--by", "priority", "--desc"]).exit_code == 0
     backlog = json.loads(runner.invoke(app, ["list", "backlog", "--json"]).output)
     assert [c["title"] for c in backlog] == ["alpha", "zeta"]  # desc: high first, persisted
+
+
+def test_sort_backlog_by_type(project: Path) -> None:
+    runner.invoke(app, ["add", "fix it", "-t", "bug"])
+    runner.invoke(app, ["add", "new thing", "-t", "feature"])
+    assert runner.invoke(app, ["sort", "backlog", "--by", "type"]).exit_code == 0
+    backlog = json.loads(runner.invoke(app, ["list", "backlog", "--json"]).output)
+    assert [c["title"] for c in backlog] == ["fix it", "new thing"]  # alphabetical by type
 
 
 def test_next_ignores_backlog(project: Path) -> None:

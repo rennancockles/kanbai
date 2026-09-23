@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from kanbai.board import Board
-from kanbai.errors import CardNotFoundError, ColumnNotFoundError
+from kanbai.errors import CardNotFoundError, ColumnNotFoundError, InvalidTypeError
 from kanbai.models import Priority
 
 
@@ -28,6 +28,18 @@ def test_add_uses_default_priority(board: Board) -> None:
     assert card.priority == Priority.medium
     high = board.add("Urgent", priority="high")
     assert high.priority == Priority.high
+
+
+def test_add_type_is_unset_by_default(board: Board) -> None:
+    card = board.add("Task")
+    assert card.type is None
+    bug = board.add("Fix it", type="bug")
+    assert bug.type == "bug"
+
+
+def test_add_rejects_unknown_type(board: Board) -> None:
+    with pytest.raises(InvalidTypeError):
+        board.add("Task", type="unknown-type")
 
 
 def test_move_updates_status_and_order(board: Board) -> None:
@@ -130,6 +142,28 @@ def test_edit_replaces_labels_and_deps(board: Board) -> None:
     assert edited.deps == ["005"]
 
 
+def test_edit_sets_and_clears_type(board: Board) -> None:
+    card = board.add("Task")
+    typed = board.edit(card.id, type="bug")
+    assert typed.type == "bug"
+    cleared = board.edit(card.id, type="")
+    assert cleared.type is None
+
+
+def test_edit_rejects_unknown_type(board: Board) -> None:
+    card = board.add("Task")
+    with pytest.raises(InvalidTypeError):
+        board.edit(card.id, type="unknown-type")
+
+
+def test_edit_sets_and_clears_version(board: Board) -> None:
+    card = board.add("Task")
+    versioned = board.edit(card.id, version="v1.0.0")
+    assert versioned.version == "v1.0.0"
+    cleared = board.edit(card.id, version="")
+    assert cleared.version is None
+
+
 def test_archive_moves_off_board(board: Board) -> None:
     card = board.add("Task")
     board.archive(card.id)
@@ -165,6 +199,21 @@ def test_new_sprint_can_leave_active_columns(board: Board) -> None:
     result = board.new_sprint(reset_to_backlog=False)
     assert result == {"archived": 1, "reset": 0}
     assert [c.title for c in board.list_column("todo")] == ["A"]  # left in place
+
+
+def test_new_sprint_stamps_version_on_done_cards(board: Board) -> None:
+    a = board.add("A", column="done")
+    b = board.add("B", column="done")
+    board.new_sprint(reset_to_backlog=False, version="v1.2.0")
+    archived_ids = {c.id for c in board.list_archive()}
+    assert archived_ids == {a.id, b.id}
+    assert all(c.version == "v1.2.0" for c in board.list_archive())
+
+
+def test_new_sprint_without_version_leaves_it_unset(board: Board) -> None:
+    board.add("A", column="done")
+    board.new_sprint(reset_to_backlog=False)
+    assert board.list_archive()[0].version is None
 
 
 def test_remove_deletes_card(board: Board) -> None:
@@ -219,3 +268,15 @@ def test_sort_column_by_id(board: Board) -> None:
     board.edit(c.id, order=0)  # C floats to the top
     board.sort_column("backlog", "id")
     assert [x.id for x in board.list_column("backlog")] == ["001", "002", "003"]
+
+
+def test_sort_column_by_type(board: Board) -> None:
+    board.add("no type")
+    board.add("fix it", type="bug")
+    board.add("new thing", type="feature")
+
+    board.sort_column("backlog", "type")  # ascending: untyped ("") first, then alphabetical
+    assert [c.title for c in board.list_column("backlog")] == ["no type", "fix it", "new thing"]
+
+    board.sort_column("backlog", "type", descending=True)  # untyped last when descending
+    assert [c.title for c in board.list_column("backlog")] == ["new thing", "fix it", "no type"]

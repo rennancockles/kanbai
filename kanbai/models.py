@@ -27,6 +27,8 @@ FRONTMATTER_FIELDS = (
     "title",
     "status",
     "priority",
+    "type",
+    "version",
     "order",
     "labels",
     "deps",
@@ -51,6 +53,12 @@ class Card(BaseModel):
     title: str
     status: str
     priority: Priority = Priority.medium
+    # Single structured category (feature/bug/chore/...), distinct from the free-form labels
+    # below. Unset for cards created before this field existed, or when the user skips it.
+    type: str | None = None
+    # Free-form release marker (e.g. "v1.2.0"), set when a card is closed out in a sprint so
+    # the archive can later show which release shipped it. Not validated against any list.
+    version: str | None = None
     order: int = 0
     labels: list[str] = Field(default_factory=list)
     deps: list[str] = Field(default_factory=list)
@@ -68,6 +76,11 @@ class Card(BaseModel):
             value = getattr(self, field)
             # Only archived cards carry this marker — keep it off every other card.
             if field == "archived_from" and value is None:
+                continue
+            # Untyped cards (created before this field existed, or left unset) omit it too.
+            if field == "type" and value is None:
+                continue
+            if field == "version" and value is None:
                 continue
             if isinstance(value, Priority):
                 value = value.value
@@ -87,6 +100,13 @@ class BoardConfig(BaseModel):
         default_factory=lambda: ["backlog", "todo", "doing", "review", "done"]
     )
     default_priority: Priority = Priority.medium
+    # Configurable list of valid card types; empty means the board doesn't use types at all.
+    types: list[str] = Field(
+        default_factory=lambda: ["feature", "bug", "refactor", "chore", "docs", "spike"]
+    )
+    # Optional per-type hex color override (e.g. {"spec": "#ffaa00"}); a type absent here
+    # uses the built-in color for known types, or a neutral gray for unknown ones.
+    type_colors: dict[str, str] = Field(default_factory=dict)
     # Optional work-in-progress limits per column; a column absent here has no limit.
     wip: dict[str, int] = Field(default_factory=dict)
 

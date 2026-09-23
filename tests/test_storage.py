@@ -89,3 +89,33 @@ def test_coerce_priority_rejects_unknown_value() -> None:
     assert storage.coerce_priority(Priority.low) == Priority.low
     with pytest.raises(KanbaiError):  # not a raw ValueError
         storage.coerce_priority("urgent")
+
+
+def test_coerce_type_rejects_unknown_value() -> None:
+    assert storage.coerce_type("bug", ["bug", "feature"]) == "bug"
+    with pytest.raises(KanbaiError):
+        storage.coerce_type("urgent", ["bug", "feature"])
+
+
+def test_type_round_trips_and_is_omitted_when_none(tmp_path: Path) -> None:
+    typed = _make_card(type="bug")
+    text = storage.dump_card(typed)
+    assert "type: bug" in text
+    path = tmp_path / "todo" / storage.card_filename(typed)
+    storage.atomic_write(path, text)
+    assert storage.parse_card(path, "todo").type == "bug"
+
+    # An untyped card carries no type field at all.
+    assert "type:" not in storage.dump_card(_make_card())
+
+
+def test_version_round_trips_and_is_omitted_when_none(tmp_path: Path) -> None:
+    versioned = _make_card(version="v1.2.0")
+    text = storage.dump_card(versioned)
+    assert "version: v1.2.0" in text
+    path = tmp_path / "todo" / storage.card_filename(versioned)
+    storage.atomic_write(path, text)
+    assert storage.parse_card(path, "todo").version == "v1.2.0"
+
+    # A card without a version carries no version field at all.
+    assert "version:" not in storage.dump_card(_make_card())

@@ -49,6 +49,9 @@ Capturing new work:
 - `kanbai add "title" -d "description" -p high` puts a card in the **backlog** by default.
 - Add straight into the sprint with `kanbai add "title" -c todo`.
 - Plan a backlog card into the sprint with `kanbai move <id> todo`.
+- **Always set a type** (`-t`/`--type`) when creating a card. Check the board's configured
+  types (`kanbai show <id> --json` on an existing card, or read `.kanbai/config.toml`'s
+  `[types]` section) and pick whichever fits best — don't leave it unset.
 
 Other useful commands:
 

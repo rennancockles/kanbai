@@ -36,3 +36,11 @@ class InvalidPriorityError(KanbaiError):
     def __init__(self, value: str) -> None:
         self.value = value
         super().__init__(f"Invalid priority '{value}'. Use one of: low, medium, high.")
+
+
+class InvalidTypeError(KanbaiError):
+    """Raised when a card type is not one of the board's configured types."""
+
+    def __init__(self, value: str, valid_types: list[str]) -> None:
+        self.value = value
+        super().__init__(f"Invalid type '{value}'. Use one of: {', '.join(valid_types)}.")

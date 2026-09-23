@@ -9,6 +9,13 @@
   --high: #f77;
   --medium: #f5c451;
   --low: #6bcB8b;
+  --type-feature: #6ea8fe;
+  --type-bug: #f77;
+  --type-refactor: #f0a35c;
+  --type-chore: #8b93a1;
+  --type-docs: #c58bf5;
+  --type-spike: #4fd1c5;
+  --type-other: #8b93a1;
   --radius: 10px;
 }
 
@@ -63,7 +70,8 @@ body {
   padding: 0.75rem 1.5rem 0;
 }
 .toolbar .search,
-.toolbar .label-filter {
+.toolbar .label-filter,
+.toolbar .type-filter {
   font: inherit;
   font-size: 0.85rem;
   color: var(--text);
@@ -189,6 +197,21 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .pri-medium .card-pri { color: var(--medium); }
 .pri-low .card-pri { color: var(--low); }
 
+.card-type {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+}
+.type-feature { color: var(--type-feature); background: rgba(110, 168, 254, 0.14); }
+.type-bug { color: var(--type-bug); background: rgba(255, 119, 119, 0.14); }
+.type-refactor { color: var(--type-refactor); background: rgba(240, 163, 92, 0.14); }
+.type-chore { color: var(--type-chore); background: rgba(139, 147, 161, 0.14); }
+.type-docs { color: var(--type-docs); background: rgba(197, 139, 245, 0.14); }
+.type-spike { color: var(--type-spike); background: rgba(79, 209, 197, 0.14); }
+.type-other { color: var(--type-other); background: rgba(139, 147, 161, 0.14); }
+
 .card-title { margin: 0; font-size: 0.9rem; line-height: 1.35; }
 
 .card-labels { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.55rem; }
@@ -209,41 +232,6 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
   border: 1px dashed var(--border);
   border-radius: 8px;
 }
-
-/* add-card form in the top bar */
-.add-card {
-  display: flex;
-  gap: 0.4rem;
-  margin-left: auto;
-  align-items: center;
-}
-
-.add-card input,
-.add-card select,
-.add-card button {
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 0.35rem 0.5rem;
-}
-
-.add-card input { min-width: 200px; }
-.add-card input::placeholder { color: var(--muted); }
-
-.add-card button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  cursor: pointer;
-  color: #0d1b2f;
-  background: var(--accent);
-  border-color: var(--accent);
-  font-weight: 600;
-}
-.add-card button:hover { filter: brightness(1.08); }
 
 /* drag-and-drop affordances */
 .card { cursor: grab; }

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from .errors import InvalidPriorityError
+from .errors import InvalidPriorityError, InvalidTypeError
 from .models import Card, Priority
 
 KANBAI_DIRNAME = ".kanbai"
@@ -179,3 +179,15 @@ def coerce_priority(value: str | Priority) -> Priority:
         return Priority(value)
     except ValueError as exc:
         raise InvalidPriorityError(value) from exc
+
+
+def coerce_type(value: str, valid_types: list[str]) -> str:
+    """Validate a card type against the board's configured types.
+
+    Raises :class:`InvalidTypeError` (a ``KanbaiError``) for a value outside ``valid_types``,
+    so callers that already handle board errors — like the web endpoints — degrade
+    gracefully instead of surfacing a raw exception.
+    """
+    if value not in valid_types:
+        raise InvalidTypeError(value, valid_types)
+    return value

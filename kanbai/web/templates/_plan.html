@@ -16,6 +16,10 @@
       <label class="plan-item {{ priority_class[card.priority.value] }}">
         <input type="checkbox" name="ids" value="{{ card.id }}">
         <span class="card-id">#{{ card.id }}</span>
+        {% if card.type %}
+        <span class="card-type{% if card.type not in type_style %} {{ type_class.get(card.type, 'type-other') }}{% endif %}"
+              {% if card.type in type_style %}style="{{ type_style[card.type] }}"{% endif %}>{{ card.type }}</span>
+        {% endif %}
         <span class="plan-title">{{ card.title }}</span>
         {% if card.labels %}
         <span class="item-labels">

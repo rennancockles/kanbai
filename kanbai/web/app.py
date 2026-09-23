@@ -23,6 +23,22 @@ _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
 
 # Maps a card priority value to the CSS modifier class used by the template.
 PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
+# Maps the built-in card types to a CSS modifier class; custom/unknown types fall back to a
+# neutral badge (see "type-other" in style.css) rather than needing a color for every value.
+TYPE_CLASS = {
+    "feature": "type-feature",
+    "bug": "type-bug",
+    "refactor": "type-refactor",
+    "chore": "type-chore",
+    "docs": "type-docs",
+    "spike": "type-spike",
+}
+
+
+def _type_badge_style(hex_color: str) -> str:
+    """Inline CSS for a type badge overridden via ``[types.colors]`` in config.toml."""
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
+    return f"color: {hex_color}; background: rgba({r}, {g}, {b}, 0.14);"
 
 
 def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == route count
@@ -51,13 +67,19 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         """Render a template, injecting ``base`` so URLs work under the hub's ``/b/<name>``."""
         return _TEMPLATES.TemplateResponse(request, name, {**(ctx or {}), "base": base_path})
 
-    def context(search: str = "", label: str = "") -> dict[str, object]:
+    def type_style() -> dict[str, str]:
+        """Inline style per type configured in ``[types.colors]`` (overrides the CSS class)."""
+        return {t: _type_badge_style(c) for t, c in resolved.config.type_colors.items()}
+
+    def context(search: str = "", label: str = "", type_: str = "") -> dict[str, object]:
         query = search.strip().lower()
 
         def matches(card: Card) -> bool:
             if query and query not in card.title.lower() and query != card.id:
                 return False
-            return not (label and label not in card.labels)
+            if label and label not in card.labels:
+                return False
+            return not (type_ and card.type != type_)
 
         board_data = resolved.board()
         all_labels = sorted({lb for cards in board_data.values() for c in cards for lb in c.labels})
@@ -78,10 +100,14 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "column_names": resolved.columns,
             "priorities": [p.value for p in Priority],
             "priority_class": PRIORITY_CLASS,
+            "types": resolved.config.types,
+            "type_class": TYPE_CLASS,
+            "type_style": type_style(),
             "blocked": resolved.blocked_ids(),
             "labels": all_labels,
             "search": search,
             "label": label,
+            "type": type_,
             "boards": boards or [],
             "current": current,
             "backlog_column": resolved.config.add_column,
@@ -92,8 +118,8 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         return render(request, "board.html", context())
 
     @app.get("/board", response_class=HTMLResponse)
-    def board_partial(request: Request, q: str = "", label: str = "") -> Response:
-        return render(request, "_board.html", context(q, label))
+    def board_partial(request: Request, q: str = "", label: str = "", type: str = "") -> Response:  # noqa: A002
+        return render(request, "_board.html", context(q, label, type))
 
     @app.post("/columns/{column}/sort", response_class=HTMLResponse)
     def sort_column(
@@ -108,18 +134,33 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             resolved.sort_column(column, by, descending=dir == "desc")
         return render(request, "_board.html", context(q, label))
 
+    @app.get("/cards/new", response_class=HTMLResponse)
+    def new_card_form(request: Request) -> Response:
+        return render(
+            request,
+            "_new_card.html",
+            {
+                "column_names": resolved.columns,
+                "default_column": resolved.config.add_column,
+                "priorities": [p.value for p in Priority],
+                "types": resolved.config.types,
+            },
+        )
+
     @app.get("/cards/{card_id}", response_class=HTMLResponse)
     def card_detail(request: Request, card_id: str) -> Response:
         try:
             card = resolved.show(card_id)
         except KanbaiError:
             return Response(status_code=404)
-        return _TEMPLATES.TemplateResponse(
+        return render(
             request,
             "_detail.html",
             {
                 "card": card,
                 "priority_class": PRIORITY_CLASS,
+                "type_class": TYPE_CLASS,
+                "type_style": type_style(),
                 "column_names": resolved.columns,
             },
         )
@@ -127,13 +168,15 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
     @app.get("/sprint/plan", response_class=HTMLResponse)
     def sprint_plan_form(request: Request) -> Response:
         backlog = resolved.list_column(resolved.config.add_column)
-        return _TEMPLATES.TemplateResponse(
+        return render(
             request,
             "_plan.html",
             {
                 "cards": backlog,
                 "sprint": resolved.config.sprint_column,
                 "priority_class": PRIORITY_CLASS,
+                "type_class": TYPE_CLASS,
+                "type_style": type_style(),
             },
         )
 
@@ -146,10 +189,15 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
 
     @app.get("/archive", response_class=HTMLResponse)
     def archive_view(request: Request) -> Response:
-        return _TEMPLATES.TemplateResponse(
+        return render(
             request,
             "_archive.html",
-            {"cards": resolved.list_archive(), "priority_class": PRIORITY_CLASS},
+            {
+                "cards": resolved.list_archive(),
+                "priority_class": PRIORITY_CLASS,
+                "type_class": TYPE_CLASS,
+                "type_style": type_style(),
+            },
         )
 
     @app.post("/cards/{card_id}/restore", response_class=HTMLResponse)
@@ -163,8 +211,8 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         return render(request, "_new_sprint.html", {})
 
     @app.post("/sprint/new", response_class=HTMLResponse)
-    def sprint_new(request: Request, reset: str = Form("")) -> Response:
-        resolved.new_sprint(reset_to_backlog=reset == "1")
+    def sprint_new(request: Request, reset: str = Form(""), version: str = Form("")) -> Response:
+        resolved.new_sprint(reset_to_backlog=reset == "1", version=version or None)
         return render(request, "_board.html", context())
 
     @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)
@@ -173,13 +221,14 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             card = resolved.show(card_id)
         except KanbaiError:
             return Response(status_code=404)
-        return _TEMPLATES.TemplateResponse(
+        return render(
             request,
             "_edit.html",
             {
                 "card": card,
                 "priorities": [p.value for p in Priority],
                 "priority_class": PRIORITY_CLASS,
+                "types": resolved.config.types,
             },
         )
 
@@ -190,6 +239,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         title: str = Form(...),
         description: str = Form(""),
         priority: str = Form("medium"),
+        type: str = Form(""),  # noqa: A002
         labels: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
@@ -199,6 +249,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 title=title,
                 description=description,
                 priority=priority,
+                type=type,
                 labels=label_list,
             )
         return render(request, "_board.html", context())
@@ -230,10 +281,21 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         title: str = Form(...),
         column: str = Form(...),
         priority: str = Form("medium"),
+        type: str = Form(""),  # noqa: A002
+        labels: str = Form(""),
+        description: str = Form(""),
     ) -> Response:
-        # invalid column/priority — re-render the board unchanged
+        label_list = [s.strip() for s in labels.split(",") if s.strip()]
+        # invalid column/priority/type — re-render the board unchanged
         with contextlib.suppress(KanbaiError):
-            resolved.add(title, column=column, priority=priority)
+            resolved.add(
+                title,
+                column=column,
+                priority=priority,
+                type=type or None,
+                labels=label_list,
+                description=description,
+            )
         return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/move", response_class=HTMLResponse)

@@ -56,12 +56,14 @@ class Board:
 
     # ------------------------------------------------------------------ commands
 
-    def add(
+    def add(  # noqa: PLR0913 - one keyword-only param per card field
         self,
         title: str,
         *,
         description: str = "",
         priority: str | Priority | None = None,
+        type: str | None = None,  # noqa: A002 - mirrors the Card.type field name
+        version: str | None = None,
         column: str | None = None,
         labels: list[str] | None = None,
         deps: list[str] | None = None,
@@ -75,12 +77,15 @@ class Board:
             if priority is not None
             else self.config.default_priority
         )
+        resolved_type = storage.coerce_type(type, self.config.types) if type is not None else None
         timestamp = storage.now()
         card = Card(
             id=storage.next_id(self.kanbai_dir, self.columns),
             title=title,
             status=column,
             priority=resolved_priority,
+            type=resolved_type,
+            version=version,
             order=self._next_order(column),
             labels=labels or [],
             deps=deps or [],
@@ -136,7 +141,7 @@ class Board:
 
     #: Sort keys available for :meth:`sort_column` (``priority`` puts high first;
     #: ``id`` already follows creation order, so there is no separate date key).
-    SORT_KEYS = ("id", "priority", "title")
+    SORT_KEYS = ("id", "priority", "type", "title")
 
     def sort_column(self, column: str, key: str = "id", *, descending: bool = False) -> list[Card]:
         """Reorder ``column`` by ``key`` and persist the new ``order`` on every card."""
@@ -145,6 +150,7 @@ class Board:
             "id": lambda c: int(c.id) if c.id.isdigit() else c.id,
             # rank is high=0..low=2; negate so ascending reads low -> high like the other keys.
             "priority": lambda c: -c.priority.rank,
+            "type": lambda c: c.type or "",
             "title": lambda c: c.title.lower(),
         }
         keyfn = keyfns.get(key, keyfns["id"])
@@ -198,6 +204,8 @@ class Board:
         title: str | None = None,
         description: str | None = None,
         priority: str | Priority | None = None,
+        type: str | None = None,  # noqa: A002 - mirrors the Card.type field name
+        version: str | None = None,
         labels: list[str] | None = None,
         deps: list[str] | None = None,
         assignee: str | None = None,
@@ -211,6 +219,10 @@ class Board:
             card.body = description
         if priority is not None:
             card.priority = storage.coerce_priority(priority)
+        if type is not None:
+            card.type = storage.coerce_type(type, self.config.types) if type else None
+        if version is not None:
+            card.version = version or None
         if labels is not None:
             card.labels = labels
         if deps is not None:
@@ -259,9 +271,14 @@ class Board:
         storage.write_card(self.kanbai_dir, card)
         return card
 
-    def new_sprint(self, *, reset_to_backlog: bool) -> dict[str, int]:
+    def new_sprint(
+        self, *, reset_to_backlog: bool, version: str | None = None
+    ) -> dict[str, int]:
         """Start a fresh sprint: archive every done card, then optionally send the active
         columns (everything except backlog and done) back to the backlog.
+
+        When ``version`` is given, every card in ``done`` is stamped with it before being
+        archived — so the archive can later show which release shipped each card.
 
         Returns counts of what happened: ``{"archived": n, "reset": m}``.
         """
@@ -270,6 +287,8 @@ class Board:
 
         archived = 0
         for card in self.list_column(done):
+            if version:
+                self.edit(card.id, version=version)
             self.archive(card.id)
             archived += 1
 

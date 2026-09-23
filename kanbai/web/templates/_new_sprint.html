@@ -2,7 +2,7 @@
   <form class="modal card" hx-post="{{ base }}/sprint/new" hx-target="#board" hx-swap="outerHTML"
         hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
     <div class="modal-head">
-      <span class="card-id">New sprint</span>
+      <span class="card-id">Close sprint</span>
       <button class="modal-close" type="button" aria-label="Close"
               onclick="document.getElementById('detail').innerHTML=''">✕</button>
     </div>
@@ -19,10 +19,17 @@
       Leave them where they are
     </label>
 
+    <label class="field">
+      <span>Version (optional)</span>
+      <input type="text" name="version" placeholder="e.g. v1.2.0" autocomplete="off">
+    </label>
+    <p class="modal-note">Stamps every archived <strong>done</strong> card with this version, so
+      you can later tell which release shipped it.</p>
+
     <div class="modal-actions">
       <button type="button" class="btn-ghost"
               onclick="document.getElementById('detail').innerHTML=''">Cancel</button>
-      <button type="submit" class="btn-primary">Start new sprint</button>
+      <button type="submit" class="btn-primary">Close sprint</button>
     </div>
   </form>
 </div>

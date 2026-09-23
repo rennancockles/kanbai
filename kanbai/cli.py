@@ -86,13 +86,17 @@ def _render_column_table(column: str, cards: list[Card]) -> Table:
     table = Table(title=f"{column} ({len(cards)})", title_justify="left", expand=True)
     table.add_column("id", style="cyan", no_wrap=True)
     table.add_column("title")
+    table.add_column("type", style="blue", no_wrap=True)
     table.add_column("pri", no_wrap=True)
+    table.add_column("version", style="green", no_wrap=True)
     table.add_column("labels", style="magenta")
     for card in cards:
         table.add_row(
             card.id,
             card.title,
+            card.type or "—",
             _priority_cell(card.priority),
+            card.version or "—",
             ", ".join(card.labels),
         )
     return table
@@ -148,10 +152,12 @@ def init(
 
 
 @app.command()
-def add(
+def add(  # noqa: PLR0913 - one option per card field
     title: str = typer.Argument(..., help="Card title."),
     description: str = typer.Option("", "--desc", "-d", help="Card description / body."),
     priority: Priority | None = typer.Option(None, "--priority", "-p", help="Card priority."),
+    type: str | None = typer.Option(None, "--type", "-t", help="Card type."),  # noqa: A002
+    version: str | None = typer.Option(None, "--version", "-v", help="Release version."),
     column: str | None = typer.Option(None, "--column", "-c", help="Target column."),
     labels: list[str] | None = typer.Option(None, "--label", "-l", help="Label (repeatable)."),
     deps: list[str] | None = typer.Option(None, "--dep", help="Blocking card id (repeatable)."),
@@ -164,6 +170,8 @@ def add(
         title,
         description=description,
         priority=priority,
+        type=type,
+        version=version,
         column=column,
         labels=labels,
         deps=deps,
@@ -181,12 +189,17 @@ def add(
 @app.command(name="list")
 def list_cards(
     column: str | None = typer.Argument(None, help="Only show this column."),
+    type: str | None = typer.Option(None, "--type", "-t", help="Only show cards of this type."),  # noqa: A002
     as_json: bool = typer.Option(False, "--json", help="Emit the board as JSON."),
 ) -> None:
     """Show the board, a single column, or the ``archive``."""
     board = _load()
+
+    def filtered(cards: list[Card]) -> list[Card]:
+        return [c for c in cards if c.type == type] if type else cards
+
     if column is not None:
-        cards = (
+        cards = filtered(
             board.list_archive() if column == storage.ARCHIVE_DIRNAME else board.list_column(column)
         )
         if as_json:
@@ -195,7 +208,7 @@ def list_cards(
             console.print(_render_column_table(column, cards))
         return
 
-    data = board.board()
+    data = {col: filtered(cards) for col, cards in board.board().items()}
     if as_json:
         _emit_json({c: [_card_dict(x) for x in cs] for c, cs in data.items()})
         return
@@ -246,9 +259,10 @@ def show(
     console.print(
         Panel(
             f"[bold]{card.title}[/bold]\n"
-            f"status: {card.status}   priority: {_priority_cell(card.priority)}   "
-            f"order: {card.order}\n"
-            f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}"
+            f"status: {card.status}   type: {card.type or '—'}   "
+            f"priority: {_priority_cell(card.priority)}   order: {card.order}\n"
+            f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}   "
+            f"version: {card.version or '—'}"
             f"{body}",
             title=f"card {card.id}",
             title_align="left",
@@ -324,11 +338,13 @@ def done(
 
 
 @app.command()
-def edit(
+def edit(  # noqa: PLR0913 - one option per editable card field
     card_id: str = typer.Argument(..., help="Card id."),
     title: str | None = typer.Option(None, "--title", help="New title."),
     description: str | None = typer.Option(None, "--desc", "-d", help="New description / body."),
     priority: Priority | None = typer.Option(None, "--priority", "-p", help="New priority."),
+    type: str | None = typer.Option(None, "--type", "-t", help="New type."),  # noqa: A002
+    version: str | None = typer.Option(None, "--version", "-v", help="New release version."),
     labels: list[str] | None = typer.Option(None, "--label", "-l", help="Replace labels."),
     deps: list[str] | None = typer.Option(None, "--dep", help="Replace blocking card ids."),
     assignee: str | None = typer.Option(None, "--assignee", "-a", help="New assignee."),
@@ -342,6 +358,8 @@ def edit(
         title=title,
         description=description,
         priority=priority,
+        type=type,
+        version=version,
         labels=labels,
         deps=deps,
         assignee=assignee,
@@ -397,6 +415,9 @@ def new_sprint(
         "--to-backlog",
         help="Also move todo/doing/review cards back to the backlog.",
     ),
+    version: str | None = typer.Option(
+        None, "--version", "-v", help="Stamp every archived done card with this release version."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
 ) -> None:
     """Start a new sprint: archive all done cards (optionally reset active columns)."""
@@ -404,7 +425,7 @@ def new_sprint(
     if not yes:
         extra = " and move active cards to the backlog" if to_backlog else ""
         typer.confirm(f"Archive all done cards{extra}?", abort=True)
-    result = board.new_sprint(reset_to_backlog=to_backlog)
+    result = board.new_sprint(reset_to_backlog=to_backlog, version=version)
     message = f"[green]✓[/green] New sprint: archived {result['archived']} done card(s)"
     if to_backlog:
         message += f", moved {result['reset']} back to backlog"
@@ -457,7 +478,7 @@ def ui(
 @app.command()
 def sort(
     column: str = typer.Argument(..., help="Column to sort."),
-    by: str = typer.Option("id", "--by", help="Sort key: id, priority, or title."),
+    by: str = typer.Option("id", "--by", help="Sort key: id, priority, type, or title."),
     desc: bool = typer.Option(False, "--desc", help="Sort descending."),
     as_json: bool = typer.Option(False, "--json", help="Emit the sorted column as JSON."),
 ) -> None:
