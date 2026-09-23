@@ -143,6 +143,32 @@ The UI (FastAPI + HTMX, assets vendored so it works offline) lets you:
 - See **WIP-limit** and **blocked-by-dependency** indicators, and **live updates** as Claude
   moves cards from the CLI (via Server-Sent Events).
 
+## Multi-board hub
+
+Working across several projects? The **hub** serves all of them from one place, on a single
+port, with a board switcher — no more one server per project.
+
+Since the hub spans projects, install KanbAI **globally** (or run it with `uvx`):
+
+```bash
+pipx install 'kanbai[ui]'
+# or run without installing:
+uvx --from 'kanbai[ui]' kanbai hub
+```
+
+Register your boards (each must already have a `.kanbai/` — run `kanbai init` there), then
+start the hub:
+
+```bash
+kanbai hub add ~/projects/api        # register a board (name defaults to the folder)
+kanbai hub add ~/projects/web --name web
+kanbai hub list                      # show registered boards
+kanbai hub                           # serve them all; opens a landing to pick a board
+```
+
+Each board is served at `/b/<name>/` and the registry lives in `~/.kanbai/boards.toml`.
+Remove one with `kanbai hub remove <name>`.
+
 ## Configuration
 
 `.kanbai/config.toml` is created by `init` and can be edited:
@@ -177,6 +203,8 @@ doing = 3
 | `kanbai rm <id>` | Delete a card permanently. |
 | `kanbai new-sprint` | Archive done cards (optionally reset active columns to the backlog). |
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
+| `kanbai hub add/list/remove` | Manage the multi-board hub registry. |
+| `kanbai hub` | Serve all registered boards on one port (needs the `ui` extra). |
 
 Add `--json` to read-only commands for machine-readable output.
 
