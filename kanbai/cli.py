@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, scaffold
+from . import APP_NAME, scaffold, storage
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
@@ -172,10 +172,14 @@ def list_cards(
     column: str | None = typer.Argument(None, help="Only show this column."),
     as_json: bool = typer.Option(False, "--json", help="Emit the board as JSON."),
 ) -> None:
-    """Show the board, or a single column."""
+    """Show the board, a single column, or the ``archive``."""
     board = _load()
     if column is not None:
-        cards = board.list_column(column)
+        cards = (
+            board.list_archive()
+            if column == storage.ARCHIVE_DIRNAME
+            else board.list_column(column)
+        )
         if as_json:
             console.print_json(data=[_card_dict(c) for c in cards])
         else:
@@ -346,6 +350,21 @@ def archive(
     board = _load()
     card = board.archive(card_id)
     _emit_card(card, as_json, f"[green]✓[/green] Archived [cyan]{card.id}[/cyan]")
+
+
+@app.command()
+def restore(
+    card_id: str = typer.Argument(..., help="Archived card id."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the restored card as JSON."),
+) -> None:
+    """Restore an archived card to the column it came from (or the backlog)."""
+    board = _load()
+    card = board.restore(card_id)
+    _emit_card(
+        card,
+        as_json,
+        f"[green]✓[/green] Restored [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
+    )
 
 
 @app.command()

@@ -25,7 +25,7 @@ _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
 PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
 
 
-def create_app(  # noqa: C901 - route-registration factory; "complexity" is the route count
+def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == route count
     board: Board | None = None, *, force_polling: bool = False
 ) -> FastAPI:
     """Build the FastAPI app.
@@ -117,6 +117,18 @@ def create_app(  # noqa: C901 - route-registration factory; "complexity" is the 
         for card_id in ids:
             with contextlib.suppress(KanbaiError):
                 resolved.move(card_id, resolved.config.sprint_column)
+        return _TEMPLATES.TemplateResponse(request, "_board.html", context())
+
+    @app.get("/archive", response_class=HTMLResponse)
+    def archive_view(request: Request) -> Response:
+        return _TEMPLATES.TemplateResponse(
+            request, "_archive.html", {"cards": resolved.list_archive()}
+        )
+
+    @app.post("/cards/{card_id}/restore", response_class=HTMLResponse)
+    def restore_card(request: Request, card_id: str) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.restore(card_id)
         return _TEMPLATES.TemplateResponse(request, "_board.html", context())
 
     @app.get("/sprint/new", response_class=HTMLResponse)

@@ -174,6 +174,18 @@ def test_remove_deletes_card(board: Board) -> None:
         board.show(card.id)
 
 
+def test_list_archive_and_restore_to_origin(board: Board) -> None:
+    card = board.add("Done task", column="done")
+    board.archive(card.id)
+    assert [c.id for c in board.list_archive()] == [card.id]
+
+    restored = board.restore(card.id)
+    assert restored.status == "done"  # back to where it was archived from
+    assert restored.archived_from is None
+    assert board.list_archive() == []
+    assert [c.id for c in board.list_column("done")] == [card.id]
+
+
 def test_show_unknown_raises(board: Board) -> None:
     with pytest.raises(CardNotFoundError):
         board.show("404")

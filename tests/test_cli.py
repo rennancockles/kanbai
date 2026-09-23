@@ -109,6 +109,18 @@ def test_next_empty_returns_null(project: Path) -> None:
     assert json.loads(result.output) is None
 
 
+def test_list_archive_and_restore(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "done"])  # 001 in done
+    runner.invoke(app, ["archive", "001"])
+    archived = json.loads(runner.invoke(app, ["list", "archive", "--json"]).output)
+    assert [c["id"] for c in archived] == ["001"]
+
+    assert runner.invoke(app, ["restore", "001"]).exit_code == 0
+    done = json.loads(runner.invoke(app, ["list", "done", "--json"]).output)
+    assert [c["id"] for c in done] == ["001"]  # restored to origin column
+    assert runner.invoke(app, ["list", "archive", "--json"]).output.strip() == "[]"
+
+
 def test_missing_card_exits_nonzero(project: Path) -> None:
     result = runner.invoke(app, ["show", "404"])
     assert result.exit_code == 1

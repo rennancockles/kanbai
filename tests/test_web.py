@@ -221,6 +221,34 @@ def test_board_has_new_sprint_button(tmp_path: Path) -> None:
     assert 'hx-get="/sprint/new"' in body
 
 
+def test_board_has_archive_button(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert 'hx-get="/archive"' in body
+
+
+def test_archive_view_lists_cards_with_origin(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Done task", column="done")
+    board.archive(card.id)
+    resp = TestClient(create_app(board)).get("/archive")
+    assert resp.status_code == 200
+    assert "Done task" in resp.text
+    assert "from done" in resp.text  # archived_from shown
+    assert f'hx-post="/cards/{card.id}/restore"' in resp.text
+
+
+def test_restore_card_via_post(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Done task", column="done")
+    board.archive(card.id)
+    resp = TestClient(create_app(board)).post(f"/cards/{card.id}/restore")
+    assert resp.status_code == 200
+    assert [c.id for c in board.list_column("done")] == [card.id]
+    assert board.list_archive() == []
+
+
 def test_new_sprint_modal_and_action(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

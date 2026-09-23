@@ -218,6 +218,24 @@ class Board:
         storage.delete_card_file(path)
         return card
 
+    def list_archive(self) -> list[Card]:
+        """Return the archived cards (archive is not a board column, so read it directly)."""
+        return storage.read_column(self.kanbai_dir, storage.ARCHIVE_DIRNAME)
+
+    def restore(self, card_id: str) -> Card:
+        """Bring an archived card back to the column it came from (or the backlog)."""
+        card, old_path, _ = self._locate(card_id)
+        target = card.archived_from or self.config.add_column
+        if target not in self.columns:
+            target = self.config.add_column
+        card.status = target
+        card.order = self._next_order(target)
+        card.archived_from = None
+        card.updated = storage.now()
+        storage.delete_card_file(old_path)
+        storage.write_card(self.kanbai_dir, card)
+        return card
+
     def new_sprint(self, *, reset_to_backlog: bool) -> dict[str, int]:
         """Start a fresh sprint: archive every done card, then optionally send the active
         columns (everything except backlog and done) back to the backlog.

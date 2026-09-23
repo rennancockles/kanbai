@@ -21,6 +21,8 @@
               hx-get="/sprint/plan" hx-target="#detail" hx-swap="innerHTML">Plan sprint</button>
       <button class="plan-btn" type="button"
               hx-get="/sprint/new" hx-target="#detail" hx-swap="innerHTML">New sprint</button>
+      <button class="plan-btn" type="button"
+              hx-get="/archive" hx-target="#detail" hx-swap="innerHTML">Archive</button>
     </div>
     <form class="add-card" hx-post="/cards" hx-target="#board" hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()">
