@@ -42,5 +42,5 @@ Initial release: a file-based Kanban board for Claude Code and other AI coding h
 - Packaged with hatchling; `kanbai` console entry point. Optional `ui` extra
   (fastapi, uvicorn, jinja2, watchfiles, python-multipart). MIT licensed.
 
-[Unreleased]: https://github.com/rennan-cockles/kanbai/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/rennan-cockles/kanbai/releases/tag/v0.1.0
+[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/rennancockles/kanbai/releases/tag/v0.1.0

@@ -1,15 +1,22 @@
 <p align="center">
-  <img src="assets/logo.png" alt="KanbAI" width="650">
+  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/logo.png" alt="KanbAI" width="650">
 </p>
 
 # KanbAI
+
+<p align="center">
+  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/v/kanbai.svg?logo=pypi&logoColor=green&color=5865f9" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/kanbai/"><img src="https://img.shields.io/pypi/pyversions/kanbai.svg" alt="Python versions"></a>
+  <a href="https://github.com/rennancockles/kanbai/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rennancockles/kanbai/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://github.com/rennancockles/kanbai/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rennancockles/kanbai.svg" alt="License"></a>
+</p>
 
 A file-based Kanban board that lives in your repo, built for **Claude Code** and other AI
 coding harnesses (and humans too). The board is plain Markdown files under `.kanbai/`,
 driven by a simple `kanbai` CLI and a local web UI. Installed and invoked as `kanbai`.
 
 <p align="center">
-  <img src="assets/webui.png" alt="KanbAI web UI" width="840">
+  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/webui.png" alt="KanbAI web UI" width="840">
 </p>
 
 ## Why
@@ -115,7 +122,7 @@ Claude then works one card at a time:
 Allow the CLI without prompts by adding `Bash(kanbai *)` to your `.claude/settings.json`.
 
 Using another assistant (Cursor, Windsurf, Aider, Copilot, …)? The board is harness-agnostic
-— see [docs/other-harnesses.md](docs/other-harnesses.md).
+— see [docs/other-harnesses.md](https://github.com/rennancockles/kanbai/blob/main/docs/other-harnesses.md).
 
 ## Web UI
 
@@ -175,7 +182,7 @@ Add `--json` to read-only commands for machine-readable output.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](https://github.com/rennancockles/kanbai/blob/main/CHANGELOG.md).
 
 ## License
 
