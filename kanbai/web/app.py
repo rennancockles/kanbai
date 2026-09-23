@@ -147,7 +147,9 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
     @app.get("/archive", response_class=HTMLResponse)
     def archive_view(request: Request) -> Response:
         return _TEMPLATES.TemplateResponse(
-            request, "_archive.html", {"cards": resolved.list_archive()}
+            request,
+            "_archive.html",
+            {"cards": resolved.list_archive(), "priority_class": PRIORITY_CLASS},
         )
 
     @app.post("/cards/{card_id}/restore", response_class=HTMLResponse)

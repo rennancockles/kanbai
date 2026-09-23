@@ -456,26 +456,75 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
   overflow-y: auto;
   margin-bottom: 0.5rem;
 }
-.plan-item {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.4rem 0.35rem;
-  border-radius: 7px;
-  cursor: pointer;
-}
-.plan-item:hover { background: var(--surface-2); }
-.plan-item input { accent-color: var(--accent); }
-.plan-title { flex: 1; font-size: 0.88rem; }
-.plan-item .card-pri { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; }
-
+/* Enriched list rows: a left accent by priority mirrors the board cards. */
+.plan-item,
 .archive-item {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.4rem 0.35rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.6rem;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--border);
   border-radius: 7px;
 }
-.archive-item:hover { background: var(--surface-2); }
-.archive-from { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-.archive-item .btn-ghost { padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+.plan-item { cursor: pointer; }
+.plan-item:hover,
+.archive-item:hover { background: var(--surface-2); border-color: var(--border); }
+.plan-item.pri-high,   .archive-item.pri-high   { border-left-color: var(--high); }
+.plan-item.pri-medium, .archive-item.pri-medium { border-left-color: var(--medium); }
+.plan-item.pri-low,    .archive-item.pri-low    { border-left-color: var(--low); }
+
+.plan-item input { accent-color: var(--accent); flex: none; }
+.plan-title { flex: 1; font-size: 0.88rem; min-width: 0; }
+
+/* labels reuse the board's chip look; keep them from shoving the meta around */
+.item-labels { display: flex; flex-wrap: wrap; gap: 0.3rem; flex: none; }
+
+/* priority pill — tinted by priority so it reads at a glance */
+.item-pri {
+  flex: none;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+.pri-high .item-pri   { color: var(--high);   background: rgba(255, 119, 119, 0.14); }
+.pri-medium .item-pri { color: var(--medium); background: rgba(245, 196, 81, 0.14); }
+.pri-low .item-pri    { color: var(--low);    background: rgba(107, 203, 139, 0.14); }
+
+.archive-from {
+  flex: none;
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.archive-item .btn-ghost { flex: none; padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+
+/* friendlier empty states for the modals */
+.modal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  text-align: center;
+}
+.modal-empty svg {
+  width: 34px;
+  height: 34px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.6;
+}
+.modal-empty p { margin: 0; font-size: 0.86rem; }

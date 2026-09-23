@@ -328,6 +328,31 @@ def test_archive_view_lists_cards_with_origin(tmp_path: Path) -> None:
     assert f'hx-post="/cards/{card.id}/restore"' in resp.text
 
 
+def test_plan_and_archive_modals_render_priority_and_labels(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Themed backlog card", priority="high", labels=["ui"])  # backlog -> plan modal
+    done = board.add("Old done card", column="done", priority="low", labels=["infra"])
+    board.archive(done.id)
+    client = TestClient(create_app(board))
+
+    plan = client.get("/sprint/plan").text
+    assert 'class="plan-item pri-high"' in plan  # priority accent on the row
+    assert '<span class="item-pri">high</span>' in plan  # priority pill
+    assert ">ui<" in plan  # label chip
+
+    archive = client.get("/archive").text
+    assert 'class="archive-item pri-low"' in archive
+    assert ">infra<" in archive
+
+
+def test_plan_and_archive_modals_have_friendly_empty_states(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    client = TestClient(create_app(Board.load(tmp_path)))  # empty board
+    assert "modal-empty" in client.get("/sprint/plan").text
+    assert "modal-empty" in client.get("/archive").text
+
+
 def test_restore_card_via_post(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
