@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_name }} hub</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <img class="logo" src="/static/icon.png" alt="{{ app_name }}" width="28" height="28">
+      <h1>{{ app_name }} hub</h1>
+    </div>
+  </header>
+
+  <main class="hub">
+    {% if boards %}
+    <ul class="hub-list">
+      {% for b in boards %}
+      <li>
+        <a class="hub-board" href="{{ b.url }}">
+          <span class="hub-name">{{ b.name }}</span>
+          <span class="hub-path">{{ b.path }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No boards registered. Add one with <code>kanbai hub add &lt;path&gt;</code>.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

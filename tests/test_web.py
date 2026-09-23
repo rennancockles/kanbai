@@ -14,6 +14,7 @@ from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
 from kanbai.web import server
 from kanbai.web.app import create_app
+from kanbai.web.hub import create_hub_app
 from kanbai.web.watcher import watch_board
 from typer.testing import CliRunner
 
@@ -38,6 +39,46 @@ def test_index_renders_all_columns(tmp_path: Path) -> None:
 def test_index_shows_brand_name(tmp_path: Path) -> None:
     resp = _client(tmp_path).get("/")
     assert "KanbAI" in resp.text  # app name is branded with AI uppercased
+
+
+def test_base_path_prefixes_urls(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    html = TestClient(create_app(board, base_path="/b/proj")).get("/").text
+    assert "/b/proj/static/style.css" in html
+    assert 'hx-post="/b/proj/cards"' in html
+    assert 'var BASE = "/b/proj"' in html
+
+
+def test_default_base_path_has_no_prefix(tmp_path: Path) -> None:
+    html = _client(tmp_path).get("/").text
+    assert "/static/style.css" in html
+    assert "/b/" not in html
+
+
+def test_hub_lists_and_serves_boards(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    client = TestClient(create_hub_app({"a": str(board_a), "b": str(board_b)}))
+
+    root = client.get("/")
+    assert root.status_code == 200
+    assert "/b/a/" in root.text
+    assert "/b/b/" in root.text
+    # each board is served under its prefix
+    assert client.get("/b/a/").status_code == 200
+    assert client.get("/b/b/board").status_code == 200
+
+
+def test_hub_skips_missing_boards(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a), "gone": str(tmp_path / "nope")}))
+    assert client.get("/b/a/").status_code == 200
+    assert client.get("/b/gone/").status_code == 404  # unmounted
 
 
 def test_index_has_favicon_and_logo(tmp_path: Path) -> None:

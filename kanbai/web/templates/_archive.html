@@ -17,7 +17,7 @@
         <span class="plan-title">{{ card.title }}</span>
         <span class="archive-from">from {{ card.archived_from or '—' }}</span>
         <button class="btn-ghost" type="button"
-                hx-post="/cards/{{ card.id }}/restore" hx-target="#board" hx-swap="outerHTML"
+                hx-post="{{ base }}/cards/{{ card.id }}/restore" hx-target="#board" hx-swap="outerHTML"
                 hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
           Restore
         </button>

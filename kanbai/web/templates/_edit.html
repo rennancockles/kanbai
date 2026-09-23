@@ -1,6 +1,6 @@
 <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.innerHTML=''">
   <form class="modal card {{ priority_class[card.priority.value] }}"
-        hx-post="/cards/{{ card.id }}/edit" hx-target="#board" hx-swap="outerHTML"
+        hx-post="{{ base }}/cards/{{ card.id }}/edit" hx-target="#board" hx-swap="outerHTML"
         hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
     <div class="modal-head">
       <span class="card-id">#{{ card.id }}</span>
@@ -33,7 +33,7 @@
 
     <div class="modal-actions">
       <button type="button" class="btn-ghost"
-              hx-get="/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">Cancel</button>
+              hx-get="{{ base }}/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">Cancel</button>
       <button type="submit" class="btn-primary">Save</button>
     </div>
   </form>

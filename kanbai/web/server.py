@@ -14,6 +14,7 @@ import uvicorn
 
 from ..board import Board
 from .app import create_app
+from .hub import create_hub_app
 
 # Import string uvicorn re-imports on each reload; `create_app()` loads the board from cwd.
 _APP_FACTORY = "kanbai.web.app:create_app"
@@ -64,3 +65,20 @@ def serve(
             log_level="info",
             timeout_graceful_shutdown=_GRACEFUL_TIMEOUT,
         )
+
+
+def serve_hub(
+    boards: dict[str, str],
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    open_browser: bool = True,
+) -> None:
+    """Serve the multi-board hub (all registered boards under ``/b/<name>/``) on one port."""
+    app = create_hub_app(boards)
+    if open_browser:
+        url = f"http://{host}:{port}"
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    uvicorn.run(
+        app, host=host, port=port, log_level="info", timeout_graceful_shutdown=_GRACEFUL_TIMEOUT
+    )

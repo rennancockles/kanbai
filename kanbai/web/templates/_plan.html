@@ -1,5 +1,5 @@
 <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.innerHTML=''">
-  <form class="modal card" hx-post="/sprint/plan" hx-target="#board" hx-swap="outerHTML"
+  <form class="modal card" hx-post="{{ base }}/sprint/plan" hx-target="#board" hx-swap="outerHTML"
         hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
     <div class="modal-head">
       <span class="card-id">Plan sprint</span>

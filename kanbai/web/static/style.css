@@ -65,6 +65,25 @@ body {
 .toolbar .search { flex: 1; max-width: 340px; }
 .toolbar .search::placeholder { color: var(--muted); }
 
+/* hub landing */
+.hub { padding: 1.5rem; }
+.hub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; max-width: 640px; }
+.hub-board {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text);
+}
+.hub-board:hover { border-color: var(--accent); background: var(--surface-2); }
+.hub-name { font-weight: 600; }
+.hub-path { font-size: 0.8rem; color: var(--muted); }
+
 .board {
   display: grid;
   grid-auto-flow: column;

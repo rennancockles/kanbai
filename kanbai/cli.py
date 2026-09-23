@@ -449,11 +449,42 @@ def ui(
 
 hub_app = typer.Typer(
     name="hub",
-    help="Manage the multi-board hub registry (~/.kanbai/boards.toml).",
-    no_args_is_help=True,
+    help="Serve or manage the multi-board hub (~/.kanbai/boards.toml).",
     add_completion=False,
 )
 app.add_typer(hub_app, name="hub")
+
+
+@hub_app.callback(invoke_without_command=True)
+def hub_serve(
+    ctx: typer.Context,
+    host: str = typer.Option("127.0.0.1", "--host", help="Host to bind."),
+    port: int = typer.Option(8000, "--port", help="Port to bind."),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser."),
+) -> None:
+    """Serve all registered boards on one port (use the subcommands to manage the registry)."""
+    if ctx.invoked_subcommand is not None:
+        return
+    boards = registry.load_boards()
+    if not boards:
+        err_console.print(
+            "[yellow]![/yellow] No boards registered. Add one with "
+            "[cyan]kanbai hub add <path>[/cyan]."
+        )
+        raise typer.Exit(code=1)
+    try:
+        from .web.server import serve_hub  # noqa: PLC0415 - optional extra, imported on demand
+    except ImportError as exc:
+        err_console.print(
+            "[red]error:[/red] the hub needs the \"ui\" extra. Install it with "
+            "[cyan]pip install 'kanbai[ui]'[/cyan]."
+        )
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]›[/green] {APP_NAME} hub at [cyan]http://{host}:{port}[/cyan] "
+        f"[dim]({len(boards)} board(s), Ctrl+C to stop)[/dim]"
+    )
+    serve_hub(boards, host=host, port=port, open_browser=not no_browser)
 
 
 @hub_app.command("add")
