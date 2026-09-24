@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
+### Added
+
+- **Notifications** — get notified (native desktop and/or [ntfy](https://ntfy.sh) push) the
+  moment a card reaches `review` (or `done`, on boards with no `review` column), and again if
+  that move leaves the sprint with no actionable card left. Fires from `Board.move()` itself,
+  so it works from any command (`kanbai review`/`done`/`move`, drag-and-drop in the web UI) —
+  no background process required. Configurable via `[notifications]` in `config.toml`
+  (`native`, on by default; `ntfy_topic`, off by default).
+
+### Changed
+
+- Dropped the earlier watcher-based design (a live SSE stream plus a standalone `kanbai
+  watch` command and a browser-notification channel) in favor of the event-driven approach
+  above — the watcher only fired while `kanbai ui`/`hub`/`watch` was already running, which
+  missed the common case of cards moved via a plain CLI command.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added
@@ -121,7 +139,8 @@ Initial release: a file-based Kanban board for Claude Code and other AI coding h
 - Packaged with hatchling; `kanbai` console entry point. Optional `ui` extra
   (fastapi, uvicorn, jinja2, watchfiles, python-multipart). MIT licensed.
 
-[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/rennancockles/kanbai/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rennancockles/kanbai/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rennancockles/kanbai/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rennancockles/kanbai/compare/v0.1.0...v0.1.1
