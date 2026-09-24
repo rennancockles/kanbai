@@ -109,6 +109,13 @@ class BoardConfig(BaseModel):
     type_colors: dict[str, str] = Field(default_factory=dict)
     # Optional work-in-progress limits per column; a column absent here has no limit.
     wip: dict[str, int] = Field(default_factory=dict)
+    # Notify the user when a card reaches review/done, or the sprint runs out of actionable
+    # cards. On by default — it degrades gracefully if unsupported (e.g. an unsigned
+    # executable on macOS), so there's no setup cost to leaving it on.
+    notifications_native: bool = True
+    # ntfy (https://ntfy.sh) topic to push to; empty/unset means the channel is off. Opt-in
+    # by presence (unlike the two booleans above) since a topic is required to publish at all.
+    notifications_ntfy_topic: str = ""
 
     def wip_limit(self, column: str) -> int | None:
         """The configured WIP limit for ``column``, or ``None`` if it has no limit."""

@@ -83,6 +83,65 @@ def test_move_with_position_across_columns(board: Board) -> None:
     assert [c.id for c in board.list_column("doing")] == [x.id, a.id, y.id]
 
 
+def test_move_to_review_notifies_card_in_review(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    board.add("Other task", column="todo")  # keeps the sprint non-empty
+    card = board.add("Task", column="todo")
+    board.move(card.id, "review")
+    assert notes == [(f"{board.config.name}: card {card.id} in review", "Task")]
+
+
+def test_move_to_review_also_notifies_when_sprint_becomes_empty(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    card = board.add("Only sprint task", column="todo")
+    board.move(card.id, "review")
+    assert notes == [
+        (f"{board.config.name}: card {card.id} in review", "Only sprint task"),
+        (
+            f"{board.config.name}: sprint empty",
+            "No actionable cards in the sprint — plan work into todo.",
+        ),
+    ]
+
+
+def test_move_to_done_without_review_column_notifies_card_in_done(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace('"review", ', ""))
+    no_review_board = Board.load(tmp_path)
+    notes: list[tuple[str, str]] = []
+    no_review_board.on_notify = lambda title, body: notes.append((title, body))
+    no_review_board.add("Other task", column="todo")
+    card = no_review_board.add("Task", column="todo")
+    no_review_board.move(card.id, no_review_board.config.done_column)
+    assert notes == [(f"{no_review_board.config.name}: card {card.id} in done", "Task")]
+
+
+def test_move_to_done_does_not_notify_when_review_column_exists(board: Board) -> None:
+    # done isn't the "needs attention" target on a board that has a review column.
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    board.add("Other task", column="todo")  # keeps the sprint non-empty
+    card = board.add("Task", column="doing")
+    board.move(card.id, board.config.done_column)
+    assert notes == []
+
+
+def test_move_to_doing_does_not_notify(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    card = board.add("Task", column="todo")
+    board.move(card.id, "doing")
+    assert notes == []
+
+
+def test_move_without_on_notify_hook_does_not_raise(board: Board) -> None:
+    card = board.add("Task", column="todo")
+    board.move(card.id, "review")  # on_notify defaults to None; must not raise
+
+
 def test_next_reads_the_sprint_not_the_backlog(board: Board) -> None:
     board.add("Backlog item")  # goes to backlog, must be ignored by next
     sprint_first = board.add("Sprint first", column="todo")

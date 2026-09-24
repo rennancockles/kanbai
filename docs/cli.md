@@ -117,7 +117,9 @@ kanbai start 001
 ## review
 
 Finish a card: move it to `review` to **await approval**. This is the agent's last step on a
-card — it does **not** approve.
+card — it does **not** approve. Sends a [notification](web-ui.md#notifications) that the
+card is ready for you (or, on boards with no `review` column, that same notification fires
+on `done` instead).
 
 ```bash
 kanbai review 001
@@ -125,7 +127,9 @@ kanbai review 001
 
 ## done
 
-Approve a card into `done`. This is the **human** step.
+Approve a card into `done`. This is the **human** step. Sends the same
+[notification](web-ui.md#notifications) as `review` on boards with no `review` column, and
+notifies separately if this move leaves the sprint with no actionable card left.
 
 ```bash
 kanbai done 001

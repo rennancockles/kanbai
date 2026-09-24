@@ -27,6 +27,10 @@ class Board:
     def __init__(self, kanbai_dir: Path, config: BoardConfig) -> None:
         self.kanbai_dir = kanbai_dir
         self.config = config
+        # Optional (title, body) -> None callback, fired by move() when a card reaches
+        # review/done. Left unset by default so Board itself never depends on a
+        # notification backend — callers (CLI, web) plug one in after loading the board.
+        self.on_notify: Callable[[str, str], None] | None = None
 
     @classmethod
     def load(cls, start: Path | None = None) -> Board:
@@ -117,7 +121,31 @@ class Board:
         if position is not None:
             self._place_at(column, card_id, position)
             card, _, _ = self._locate(card_id)
+        notify = self.on_notify
+        if notify is not None:
+            self._notify_on_move(notify, card, column)
         return card
+
+    def _notify_on_move(self, notify: Callable[[str, str], None], card: Card, column: str) -> None:
+        """Fire ``notify`` when a move needs the user's attention.
+
+        Two independent checks, either or both may fire:
+        - The card itself reached ``review`` (or ``done``, on boards with no ``review``
+          column — there the terminal move is the one that needs approval).
+        - The sprint (``todo``) has no actionable card left to pick up next, regardless of
+          which of the two columns above the card just landed in.
+        """
+        review = self.config.review_column
+        done = self.config.done_column
+        review_or_done_target = review if review is not None else done
+        if column == review_or_done_target:
+            label = "review" if review is not None else "done"
+            notify(f"{self.config.name}: card {card.id} in {label}", card.title)
+        if column in (review, done) and self.next() is None:
+            notify(
+                f"{self.config.name}: sprint empty",
+                "No actionable cards in the sprint — plan work into todo.",
+            )
 
     def _place_at(self, column: str, card_id: str, position: int) -> None:
         """Insert ``card_id`` at ``position`` within ``column`` and reflow order values."""

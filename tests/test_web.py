@@ -6,12 +6,14 @@ import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx2 as httpx
 import pytest
 from fastapi.testclient import TestClient
 from kanbai import scaffold
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
+from kanbai.notify_ntfy import notify_ntfy
 from kanbai.web import server
 from kanbai.web.app import create_app
 from kanbai.web.hub import create_hub_app
@@ -206,6 +208,33 @@ def test_move_card_via_post(tmp_path: Path) -> None:
     assert resp.status_code == 200
     assert board.list_column("doing")[0].id == card.id
     assert board.list_column("todo") == []
+
+
+def test_move_to_review_via_post_fires_native_and_ntfy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+    board = Board.load(tmp_path)
+    board.add("Other task", column="todo")  # keeps the sprint non-empty
+    card = board.add("Task", column="todo")
+
+    native_calls: list[tuple[str, str]] = []
+    ntfy_calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.web.app.notify_native", lambda title, body: native_calls.append((title, body))
+    )
+    monkeypatch.setattr(
+        "kanbai.web.app.notify_ntfy",
+        lambda topic, title, body: ntfy_calls.append((topic, title, body)),
+    )
+
+    client = TestClient(create_app(board))
+    resp = client.post(f"/cards/{card.id}/move", data={"column": "review"})
+    assert resp.status_code == 200
+    assert native_calls == [(f"{board.config.name}: card {card.id} in review", "Task")]
+    assert ntfy_calls == [("my-topic", f"{board.config.name}: card {card.id} in review", "Task")]
 
 
 def test_create_card_invalid_column_is_ignored(tmp_path: Path) -> None:
@@ -841,6 +870,43 @@ def test_ui_command_without_board_exits_nonzero(
     monkeypatch.chdir(tmp_path)  # no board here
     result = cli_runner.invoke(cli_app, ["ui"])
     assert result.exit_code == 1
+
+
+def test_notify_ntfy_posts_title_header_and_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        status_code = 200
+
+    class FakeClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> FakeClient:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            pass
+
+        def post(self, url: str, *, content: str, headers: dict[str, str]) -> FakeResponse:
+            calls.append({"url": url, "content": content, "headers": headers})
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    notify_ntfy("my-topic", "My title", "My body")
+    assert len(calls) == 1
+    assert calls[0]["url"] == "https://ntfy.sh/my-topic"
+    assert calls[0]["content"] == "My body"
+    assert calls[0]["headers"] == {"Title": "My title"}
+
+
+def test_notify_ntfy_swallows_any_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BrokenClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            raise ImportError("simulated: e.g. a misconfigured proxy transport")
+
+    monkeypatch.setattr(httpx, "Client", BrokenClient)
+    notify_ntfy("my-topic", "My title", "My body")  # must not raise
 
 
 def test_board_partial_is_returned(tmp_path: Path) -> None:

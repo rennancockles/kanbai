@@ -14,6 +14,7 @@ from . import APP_NAME, registry, scaffold, storage
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
+from .notify_ntfy import notify_ntfy
 
 app = typer.Typer(
     name="kanbai",
@@ -35,13 +36,32 @@ _PRIORITY_STYLE = {
 # --------------------------------------------------------------------------- helpers
 
 
+def _notify(board: Board, title: str, body: str) -> None:
+    """``Board.on_notify`` for the CLI: ntfy always, native desktop if the extra is installed.
+
+    Native notifications need the optional ``ui`` extra (``desktop-notifier``); a plain CLI
+    install silently skips that channel rather than failing the command that triggered it.
+    """
+    if board.config.notifications_ntfy_topic:
+        notify_ntfy(board.config.notifications_ntfy_topic, title, body)
+    if not board.config.notifications_native:
+        return
+    try:
+        from .web.notify import notify_native  # noqa: PLC0415 - optional extra, on demand
+    except ImportError:
+        return
+    notify_native(title, body)
+
+
 def _load() -> Board:
     """Load the board or exit with a friendly message."""
     try:
-        return Board.load()
+        board = Board.load()
     except KanbaiError as exc:  # pragma: no cover - exercised via CLI tests
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
+    board.on_notify = lambda title, body: _notify(board, title, body)
+    return board
 
 
 def _card_dict(card: Card) -> dict[str, object]:

@@ -114,6 +114,38 @@ def test_review_then_done_flow(project: Path) -> None:
     assert json.loads(runner.invoke(app, ["list", "review", "--json"]).output)[0]["id"] == "001"
     assert runner.invoke(app, ["list", "done", "--json"]).output.strip() == "[]"
 
+
+def test_review_pushes_ntfy_notification_when_topic_configured(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    result = runner.invoke(app, ["review", "001"])
+    assert result.exit_code == 0
+    assert calls
+    assert all(topic == "my-topic" for topic, _, _ in calls)
+    assert any("in review" in title for _, title, _ in calls)
+
+
+def test_review_skips_ntfy_when_topic_not_configured(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    result = runner.invoke(app, ["review", "001"])
+    assert result.exit_code == 0
+    assert calls == []
+
     # ...and `done` approves it (user's step).
     assert runner.invoke(app, ["done", "001"]).exit_code == 0
     assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"

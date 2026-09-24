@@ -97,3 +97,35 @@ def test_load_config_ignores_invalid_hex_colors(tmp_path: Path) -> None:
     cfg.write_text(cfg.read_text() + '\n[types.colors]\nbug = "not-a-color"\nchore = "#abc123"\n')
     config = load_config(tmp_path / ".kanbai")
     assert config.type_colors == {"chore": "#abc123"}
+
+
+def test_notifications_on_by_default() -> None:
+    config = BoardConfig()
+    assert config.notifications_native is True
+
+
+def test_load_config_reads_notifications_section(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + "\n[notifications]\nnative = false\n")
+    config = load_config(tmp_path / ".kanbai")
+    assert config.notifications_native is False
+
+
+def test_render_config_includes_commented_notifications_section() -> None:
+    text = render_config(BoardConfig())
+    assert "# [notifications]" in text
+    assert "# native = false" in text
+    assert '# ntfy_topic = "my-kanbai-topic"' in text
+
+
+def test_ntfy_topic_off_by_default() -> None:
+    assert BoardConfig().notifications_ntfy_topic == ""
+
+
+def test_load_config_reads_ntfy_topic(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+    config = load_config(tmp_path / ".kanbai")
+    assert config.notifications_ntfy_topic == "my-topic"

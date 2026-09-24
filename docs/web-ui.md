@@ -60,6 +60,40 @@ from the CLI in another terminal, the board updates in place — no refresh need
     Live updates rely on OS file-change events. In environments that don't deliver them
     (some containers, network mounts), start the UI with `--poll` to fall back to polling.
 
+## Notifications
+
+KanbAI notifies you — with the platform's default sound — the moment a card reaches
+`review` (or `done`, on boards with no `review` column) and whenever that move leaves the
+sprint with no actionable card left to pick up. There's no background process to keep
+running: the notification fires as part of the move itself, whether you drag the card here
+in the web UI or run `kanbai review <id>`/`kanbai done <id>` from a terminal — even with no
+web UI open at all.
+
+Two channels, checked independently on every qualifying move:
+
+- **Native desktop notification** (macOS Notification Center, Linux via `notify-send`'s dbus
+  service, Windows toast). On by default. No credentials, no external service.
+- **[ntfy](https://ntfy.sh) push**, off by default — set `ntfy_topic` in
+  [`config.toml`](configuration.md#notifications) to also push to the public ntfy.sh server.
+  Reaches your phone (via the ntfy app) or any device subscribed to that topic, not just this
+  machine. ntfy.sh needs no signup or token — the topic name itself is the only thing gating
+  who receives it, so pick something that isn't easily guessable.
+
+A flaky or offline ntfy.sh never blocks the move that triggered it — a failed push is
+silently skipped rather than raised. Every notification title is prefixed with the board's
+name, so running several boards side by side doesn't mix up which one needs your attention.
+
+!!! warning "Native notifications need a signed executable on macOS"
+    macOS only allows **signed** executables to post notifications via Notification Center.
+    A plain `python3` from Homebrew (or most `pip`/`uv` installs) is unsigned, so native
+    notifications silently do nothing there — no error, just no popup. The
+    [python.org installer](https://www.python.org/downloads/macos/) ships a signed
+    framework build that does work; otherwise, the [ntfy](https://ntfy.sh) channel above
+    is unaffected by this and a reliable fallback on macOS.
+
+Don't want the native channel? Turn it off in
+[`config.toml`](configuration.md#notifications).
+
 ## Sorting the backlog
 
 The backlog column has a small sort control in its header. Pick a key (**id**, **priority**,

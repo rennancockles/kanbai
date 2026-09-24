@@ -84,3 +84,25 @@ show a warning — they **never block** the move, so limits are a nudge, not a g
 doing = 3
 review = 5
 ```
+
+## `[notifications]`
+
+Controls the [native desktop and ntfy notifications](web-ui.md#notifications) fired whenever
+a card reaches `review`/`done`, from any command (`kanbai review`/`done`/`move`, the CLI in
+general, or the web UI) — no background process required.
+
+| Key | Description |
+|-----|-------------|
+| `native` | Native desktop notifications (macOS/Linux/Windows). Default `true`. |
+| `ntfy_topic` | [ntfy.sh](https://ntfy.sh) topic to push to. Default unset (channel off). |
+
+```toml
+[notifications]
+native = false
+ntfy_topic = "my-kanbai-topic"
+```
+
+!!! warning "The ntfy topic is your only secret"
+    ntfy.sh is a public server with no signup or authentication — anyone who knows (or
+    guesses) your topic name receives your notifications. Pick something unguessable, not
+    e.g. `my-project`.
