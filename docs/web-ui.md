@@ -17,17 +17,24 @@ kanbai ui --poll             # for sandboxes/containers without OS file events
 - **View the board** and **create, edit, move, archive, or delete** cards.
 - **Drag-and-drop** cards between columns (the new order is persisted), or move from a card's
   detail modal.
-- **Plan a sprint** — move several backlog cards into `todo` at once — and **start a new
-  sprint** (archive done cards, optionally reset the active columns).
-- **Search** cards and **filter by label**.
-- Browse and **restore** archived cards.
+- **Plan a sprint** — move several backlog cards into `todo` at once — and **close the current
+  sprint** (archive done cards, optionally reset the active columns, optionally stamp a
+  release version).
+- **Search** cards and **filter by label or [type](concepts.md#card-type)**.
+- Browse archived cards, click one to see its full detail, and **restore** it.
 - See **WIP-limit** and **blocked-by-dependency** indicators.
+
+## Creating a card
+
+The **New card** button opens a modal with every field — title, column, priority,
+[type](concepts.md#card-type), labels, and description — so a card can be created fully formed
+in one step.
 
 ## Card details
 
 Click any card to open its details — description and acceptance criteria, labels,
-dependencies, and assignee — and **move**, **edit**, **archive**, or **delete** it right from
-the modal.
+dependencies, type, and release version — and **move**, **edit**, **archive**, or **delete**
+it right from the modal.
 
 ![The card detail modal](assets/card_modal.png)
 
@@ -56,9 +63,17 @@ from the CLI in another terminal, the board updates in place — no refresh need
 ## Sorting the backlog
 
 The backlog column has a small sort control in its header. Pick a key (**id**, **priority**,
-or **title**) and a direction (**↑** ascending / **↓** descending); the new order is written
-back to the cards, so it sticks everywhere — including the CLI. Ascending priority reads
-`low → medium → high`; use **↓** to put the highest priority first.
+**type**, or **title**) and a direction (**↑** ascending / **↓** descending); the new order is
+written back to the cards, so it sticks everywhere — including the CLI. Ascending priority
+reads `low → medium → high`; use **↓** to put the highest priority first.
+
+## Closing a sprint
+
+The **Close sprint** button archives every `done` card and, optionally, sends the active
+columns back to the backlog — with an optional release **version** stamped on every archived
+card, so the archive later shows which release shipped it. It refuses to run (and shows an
+alert in the modal) while any card is still in `review`, so unapproved work is never silently
+archived or moved.
 
 ## Hiding the backlog
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kanbai"
-version = "0.2.0"
+version = "0.3.0"
 description = "A file-based Kanban board for Claude Code and other AI coding harnesses"
 authors = [
     {name = "Rennan Cockles", email = "rennan.cockles@experian.com"},

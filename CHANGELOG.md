@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
+### Added
+
+- **Card type** — a single structured category per card (`feature`, `bug`, `refactor`,
+  `chore`, `docs`, `spike` by default), configurable via `[types]` in `config.toml` with
+  optional per-type color overrides (`[types.colors]`). Set with `--type/-t` on `add`/`edit`,
+  shown in `show`/`list`/`--json`, filterable and sortable in the CLI and the web UI, with a
+  colored badge on cards and in the Plan sprint / Archive modals.
+- **Release version on cards** — a free-form `version` field (e.g. `v1.2.0`), settable via
+  `--version/-v` on `add`/`edit`. `kanbai close-sprint --version <v>` stamps it on every card
+  archived from `done`, so the archive later shows which release shipped each card.
+- **New card modal** — card creation moved from a cramped top-bar form into a dedicated modal
+  with every field (title, column, priority, type, labels, description), behind a single
+  "New card" button.
+- **Archive list opens the card detail** — clicking a row in the Archive modal opens that
+  card's detail (reusing the existing card view); closing it returns to the archive list with
+  its scroll position preserved instead of closing everything.
+
+### Changed
+
+- **`new-sprint` renamed to `close-sprint`** (CLI) and the matching web UI button/modal
+  renamed from "New sprint" to "Close sprint" — same action (archive `done`, optionally reset
+  active columns), now also carrying the optional release version above.
+- The Archive modal no longer shows labels in the row listing, to keep it focused on the
+  essentials (id, type, title, origin column, version).
+- CLI command order: `sort` now comes before `ui`, so the two web-server commands (`ui`,
+  `hub`) are grouped together at the end of `kanbai --help`.
+- The `assignee` field is hidden from the web UI (unused today) while keeping the underlying
+  model/CLI/board support intact for future use.
+
+### Fixed
+
+- **Hub routing** — card detail/edit/move actions issued from the multi-board hub
+  (`/b/<board>/...`) now correctly keep the board's URL prefix; they previously 404'd because
+  several routes rendered their template without it.
+- **`close-sprint` no longer archives/moves unapproved work** — it now refuses to run (no
+  changes made) while any card is still in `review`, both in the CLI (clear error, exit code
+  1) and the web UI (an alert shown proactively in the modal, with the submit button disabled).
+
 ## [0.2.0] - 2026-09-23
 
 ### Added
@@ -81,7 +121,8 @@ Initial release: a file-based Kanban board for Claude Code and other AI coding h
 - Packaged with hatchling; `kanbai` console entry point. Optional `ui` extra
   (fastapi, uvicorn, jinja2, watchfiles, python-multipart). MIT licensed.
 
-[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/rennancockles/kanbai/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/rennancockles/kanbai/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rennancockles/kanbai/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rennancockles/kanbai/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rennancockles/kanbai/releases/tag/v0.1.0

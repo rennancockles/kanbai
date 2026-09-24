@@ -21,8 +21,11 @@ By default Claude works a single card and then stops for your review:
 3. **Implement it**, reading `kanbai show <id> --json` for the description and acceptance
    criteria. If the scope or a design decision is unclear, Claude stops and asks first.
 4. **`kanbai review <id>`** — move the card into `review` and **stop**. Claude never runs
-   `kanbai done`.
-5. **You review** the work and approve it with **`kanbai done <id>`**.
+   `kanbai done`, and never moves a card to `review` with failing lints, type checks, or
+   tests — a card in `review` is a claim that the work is verified.
+5. **You review** the work and approve it with **`kanbai done <id>`**. If you instead ask for
+   a change, Claude moves the card back to `doing` first — it never edits a card's work while
+   it sits in `review`.
 
 This keeps you in the loop: nothing is marked complete without your approval, and you can
 review or commit between cards.
@@ -53,9 +56,12 @@ sensitive file.
 You decide **what** Claude works on by curating the sprint:
 
 ```bash
-kanbai add "Add OAuth login" -d "Support Google sign-in" -p high   # capture in the backlog
-kanbai move 004 todo                                               # plan it into the sprint
+kanbai add "Add OAuth login" -d "Support Google sign-in" -p high -t feature  # capture in the backlog
+kanbai move 004 todo                                                         # plan it into the sprint
 ```
+
+Claude always picks a [type](concepts.md#card-type) when creating a card, evaluating which
+of the board's configured types fits best rather than leaving it unset.
 
 Only cards in `todo` are picked up by `kanbai next`, so the backlog is a safe place to stash
 future ideas without distracting the agent. You can also plan and reorder visually in the

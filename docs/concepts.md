@@ -30,6 +30,7 @@ id: "004"
 title: Add OAuth login
 status: backlog
 priority: high
+type: feature
 order: 1
 labels: [auth, backend]
 deps: []
@@ -53,9 +54,31 @@ Support "Sign in with Google".
 | `title` | The card's title. Also drives the file name (`<id>-<slug>.md`). |
 | `status` | The column the card is in; kept in sync with the folder. |
 | `priority` | `low`, `medium`, or `high`. |
+| `type` | A single structured category — see [Card type](#card-type) below. Omitted when unset. |
+| `version` | A free-form release marker — see [Release version](#release-version) below. Omitted when unset. |
 | `order` | Position within the column. |
 | `labels` | Free-form tags, used for filtering in the UI. |
 | `deps` | Ids of cards that **block** this one until they are finished. |
+
+### Card type
+
+`type` is a single structured category per card — `feature`, `bug`, `refactor`, `chore`,
+`docs`, or `spike` by default — distinct from `labels`, which are free-form and can be several
+per card. It's optional: cards created before this field existed, or left untyped, simply omit
+it.
+
+Set it with `-t`/`--type` on [`add`](cli.md#add) or [`edit`](cli.md#edit); it's shown in
+`show`/`list`/`--json`, filterable and sortable in the CLI and the [web UI](web-ui.md), and
+rendered as a colored badge on cards. The list of valid types — and optional per-type color
+overrides — is configured via [`[types]` in `config.toml`](configuration.md#types).
+
+### Release version
+
+`version` is a free-form marker (e.g. `v1.2.0`) with no validation or configured list — unlike
+`type`, it's expected to grow with every release, so a fixed list wouldn't make sense. Set it
+directly with `-v`/`--version`, or let [`kanbai close-sprint --version <v>`](cli.md#close-sprint)
+stamp it on every card archived from `done` in one go, so the archive later shows which release
+shipped each card.
 
 ## The sprint workflow
 

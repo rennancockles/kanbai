@@ -47,15 +47,18 @@ Create a card. New cards land in the **backlog** unless you target another colum
 
 ```bash
 kanbai add "Build the login screen"
-kanbai add "Fix the flaky test" -p high -l bug -l ci
+kanbai add "Fix the flaky test" -p high -t bug -l ci
 kanbai add "Sprint task now" -c todo
 kanbai add "Depends on 001" --dep 001
+kanbai add "Ship the release" -v v1.2.0
 ```
 
 | Option | Description |
 |--------|-------------|
 | `-d`, `--desc` | Card description / body. |
 | `-p`, `--priority` | `low`, `medium`, or `high`. |
+| `-t`, `--type` | Card [type](concepts.md#card-type) (must be one of the board's configured types). |
+| `-v`, `--version` | Release version (free-form, e.g. `v1.2.0`). |
 | `-c`, `--column` | Target column (default: `backlog`). |
 | `-l`, `--label` | Add a label (repeatable). |
 | `--dep` | Id of a blocking card (repeatable). |
@@ -70,6 +73,7 @@ Show the whole board, a single column, or the archive.
 kanbai list              # the whole board
 kanbai list todo         # only the sprint column
 kanbai list archive      # archived cards
+kanbai list --type bug   # only cards of a given type, in any column filter above
 kanbai list --json       # machine-readable board
 ```
 
@@ -134,6 +138,7 @@ Update fields on a card. Only the options you pass change.
 ```bash
 kanbai edit 001 --title "New title"
 kanbai edit 001 -p high -l backend -l urgent
+kanbai edit 001 -t feature              # change the card type
 kanbai edit 001 --dep 002 --dep 003     # replace the blocking ids
 ```
 
@@ -142,6 +147,8 @@ kanbai edit 001 --dep 002 --dep 003     # replace the blocking ids
 | `--title` | New title. |
 | `-d`, `--desc` | New description / body. |
 | `-p`, `--priority` | New priority. |
+| `-t`, `--type` | New type (must be one of the board's configured types; pass an empty string to clear it). |
+| `-v`, `--version` | New release version (pass an empty string to clear it). |
 | `-l`, `--label` | Replace labels. |
 | `--dep` | Replace blocking card ids. |
 | `-a`, `--assignee` | New assignee. |
@@ -154,11 +161,12 @@ Sort a column by a field and **persist** the new order to disk.
 ```bash
 kanbai sort backlog --by priority --desc   # highest priority first
 kanbai sort backlog --by title             # alphabetical
+kanbai sort backlog --by type              # group by card type
 ```
 
 | Option | Description |
 |--------|-------------|
-| `--by` | Sort key: `id`, `priority`, or `title` (default `id`). |
+| `--by` | Sort key: `id`, `priority`, `type`, or `title` (default `id`). |
 | `--desc` | Sort descending. |
 | `--json` | Emit the sorted column as JSON. |
 

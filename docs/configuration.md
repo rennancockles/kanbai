@@ -11,6 +11,14 @@ columns = ["backlog", "todo", "doing", "review", "done"]
 [defaults]
 priority = "medium"
 
+[types]
+available = ["feature", "bug", "refactor", "chore", "docs", "spike"]
+
+# Optional hex color overrides for the UI badge, per type (default is a
+# built-in color for the types above, or gray for anything else).
+# [types.colors]
+# bug = "#ff0000"
+
 # Optional work-in-progress limits per column (the CLI and UI warn when exceeded).
 [wip]
 doing = 3
@@ -45,6 +53,26 @@ otherwise, so the workflow keeps working even if you rename columns:
 | Key | Description |
 |-----|-------------|
 | `priority` | Default priority for new cards when `--priority` isn't given (`low`/`medium`/`high`). |
+
+## `[types]`
+
+Configures the valid values for a card's [`type`](concepts.md#card-type).
+
+| Key | Description |
+|-----|-------------|
+| `available` | The list of valid types. Defaults to `feature`, `bug`, `refactor`, `chore`, `docs`, `spike`. |
+
+### `[types.colors]`
+
+Optional per-type hex color (`#rrggbb`) for the badge shown in the web UI — overrides the
+built-in color for a default type, or gives a custom type its own color instead of the neutral
+gray fallback. Invalid values are silently ignored.
+
+```toml
+[types.colors]
+bug = "#ff0000"
+spec = "#00ffaa"
+```
 
 ## `[wip]`
 
