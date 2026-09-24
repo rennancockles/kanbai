@@ -34,7 +34,7 @@ otherwise, so the workflow keeps working even if you rename columns:
 | Sprint (what `next` reads) | `todo` | [`next`](cli.md#next) |
 | In progress | `doing` | [`start`](cli.md#start) |
 | Review | `review` | [`review`](cli.md#review) |
-| Done | `done` | [`done`](cli.md#done), [`new-sprint`](cli.md#new-sprint) |
+| Done | `done` | [`done`](cli.md#done), [`close-sprint`](cli.md#close-sprint) |
 
 !!! tip
     You can add extra columns (e.g. a `blocked` or `qa` stage). Keep the first column as the

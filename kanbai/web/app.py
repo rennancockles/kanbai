@@ -206,13 +206,28 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             resolved.restore(card_id)
         return render(request, "_board.html", context())
 
+    def _pending_review_count() -> int:
+        review = resolved.config.review_column
+        return len(resolved.list_column(review)) if review is not None else 0
+
     @app.get("/sprint/new", response_class=HTMLResponse)
     def sprint_new_form(request: Request) -> Response:
-        return render(request, "_new_sprint.html", {})
+        return render(request, "_new_sprint.html", {"pending_review": _pending_review_count()})
 
     @app.post("/sprint/new", response_class=HTMLResponse)
     def sprint_new(request: Request, reset: str = Form(""), version: str = Form("")) -> Response:
-        resolved.new_sprint(reset_to_backlog=reset == "1", version=version or None)
+        try:
+            resolved.new_sprint(reset_to_backlog=reset == "1", version=version or None)
+        except KanbaiError:
+            # Re-render the modal (not the board) with the blocking count, without applying
+            # anything — HX-Retarget/HX-Reswap override the form's normal #board/outerHTML
+            # swap just for this response.
+            response = render(
+                request, "_new_sprint.html", {"pending_review": _pending_review_count()}
+            )
+            response.headers["HX-Retarget"] = "#detail"
+            response.headers["HX-Reswap"] = "innerHTML"
+            return response
         return render(request, "_board.html", context())
 
     @app.get("/cards/{card_id}/edit", response_class=HTMLResponse)

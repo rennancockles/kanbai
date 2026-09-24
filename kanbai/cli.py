@@ -408,8 +408,8 @@ def rm(
     console.print(f"[green]✓[/green] Deleted [cyan]{card.id}[/cyan]")
 
 
-@app.command(name="new-sprint")
-def new_sprint(
+@app.command(name="close-sprint")
+def close_sprint(
     to_backlog: bool = typer.Option(
         False,
         "--to-backlog",
@@ -420,16 +420,41 @@ def new_sprint(
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
 ) -> None:
-    """Start a new sprint: archive all done cards (optionally reset active columns)."""
+    """Close the current sprint: archive all done cards (optionally reset active columns)."""
     board = _load()
     if not yes:
         extra = " and move active cards to the backlog" if to_backlog else ""
         typer.confirm(f"Archive all done cards{extra}?", abort=True)
-    result = board.new_sprint(reset_to_backlog=to_backlog, version=version)
-    message = f"[green]✓[/green] New sprint: archived {result['archived']} done card(s)"
+    try:
+        result = board.new_sprint(reset_to_backlog=to_backlog, version=version)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    message = f"[green]✓[/green] Closed sprint: archived {result['archived']} done card(s)"
     if to_backlog:
         message += f", moved {result['reset']} back to backlog"
     console.print(message)
+
+
+@app.command()
+def sort(
+    column: str = typer.Argument(..., help="Column to sort."),
+    by: str = typer.Option("id", "--by", help="Sort key: id, priority, type, or title."),
+    desc: bool = typer.Option(False, "--desc", help="Sort descending."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the sorted column as JSON."),
+) -> None:
+    """Sort a column and persist the new card order."""
+    board = _load()
+    try:
+        cards = board.sort_column(column, by, descending=desc)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if as_json:
+        _emit_json([_card_dict(c) for c in cards])
+    else:
+        suffix = " desc" if desc else ""
+        console.print(f"[green]✓[/green] Sorted [bold]{column}[/bold] by {by}{suffix}")
 
 
 @app.command()
@@ -473,27 +498,6 @@ def ui(
         force_polling=poll,
         reload=reload,
     )
-
-
-@app.command()
-def sort(
-    column: str = typer.Argument(..., help="Column to sort."),
-    by: str = typer.Option("id", "--by", help="Sort key: id, priority, type, or title."),
-    desc: bool = typer.Option(False, "--desc", help="Sort descending."),
-    as_json: bool = typer.Option(False, "--json", help="Emit the sorted column as JSON."),
-) -> None:
-    """Sort a column and persist the new card order."""
-    board = _load()
-    try:
-        cards = board.sort_column(column, by, descending=desc)
-    except KanbaiError as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    if as_json:
-        _emit_json([_card_dict(c) for c in cards])
-    else:
-        suffix = " desc" if desc else ""
-        console.print(f"[green]✓[/green] Sorted [bold]{column}[/bold] by {by}{suffix}")
 
 
 # --------------------------------------------------------------------------- hub (multi-board)

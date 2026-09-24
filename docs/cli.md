@@ -24,7 +24,7 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 | [`sort`](#sort) | Sort a column and persist the order. |
 | [`archive`](#archive) / [`restore`](#restore) | Archive / restore a card. |
 | [`rm`](#rm) | Delete a card permanently. |
-| [`new-sprint`](#new-sprint) | Archive done cards, start a new sprint. |
+| [`close-sprint`](#close-sprint) | Archive done cards, close out the current sprint. |
 | [`ui`](#ui) | Serve the local web UI. |
 | [`hub`](#hub) | Serve or manage the multi-board hub. |
 
@@ -191,14 +191,16 @@ Delete a card **permanently**.
 kanbai rm 001
 ```
 
-## new-sprint
+## close-sprint
 
-Start a new sprint: archive all `done` cards, and optionally reset the active columns
-(`todo`/`doing`/`review`) back to the backlog.
+Close the current sprint: archive all `done` cards, and optionally reset the active columns
+(`todo`/`doing`/`review`) back to the backlog. Optionally stamp every archived card with a
+release `--version`. Refuses to run (no changes made) while any card is still in `review`.
 
 ```bash
-kanbai new-sprint --yes                 # archive done cards
-kanbai new-sprint --to-backlog --yes    # also reset active columns to the backlog
+kanbai close-sprint --yes                          # archive done cards
+kanbai close-sprint --to-backlog --yes             # also reset active columns to the backlog
+kanbai close-sprint --version v1.2.0 --yes         # stamp archived cards with a release version
 ```
 
 ## ui

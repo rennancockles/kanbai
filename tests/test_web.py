@@ -565,6 +565,34 @@ def test_close_sprint_without_version_leaves_it_unset(tmp_path: Path) -> None:
     assert board.list_archive()[0].version is None
 
 
+def test_new_sprint_form_shows_alert_when_review_has_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Pending", column="review")
+    client = TestClient(create_app(board))
+
+    modal = client.get("/sprint/new").text
+    assert "still in" in modal
+    assert "review" in modal
+    assert "disabled" in modal  # submit button disabled proactively
+
+
+def test_close_sprint_blocked_by_cards_in_review(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Pending", column="review")
+    board.add("Finished", column="done")
+    client = TestClient(create_app(board))
+
+    resp = client.post("/sprint/new", data={"reset": "0"})
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#detail"
+    assert "still in" in resp.text
+    # Nothing changed: the done card was not archived.
+    assert board.list_column("done") != []
+    assert board.list_archive() == []
+
+
 def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

@@ -119,30 +119,40 @@ def test_review_then_done_flow(project: Path) -> None:
     assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
 
 
-def test_new_sprint_archives_done_and_keeps_active(project: Path) -> None:
+def test_close_sprint_archives_done_and_keeps_active(project: Path) -> None:
     runner.invoke(app, ["add", "A", "-c", "todo"])
     runner.invoke(app, ["add", "B", "-c", "done"])
-    result = runner.invoke(app, ["new-sprint", "--yes"])
+    result = runner.invoke(app, ["close-sprint", "--yes"])
     assert result.exit_code == 0
     assert runner.invoke(app, ["list", "done", "--json"]).output.strip() == "[]"
     todo = json.loads(runner.invoke(app, ["list", "todo", "--json"]).output)
     assert [c["title"] for c in todo] == ["A"]  # active columns left in place
 
 
-def test_new_sprint_to_backlog(project: Path) -> None:
+def test_close_sprint_to_backlog(project: Path) -> None:
     runner.invoke(app, ["add", "A", "-c", "todo"])
     runner.invoke(app, ["add", "B", "-c", "done"])
-    result = runner.invoke(app, ["new-sprint", "--to-backlog", "--yes"])
+    result = runner.invoke(app, ["close-sprint", "--to-backlog", "--yes"])
     assert result.exit_code == 0
     assert runner.invoke(app, ["list", "todo", "--json"]).output.strip() == "[]"
 
 
-def test_new_sprint_stamps_version(project: Path) -> None:
+def test_close_sprint_stamps_version(project: Path) -> None:
     runner.invoke(app, ["add", "B", "-c", "done"])
-    result = runner.invoke(app, ["new-sprint", "--version", "v2.0.0", "--yes"])
+    result = runner.invoke(app, ["close-sprint", "--version", "v2.0.0", "--yes"])
     assert result.exit_code == 0
     archived = json.loads(runner.invoke(app, ["list", "archive", "--json"]).output)
     assert archived[0]["version"] == "v2.0.0"
+
+
+def test_close_sprint_blocked_by_cards_in_review(project: Path) -> None:
+    runner.invoke(app, ["add", "Pending", "-c", "review"])
+    runner.invoke(app, ["add", "Finished", "-c", "done"])
+    result = runner.invoke(app, ["close-sprint", "--yes"])
+    assert result.exit_code == 1
+    assert "review" in result.output
+    # Nothing changed: the done card was not archived.
+    assert runner.invoke(app, ["list", "archive", "--json"]).output.strip() == "[]"
 
 
 def test_sort_backlog_by_priority(project: Path) -> None:

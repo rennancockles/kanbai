@@ -15,6 +15,7 @@ from .config import load_config
 from .errors import (
     BoardNotFoundError,
     CardNotFoundError,
+    CardsInReviewError,
     ColumnNotFoundError,
 )
 from .models import BoardConfig, Card, Priority
@@ -278,8 +279,19 @@ class Board:
         When ``version`` is given, every card in ``done`` is stamped with it before being
         archived — so the archive can later show which release shipped each card.
 
+        Raises :class:`CardsInReviewError` (without changing anything) if the board has a
+        ``review`` column and it still holds cards — closing the sprint would otherwise
+        archive/move work that hasn't been approved yet. Boards without a review column
+        (``review_column is None``) skip this check entirely.
+
         Returns counts of what happened: ``{"archived": n, "reset": m}``.
         """
+        review = self.config.review_column
+        if review is not None:
+            pending = len(self.list_column(review))
+            if pending:
+                raise CardsInReviewError(pending)
+
         backlog = self.config.add_column
         done = self.config.done_column
 

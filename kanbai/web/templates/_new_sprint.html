@@ -7,6 +7,13 @@
               onclick="document.getElementById('detail').innerHTML=''">✕</button>
     </div>
 
+    {% if pending_review %}
+    <p class="modal-alert">
+      {{ pending_review }} card{{ 's' if pending_review != 1 else '' }} still in
+      <strong>review</strong> — approve or move them before closing the sprint.
+    </p>
+    {% endif %}
+
     <p class="modal-note">All <strong>done</strong> cards will be archived. What should happen to
       the cards still in todo / doing / review?</p>
 
@@ -29,7 +36,7 @@
     <div class="modal-actions">
       <button type="button" class="btn-ghost"
               onclick="document.getElementById('detail').innerHTML=''">Cancel</button>
-      <button type="submit" class="btn-primary">Close sprint</button>
+      <button type="submit" class="btn-primary"{% if pending_review %} disabled{% endif %}>Close sprint</button>
     </div>
   </form>
 </div>

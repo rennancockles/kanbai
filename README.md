@@ -204,7 +204,7 @@ doing = 3
 | `kanbai edit <id>` | Update fields of a card. |
 | `kanbai archive <id>` / `kanbai restore <id>` | Archive a card / restore it from the archive. |
 | `kanbai rm <id>` | Delete a card permanently. |
-| `kanbai new-sprint` | Archive done cards (optionally reset active columns to the backlog). |
+| `kanbai close-sprint` | Archive done cards (optionally reset active columns to the backlog). |
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 | `kanbai hub add/list/remove` | Manage the multi-board hub registry. |
 | `kanbai hub` | Serve all registered boards on one port (needs the `ui` extra). |

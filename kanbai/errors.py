@@ -44,3 +44,14 @@ class InvalidTypeError(KanbaiError):
     def __init__(self, value: str, valid_types: list[str]) -> None:
         self.value = value
         super().__init__(f"Invalid type '{value}'. Use one of: {', '.join(valid_types)}.")
+
+
+class CardsInReviewError(KanbaiError):
+    """Raised when closing the sprint is blocked by cards still awaiting approval."""
+
+    def __init__(self, count: int) -> None:
+        self.count = count
+        noun = "card" if count == 1 else "cards"
+        super().__init__(
+            f"{count} {noun} still in review — approve or move them before closing the sprint."
+        )

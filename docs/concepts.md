@@ -86,10 +86,12 @@ card to `review` and **stops**. It never runs `kanbai done`. Approving is a huma
 inspect the work and run [`kanbai done <id>`](cli.md#done) to move it to `done`. This keeps a
 human in the loop by default.
 
-### Starting a fresh sprint
+### Closing a sprint
 
-[`kanbai new-sprint`](cli.md#new-sprint) archives the `done` cards and (optionally) resets the
-active columns back to the backlog, so you can plan the next round from a clean slate.
+[`kanbai close-sprint`](cli.md#close-sprint) archives the `done` cards and (optionally) resets
+the active columns back to the backlog, so you can plan the next round from a clean slate. It
+refuses to run while cards are still in `review`, so unapproved work is never silently archived
+or moved.
 
 ## Dependencies
 

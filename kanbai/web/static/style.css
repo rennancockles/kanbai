@@ -365,6 +365,12 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost { color: var(--text); background: var(--surface-2); }
 .btn-ghost:hover { border-color: var(--muted); }
+.btn-primary:disabled,
+.btn-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: none;
+}
 .btn-danger {
   margin-right: auto;  /* separate the destructive action from Archive/Edit */
   color: var(--high);
@@ -413,6 +419,16 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 }
 
 .modal-note { margin: 0 0 0.85rem; font-size: 0.88rem; line-height: 1.45; color: var(--text); }
+.modal-alert {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--high);
+  background: rgba(255, 119, 119, 0.12);
+  border: 1px solid rgba(255, 119, 119, 0.35);
+  border-radius: 8px;
+}
 .radio {
   display: flex;
   align-items: center;

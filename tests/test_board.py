@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from kanbai import scaffold
 from kanbai.board import Board
-from kanbai.errors import CardNotFoundError, ColumnNotFoundError, InvalidTypeError
+from kanbai.errors import (
+    CardNotFoundError,
+    CardsInReviewError,
+    ColumnNotFoundError,
+    InvalidTypeError,
+)
 from kanbai.models import Priority
 
 
@@ -214,6 +222,27 @@ def test_new_sprint_without_version_leaves_it_unset(board: Board) -> None:
     board.add("A", column="done")
     board.new_sprint(reset_to_backlog=False)
     assert board.list_archive()[0].version is None
+
+
+def test_new_sprint_blocked_by_cards_in_review(board: Board) -> None:
+    board.add("Pending", column="review")
+    board.add("Finished", column="done")
+    with pytest.raises(CardsInReviewError):
+        board.new_sprint(reset_to_backlog=False)
+    # Nothing changed: the done card was not archived.
+    assert board.list_column("done") != []
+    assert board.list_archive() == []
+
+
+def test_new_sprint_ignored_when_board_has_no_review_column(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace('"review", ', ""))
+    no_review_board = Board.load(tmp_path)
+    no_review_board.add("Finished", column="done")
+    # No review column configured -> the check is skipped entirely, no error raised.
+    result = no_review_board.new_sprint(reset_to_backlog=False)
+    assert result == {"archived": 1, "reset": 0}
 
 
 def test_remove_deletes_card(board: Board) -> None:
