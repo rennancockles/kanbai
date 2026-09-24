@@ -455,7 +455,8 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
   border-left: 3px solid var(--border);
   border-radius: 7px;
 }
-.plan-item { cursor: pointer; }
+.plan-item,
+.archive-item { cursor: pointer; }
 .plan-item:hover,
 .archive-item:hover { background: var(--surface-2); border-color: var(--border); }
 .plan-item.pri-high,   .archive-item.pri-high   { border-left-color: var(--high); }

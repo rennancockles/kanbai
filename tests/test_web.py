@@ -357,7 +357,7 @@ def test_custom_type_color_renders_as_inline_style(tmp_path: Path) -> None:
     resp = TestClient(create_app(board)).get("/board")
     assert 'style="color: #ff0000; background: rgba(255, 0, 0, 0.14);"' in resp.text
     # the CSS fallback class is dropped in favor of the inline color
-    assert 'card-type type-bug' not in resp.text
+    assert "card-type type-bug" not in resp.text
 
 
 def test_type_without_color_override_still_uses_css_class(tmp_path: Path) -> None:
@@ -365,7 +365,7 @@ def test_type_without_color_override_still_uses_css_class(tmp_path: Path) -> Non
     board = Board.load(tmp_path)
     board.add("Alpha", column="todo", type="bug")
     resp = TestClient(create_app(board)).get("/board")
-    assert 'card-type type-bug' in resp.text
+    assert "card-type type-bug" in resp.text
     assert 'style="color:' not in resp.text
 
 
@@ -449,12 +449,44 @@ def test_archive_view_shows_version_when_set(tmp_path: Path) -> None:
     assert "v1.2.0" in resp.text
 
 
-def test_plan_and_archive_modals_render_priority_and_labels(tmp_path: Path) -> None:
+def test_archive_row_opens_card_detail_and_restore_button_still_works(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Done task", column="done")
+    board.archive(card.id)
+    resp = TestClient(create_app(board)).get("/archive")
+    assert f'hx-get="/cards/{card.id}"' in resp.text  # row opens the card's detail
+    assert f'hx-post="/cards/{card.id}/restore"' in resp.text  # restore button unaffected
+
+
+def test_board_defines_close_and_clear_detail_functions(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/").text
+    assert "function kanbaiCloseDetail" in body
+    assert "function kanbaiClearDetail" in body
+    assert "__kanbaiArchiveReturn" in body
+
+
+def test_card_detail_close_controls_use_close_detail(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).get(f"/cards/{card.id}")
+    assert 'onclick="kanbaiCloseDetail()"' in resp.text  # X button and overlay click
+
+
+def test_card_detail_mutating_actions_use_clear_detail(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).get(f"/cards/{card.id}")
+    # move/delete/archive must fully clear the modal, never restore a stale archive list
+    assert resp.text.count("kanbaiClearDetail()") == 3
+
+
+def test_plan_modal_renders_priority_and_labels(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
     board.add("Themed backlog card", priority="high", labels=["ui"])  # backlog -> plan modal
-    done = board.add("Old done card", column="done", priority="low", labels=["infra"])
-    board.archive(done.id)
     client = TestClient(create_app(board))
 
     plan = client.get("/sprint/plan").text
@@ -462,9 +494,17 @@ def test_plan_and_archive_modals_render_priority_and_labels(tmp_path: Path) -> N
     assert '<span class="item-pri">high</span>' in plan  # priority pill
     assert ">ui<" in plan  # label chip
 
+
+def test_archive_modal_does_not_render_labels(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    done = board.add("Old done card", column="done", priority="low", labels=["infra"])
+    board.archive(done.id)
+    client = TestClient(create_app(board))
+
     archive = client.get("/archive").text
     assert 'class="archive-item pri-low"' in archive
-    assert ">infra<" in archive
+    assert ">infra<" not in archive
 
 
 def test_plan_and_archive_modals_have_friendly_empty_states(tmp_path: Path) -> None:

@@ -271,9 +271,7 @@ class Board:
         storage.write_card(self.kanbai_dir, card)
         return card
 
-    def new_sprint(
-        self, *, reset_to_backlog: bool, version: str | None = None
-    ) -> dict[str, int]:
+    def new_sprint(self, *, reset_to_backlog: bool, version: str | None = None) -> dict[str, int]:
         """Start a fresh sprint: archive every done card, then optionally send the active
         columns (everything except backlog and done) back to the backlog.
 

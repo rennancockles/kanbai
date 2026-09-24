@@ -44,6 +44,15 @@ When asked to work on the project, do **one card at a time** and stop:
 Only work several cards back-to-back when the user explicitly asks for it (for example
 "work the whole sprint", or the `kanbai-sprint` skill).
 
+**Never move a card to `review` with failing checks.** Run the project's linters, type
+checkers, and test suite before `kanbai review <id>` — every one of them must pass. A card
+in `review` is a claim that the work is done and verified; don't make that claim if it isn't
+true.
+
+**If the user asks for a change on a card that is in `review`**, move it back to `doing`
+first (`kanbai move <id> doing`) before writing any code — never edit a card's work while it
+sits in `review`. Re-verify (checks + tests) and run `kanbai review <id>` again when done.
+
 Capturing new work:
 
 - `kanbai add "title" -d "description" -p high` puts a card in the **backlog** by default.
@@ -79,10 +88,15 @@ edit `.kanbai/` files directly):
 3. Read the full task with `kanbai show <id> --json` and implement it, satisfying any
    acceptance criteria in the body. **If the scope or a design decision is unclear or open,
    stop and ask the user before writing code — do not assume.**
-4. Once the work is complete and verified, run `kanbai review <id>` to send it to review.
-   **Do NOT run `kanbai done`** — only the user approves (they move it from review to done).
+4. Once the work is complete and verified — linters, type checkers, and tests all
+   passing — run `kanbai review <id>` to send it to review. **Never move a card to review
+   with failing checks.** Do NOT run `kanbai done` — only the user approves (they move it
+   from review to done).
 5. **Stop and report which card you finished. Do NOT start the next card** — wait for the
    user to ask for it (they may want to review or commit first).
+
+If the user asks for a change on a card that is in `review`, move it back to `doing` first
+(`kanbai move <id> doing`) before writing any code, then repeat from step 3.
 
 To work several cards back-to-back, use the `kanbai-sprint` skill instead.
 """
@@ -105,9 +119,13 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
    report a summary of everything you did and stop.
 2. Run `kanbai start <id>`, implement the task (see `kanbai show <id> --json` for the
    description and acceptance criteria). If a card's scope or a design decision is unclear,
-   stop and ask the user before coding it. Verify the work, then run `kanbai review <id>`
-   (send it to review — the user approves it to done).
+   stop and ask the user before coding it. Verify the work — linters, type checkers, and
+   tests all passing — then run `kanbai review <id>` (send it to review — the user approves
+   it to done). **Never move a card to review with failing checks.**
 3. Repeat from step 1 for the next card, reporting each card's outcome as you go.
+
+If the user asks for a change on a card that is in `review`, move it back to `doing` first
+(`kanbai move <id> doing`) before writing any code.
 
 Note: this changes many files without committing along the way. Prefer `kanbai-next` (one
 card at a time) unless the user asked for the whole sprint.

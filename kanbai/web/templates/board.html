@@ -151,8 +151,46 @@
 
     // Close any open modal (detail / edit / plan) with the Escape key.
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') document.getElementById('detail').innerHTML = '';
+      if (e.key === 'Escape') kanbaiCloseDetail();
     });
+
+    // Opening a card from the archive list remembers that modal (and its scroll
+    // position) so closing the card goes back to the archive instead of clearing
+    // everything. Any other request that replaces #detail invalidates the saved
+    // snapshot, so a stale archive list is never restored later (e.g. via Escape).
+    document.body.addEventListener('htmx:beforeRequest', function (e) {
+      var elt = e.detail.elt;
+      var detail = document.getElementById('detail');
+      if (elt && elt.classList && elt.classList.contains('archive-item')) {
+        var list = detail.querySelector('.plan-list');
+        window.__kanbaiArchiveReturn = { html: detail.innerHTML, scrollTop: list ? list.scrollTop : 0 };
+      } else if (e.detail.target === detail) {
+        window.__kanbaiArchiveReturn = null;
+      }
+    });
+
+    // Close the card detail: back to the remembered archive list if there is one
+    // (restoring its scroll position), otherwise clear the modal entirely.
+    function kanbaiCloseDetail() {
+      var detail = document.getElementById('detail');
+      var saved = window.__kanbaiArchiveReturn;
+      if (saved) {
+        window.__kanbaiArchiveReturn = null;
+        detail.innerHTML = saved.html;
+        htmx.process(detail);
+        var list = detail.querySelector('.plan-list');
+        if (list) list.scrollTop = saved.scrollTop;
+      } else {
+        detail.innerHTML = '';
+      }
+    }
+
+    // Fully clear the card detail after an action that changes the card (move,
+    // delete, archive, restore) — never restore a now-stale archive list.
+    function kanbaiClearDetail() {
+      window.__kanbaiArchiveReturn = null;
+      document.getElementById('detail').innerHTML = '';
+    }
 
     // Filter the items in a modal list (Plan sprint / Archive) client-side, so checkbox
     // selections are preserved across filtering — just hide the rows that don't match.
