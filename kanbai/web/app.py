@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.responses import Response
 
-from .. import APP_NAME
+from .. import APP_NAME, __version__
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Card, Priority
@@ -116,6 +116,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
 
         return {
             "app_name": APP_NAME,
+            "app_version": __version__,
             "board_name": resolved.config.name,
             "columns": [column_view(name, cards) for name, cards in board_data.items()],
             "column_names": resolved.columns,

@@ -20,8 +20,7 @@ Each board must already have a `.kanbai/` folder — run [`kanbai init`](cli.md#
 first. Then register it with the hub:
 
 ```bash
-kanbai hub add ~/projects/api          # name defaults to the folder ("api")
-kanbai hub add ~/projects/web --name web
+kanbai hub add ~/projects/api          # named after `[board] name` in its config.toml
 kanbai hub list                        # show registered boards
 kanbai hub remove api                  # unregister
 ```

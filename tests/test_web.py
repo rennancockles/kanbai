@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx2 as httpx
 import pytest
 from fastapi.testclient import TestClient
-from kanbai import scaffold
+from kanbai import __version__, scaffold
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
@@ -45,6 +45,11 @@ def test_index_shows_brand_name(tmp_path: Path) -> None:
     assert "KanbAI" in resp.text  # app name is branded with AI uppercased
 
 
+def test_index_shows_version(tmp_path: Path) -> None:
+    resp = _client(tmp_path).get("/")
+    assert f"v{__version__}" in resp.text
+
+
 def test_base_path_prefixes_urls(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
@@ -72,8 +77,9 @@ def test_board_switcher_shown_with_boards(tmp_path: Path) -> None:
     assert '<option value="/b/b/">b</option>' in html
 
 
-def test_no_switcher_for_single_board(tmp_path: Path) -> None:
-    assert "board-switcher" not in _client(tmp_path).get("/").text
+def test_static_board_name_for_single_board(tmp_path: Path) -> None:
+    html = _client(tmp_path).get("/").text
+    assert '<span class="board-switcher board-switcher-static">' in html
 
 
 def test_hub_board_pages_have_switcher(tmp_path: Path) -> None:

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.responses import Response
 
-from .. import APP_NAME
+from .. import APP_NAME, __version__
 from ..board import Board
 from ..errors import KanbaiError
 from .app import create_app
@@ -45,7 +45,9 @@ def create_hub_app(boards: dict[str, str]) -> FastAPI:
     @hub.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Response:
         return _TEMPLATES.TemplateResponse(
-            request, "hub.html", {"boards": mounted, "app_name": APP_NAME}
+            request,
+            "hub.html",
+            {"boards": mounted, "app_name": APP_NAME, "app_version": __version__},
         )
 
     return hub

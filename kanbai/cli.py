@@ -571,13 +571,10 @@ def hub_serve(
 @hub_app.command("add")
 def hub_add(
     path: Path = typer.Argument(..., help="Path to a project containing a .kanbai board."),
-    name: str | None = typer.Option(
-        None, "--name", help="Name for the board (default: the directory name)."
-    ),
 ) -> None:
     """Register a board in the hub."""
     try:
-        registered, replaced = registry.add_board(path, name)
+        registered, replaced = registry.add_board(path)
     except KanbaiError as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc

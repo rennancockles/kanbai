@@ -163,8 +163,7 @@ Register your boards (each must already have a `.kanbai/` — run `kanbai init` 
 start the hub:
 
 ```bash
-kanbai hub add ~/projects/api        # register a board (name defaults to the folder)
-kanbai hub add ~/projects/web --name web
+kanbai hub add ~/projects/api        # register a board (named after its config.toml)
 kanbai hub list                      # show registered boards
 kanbai hub                           # serve them all; opens a landing to pick a board
 ```

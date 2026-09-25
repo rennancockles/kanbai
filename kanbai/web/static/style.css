@@ -41,9 +41,15 @@ body {
   z-index: 1;
 }
 
-.topbar-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
-.topbar .logo { border-radius: 7px; flex: none; }
-.topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; }
+.topbar-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.topbar .logo { border-radius: 9px; flex: none; }
+.topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; display: flex; align-items: baseline; gap: 0.35rem; }
+.hub-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: lowercase;
+  color: var(--muted);
+}
 .board-switcher {
   font: inherit;
   font-size: 0.82rem;
@@ -54,16 +60,10 @@ body {
   padding: 0.3rem 0.5rem;
   cursor: pointer;
 }
-.brand {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
+.board-switcher:disabled {
+  cursor: default;
+  opacity: 0.85;
 }
-
 .toolbar {
   display: flex;
   gap: 0.5rem;

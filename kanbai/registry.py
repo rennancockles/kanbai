@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from . import storage
+from .config import load_config
 from .errors import KanbaiError
 
 if sys.version_info >= (3, 11):
@@ -44,16 +45,17 @@ def _save_boards(boards: dict[str, str]) -> None:
     storage.atomic_write(registry_path(), "".join(lines))
 
 
-def add_board(path: Path, name: str | None = None) -> tuple[str, bool]:
-    """Register the board at ``path`` (its directory name is the default name).
+def add_board(path: Path) -> tuple[str, bool]:
+    """Register the board at ``path``, named after its ``config.toml``.
 
     Returns ``(name, replaced)`` where ``replaced`` is true if a board with that name was
     already registered. Raises :class:`KanbaiError` if ``path`` has no ``.kanbai/`` board.
     """
     board_dir = path.expanduser().resolve()
-    if not (board_dir / storage.KANBAI_DIRNAME).is_dir():
+    kanbai_dir = board_dir / storage.KANBAI_DIRNAME
+    if not kanbai_dir.is_dir():
         raise KanbaiError(f"No .kanbai board at {board_dir}. Run `kanbai init` there first.")
-    name = name or board_dir.name
+    name = load_config(kanbai_dir).name
     boards = load_boards()
     replaced = name in boards
     boards[name] = str(board_dir)

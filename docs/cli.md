@@ -234,7 +234,7 @@ kanbai ui --poll             # for sandboxes/containers without OS file events
 Serve or manage the [multi-board hub](hub.md).
 
 ```bash
-kanbai hub add ~/projects/api        # register a board
+kanbai hub add ~/projects/api        # register a board (named after its config.toml)
 kanbai hub list                      # show registered boards
 kanbai hub remove api                # unregister a board
 kanbai hub                           # serve all registered boards on one port

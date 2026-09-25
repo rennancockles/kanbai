@@ -28,11 +28,19 @@ def test_add_list_remove(tmp_path: Path) -> None:
     assert registry.load_boards() == {}
 
 
-def test_add_custom_name_and_overwrite(tmp_path: Path) -> None:
+def test_add_uses_config_name(tmp_path: Path) -> None:
     board = tmp_path / "proj"
-    scaffold.init_board(board)
-    registry.add_board(board, name="mine")
-    _, replaced = registry.add_board(board, name="mine")
+    scaffold.init_board(board, name="mine")
+    name, _ = registry.add_board(board)
+    assert name == "mine"
+    assert set(registry.load_boards()) == {"mine"}
+
+
+def test_add_overwrite(tmp_path: Path) -> None:
+    board = tmp_path / "proj"
+    scaffold.init_board(board, name="mine")
+    registry.add_board(board)
+    _, replaced = registry.add_board(board)
     assert replaced is True
     assert set(registry.load_boards()) == {"mine"}
 

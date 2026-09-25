@@ -13,8 +13,8 @@
 <body>
   <header class="topbar">
     <div class="topbar-left">
-      <img class="logo" src="{{ base }}/static/icon.png" alt="{{ app_name }}" width="28" height="28">
-      <h1>{{ board_name }}</h1>
+      <img class="logo" src="{{ base }}/static/icon.png" alt="{{ app_name }}" width="38" height="38">
+      <h1 title="{{ app_name }} v{{ app_version }}">{{ app_name }}{% if boards %} <span class="hub-tag">hub</span>{% endif %}</h1>
       {% if boards %}
       <select class="board-switcher" aria-label="Switch board"
               onchange="if(this.value)location.href=this.value">
@@ -22,6 +22,8 @@
         <option value="{{ b.url }}"{% if b.name == current %} selected{% endif %}>{{ b.name }}</option>
         {% endfor %}
       </select>
+      {% else %}
+      <span class="board-switcher board-switcher-static">{{ board_name }}</span>
       {% endif %}
     </div>
     <div class="board-actions">
