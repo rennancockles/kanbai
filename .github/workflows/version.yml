@@ -1,9 +1,11 @@
 name: Version
 
-# Bump the version, update the changelog, and cut a GitHub Release from Conventional Commits
-# on every push to main. The release.yml workflow (PyPI publish) then triggers on that
-# Release being published, not on the tag push — a tag created with GITHUB_TOKEN does not
-# retrigger a `push: tags` workflow, so `release: published` is used instead.
+# Bump the version, update the changelog, cut a GitHub Release from Conventional Commits, and
+# publish to PyPI, all on every push to main. Build+publish live in this same workflow (gated
+# on the `released` output) rather than a separate workflow triggered by the Release object —
+# a Release created with the default GITHUB_TOKEN does not trigger other workflows (GitHub
+# suppresses events from its own token to avoid recursive runs), so `release: published` never
+# fired either.
 on:
   push:
     branches: [main]
@@ -12,11 +14,17 @@ concurrency:
   group: version-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,8 +32,56 @@ jobs:
           ref: main
 
       - name: Release
+        id: release
         uses: python-semantic-release/python-semantic-release@v10.7.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
+
+  build:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify the tag matches the package version
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          TAG="${TAG#v}"
+          VERSION="$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
+          echo "tag=$TAG  pyproject=$VERSION"
+          test "$TAG" = "$VERSION"
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kanbai
+    permissions:
+      id-token: write # required for PyPI Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

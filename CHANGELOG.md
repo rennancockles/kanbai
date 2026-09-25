@@ -2,8 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/).
+Entries up to and including [0.4.0](#040---2026-09-24) were written by hand, following
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). From here on, releases are
+automated by [python-semantic-release](https://python-semantic-release.readthedocs.io/) from
+[Conventional Commits](https://www.conventionalcommits.org/), which uses its own format
+(grouped by commit type) — the entries below this line follow that instead. This project
+adheres to [Semantic Versioning](https://semver.org/).
+
+<!-- version list -->
+
+## v0.4.1 (2026-09-25)
+
+### Bug Fixes
+
+- Simplificar notify_ntfy, sincrona no CLI e background na web (061)
+  ([`95e6278`](https://github.com/rennancockles/kanbai/commit/95e627806357aa572731726c72a64ba422d233fa))
+
+### Continuous Integration
+
+- Enable python semantic release
+  ([`9930bcf`](https://github.com/rennancockles/kanbai/commit/9930bcf21bedf421d3f4be168e1de4a0d1658da2))
 
 ## [Unreleased]
 
