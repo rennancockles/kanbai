@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import threading
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -13,7 +15,7 @@ from kanbai import scaffold
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
-from kanbai.notify_ntfy import notify_ntfy
+from kanbai.notify_ntfy import notify_ntfy, notify_ntfy_background
 from kanbai.web import server
 from kanbai.web.app import create_app
 from kanbai.web.hub import create_hub_app
@@ -226,7 +228,7 @@ def test_move_to_review_via_post_fires_native_and_ntfy(
         "kanbai.web.app.notify_native", lambda title, body: native_calls.append((title, body))
     )
     monkeypatch.setattr(
-        "kanbai.web.app.notify_ntfy",
+        "kanbai.web.app.notify_ntfy_background",
         lambda topic, title, body: ntfy_calls.append((topic, title, body)),
     )
 
@@ -900,13 +902,65 @@ def test_notify_ntfy_posts_title_header_and_body(monkeypatch: pytest.MonkeyPatch
     assert calls[0]["headers"] == {"Title": "My title"}
 
 
-def test_notify_ntfy_swallows_any_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_notify_ntfy_swallows_any_failure_but_logs_to_stderr(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     class BrokenClient:
         def __init__(self, *args: object, **kwargs: object) -> None:
             raise ImportError("simulated: e.g. a misconfigured proxy transport")
 
     monkeypatch.setattr(httpx, "Client", BrokenClient)
     notify_ntfy("my-topic", "My title", "My body")  # must not raise
+    assert "simulated: e.g. a misconfigured proxy transport" in capsys.readouterr().err
+
+
+def test_notify_ntfy_blocks_until_the_request_finishes(monkeypatch: pytest.MonkeyPatch) -> None:
+    # notify_ntfy() is the synchronous variant used by the CLI: a short-lived process that
+    # would otherwise kill a background thread mid-request before it can complete.
+    class SlowClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> SlowClient:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            pass
+
+        def post(self, *args: object, **kwargs: object) -> None:
+            time.sleep(0.2)
+
+    monkeypatch.setattr(httpx, "Client", SlowClient)
+    start = time.monotonic()
+    notify_ntfy("my-topic", "My title", "My body")
+    assert time.monotonic() - start >= 0.2  # waited for the "slow" request to finish
+
+
+def test_notify_ntfy_background_does_not_block_the_caller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # notify_ntfy_background() is the fire-and-forget variant used by the long-lived web UI,
+    # which keeps running between requests so a background thread always gets to finish.
+    release = threading.Event()
+
+    class SlowClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> SlowClient:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            pass
+
+        def post(self, *args: object, **kwargs: object) -> None:
+            release.wait(timeout=5)  # blocks until the test releases it, simulating slow I/O
+
+    monkeypatch.setattr(httpx, "Client", SlowClient)
+    start = time.monotonic()
+    notify_ntfy_background("my-topic", "My title", "My body")
+    assert time.monotonic() - start < 0.5  # returned long before the "slow" request finishes
+    release.set()  # let the background thread finish before the test's monkeypatch is undone
 
 
 def test_board_partial_is_returned(tmp_path: Path) -> None:

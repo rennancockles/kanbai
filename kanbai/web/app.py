@@ -16,7 +16,7 @@ from .. import APP_NAME
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Card, Priority
-from ..notify_ntfy import notify_ntfy
+from ..notify_ntfy import notify_ntfy_background
 from . import watcher
 from .notify import notify_native
 
@@ -47,14 +47,16 @@ def _make_notify_hook(board: Board) -> Callable[[str, str], None]:
     """Build the ``Board.on_notify`` callback: native desktop + ntfy, best-effort.
 
     ``kanbai/web`` always has the ``ui`` extra installed (it's what pulls this module in),
-    so ``notify_native`` is imported at module load, unlike the CLI's lazy import.
+    so ``notify_native`` is imported at module load, unlike the CLI's lazy import. Unlike the
+    CLI, the process here is long-lived (``kanbai ui``/``hub`` keep running between
+    requests), so ntfy runs in the background rather than blocking the HTTP response on it.
     """
 
     def notify(title: str, body: str) -> None:
         if board.config.notifications_native:
             notify_native(title, body)
         if board.config.notifications_ntfy_topic:
-            notify_ntfy(board.config.notifications_ntfy_topic, title, body)
+            notify_ntfy_background(board.config.notifications_ntfy_topic, title, body)
 
     return notify
 

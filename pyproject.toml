@@ -211,7 +211,7 @@ match = "main"
 [tool.semantic_release.commit_parser_options]
 allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test"]
 minor_tags = ["feat"]
-patch_tags = ["build", "ci", "docs", "fix", "perf", "refactor", "style", "test"]
+patch_tags = ["fix", "perf"]
 default_bump_level = 0
 
 [tool.semantic_release.remote]
