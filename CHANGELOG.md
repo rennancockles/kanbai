@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.5.0 (2026-09-25)
+
+### Bug Fixes
+
+- **ci**: Fundir version e release em um workflow (062, 063)
+  ([`2539ae2`](https://github.com/rennancockles/kanbai/commit/2539ae2a2db84687653bb128b5bc0e166b98b06a))
+
+### Features
+
+- Notificar via Claude Code Notification hook (064)
+  ([`c426e5b`](https://github.com/rennancockles/kanbai/commit/c426e5b2011a01a2d83effe048ec9672604d8ded))
+
+
 ## v0.4.1 (2026-09-25)
 
 ### Bug Fixes
