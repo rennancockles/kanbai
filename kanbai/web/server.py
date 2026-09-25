@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import threading
 import webbrowser
+from collections.abc import Callable
 
 import uvicorn
 
@@ -68,13 +69,17 @@ def serve(
 
 
 def serve_hub(
-    boards: dict[str, str],
+    boards: dict[str, str] | Callable[[], dict[str, str]],
     *,
     host: str = "127.0.0.1",
     port: int = 8000,
     open_browser: bool = True,
 ) -> None:
-    """Serve the multi-board hub (all registered boards under ``/b/<name>/``) on one port."""
+    """Serve the multi-board hub (all registered boards under ``/b/<name>/``) on one port.
+
+    Pass a callable (e.g. ``registry.load_boards``) rather than a plain dict so boards added
+    via ``kanbai hub add`` while the hub is running are picked up without a restart.
+    """
     app = create_hub_app(boards)
     if open_browser:
         url = f"http://{host}:{port}"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -350,8 +351,10 @@ def test_hub_serve_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     calls: dict[str, object] = {}
 
-    def fake_serve_hub(boards: dict[str, str], *, host: str, port: int, open_browser: bool) -> None:
-        calls.update(host=host, port=port, count=len(boards), open_browser=open_browser)
+    def fake_serve_hub(
+        boards: Callable[[], dict[str, str]], *, host: str, port: int, open_browser: bool
+    ) -> None:
+        calls.update(host=host, port=port, count=len(boards()), open_browser=open_browser)
 
     monkeypatch.setattr("kanbai.web.server.serve_hub", fake_serve_hub)
     result = runner.invoke(app, ["hub", "--port", "9000", "--no-browser"])

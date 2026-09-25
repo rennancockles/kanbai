@@ -116,6 +116,23 @@ def test_hub_skips_missing_boards(tmp_path: Path) -> None:
     assert client.get("/b/gone/").status_code == 404  # unmounted
 
 
+def test_hub_picks_up_boards_registered_after_startup(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    boards = {"a": str(board_a)}
+    client = TestClient(create_hub_app(lambda: boards))
+
+    assert client.get("/b/b/").status_code == 404
+    assert "/b/b/" not in client.get("/").text
+
+    boards["b"] = str(board_b)  # simulates `kanbai hub add` while the hub is running
+
+    assert client.get("/b/b/").status_code == 200
+    assert "/b/b/" in client.get("/").text
+
+
 def test_index_has_favicon_and_logo(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert 'rel="icon"' in body

@@ -565,7 +565,9 @@ def hub_serve(
         f"[green]›[/green] {APP_NAME} hub at [cyan]http://{host}:{port}[/cyan] "
         f"[dim]({len(boards)} board(s), Ctrl+C to stop)[/dim]"
     )
-    serve_hub(boards, host=host, port=port, open_browser=not no_browser)
+    # Pass the loader itself (not the already-resolved `boards`) so the hub re-reads the
+    # registry per request and picks up boards added via `kanbai hub add` while it runs.
+    serve_hub(registry.load_boards, host=host, port=port, open_browser=not no_browser)
 
 
 @hub_app.command("add")
