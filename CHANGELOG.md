@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.5.1 (2026-09-25)
+
+### Bug Fixes
+
+- Hub detecta boards registrados apos o startup, sem restart (067)
+  ([`4d99c68`](https://github.com/rennancockles/kanbai/commit/4d99c688210afedb2355d0bad0c74213b35f6224))
+
+### Refactoring
+
+- Nomear boards do hub pelo config.toml, mover versao para tooltip (065, 068)
+  ([`dcd113c`](https://github.com/rennancockles/kanbai/commit/dcd113cbe4803388a1ef0c78424ff138d1ecbc49))
+
+
 ## v0.5.0 (2026-09-25)
 
 ### Bug Fixes
