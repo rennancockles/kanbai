@@ -48,8 +48,22 @@ to the `permissions.allow` list in `.claude/settings.json`:
 }
 ```
 
-`kanbai init` prints this reminder. Editing `settings.json` is left to you, since it's a
-sensitive file.
+`kanbai init` prints this reminder. Editing the rest of `settings.json` is left to you, since
+it's a sensitive file — the one exception is the `Notification` hook below, which `init`
+merges in on its own.
+
+## Notified when Claude needs you
+
+`kanbai init` also registers Claude Code's [`Notification`
+hook](https://code.claude.com/docs/en/hooks#notification) in `.claude/settings.json`, pointed
+at `kanbai notify-hook`. It fires the same [native desktop and ntfy
+channels](web-ui.md#notifications) configured in `config.toml` whenever Claude is waiting on
+you — a permission prompt, an `AskUserQuestion`, or plain idleness — independently of any
+board activity.
+
+The merge is additive and non-destructive: it only touches `hooks.Notification`, leaving
+every other key (and any hooks you've configured yourself) exactly as they were. Re-running
+`init` won't duplicate the entry.
 
 ## Planning work for Claude
 

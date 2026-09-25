@@ -94,6 +94,10 @@ name, so running several boards side by side doesn't mix up which one needs your
 Don't want the native channel? Turn it off in
 [`config.toml`](configuration.md#notifications).
 
+There's a third trigger, independent of board activity: Claude Code's own [`Notification`
+hook](claude-code.md#notified-when-claude-needs-you), installed automatically by `kanbai
+init`, fires these same two channels whenever Claude is waiting on you.
+
 ## Sorting the backlog
 
 The backlog column has a small sort control in its header. Pick a key (**id**, **priority**,

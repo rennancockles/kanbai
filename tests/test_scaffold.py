@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from kanbai import scaffold
@@ -72,3 +73,86 @@ def test_init_completes_missing_pieces_on_rerun(tmp_path: Path) -> None:
 
     assert (tmp_path / ".claude" / "rules" / "kanbai.md").exists()
     assert any("kanbai.md" in created for created in result.created)
+
+
+def _notify_hooks(settings: dict) -> list[dict]:
+    return settings.get("hooks", {}).get("Notification", [])
+
+
+def _kanbai_hook_count(settings: dict) -> int:
+    return sum(
+        1
+        for entry in _notify_hooks(settings)
+        for hook in entry.get("hooks", [])
+        if hook.get("command") == scaffold.KANBAI_NOTIFY_HOOK_COMMAND
+    )
+
+
+def test_init_writes_notification_hook_into_fresh_settings_json(tmp_path: Path) -> None:
+    result = scaffold.init_board(tmp_path)
+
+    settings_path = tmp_path / ".claude" / "settings.json"
+    assert settings_path.exists()
+    settings = json.loads(settings_path.read_text())
+    assert _kanbai_hook_count(settings) == 1
+    assert any(".claude/settings.json" in created for created in result.created)
+
+
+def test_init_merges_hook_into_existing_settings_json_preserving_other_keys(
+    tmp_path: Path,
+) -> None:
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    existing = {
+        "env": {"SOME_VAR": "1"},
+        "permissions": {"allow": ["Bash(kanbai *)"]},
+        "hooks": {
+            "Notification": [
+                {
+                    "matcher": "*",
+                    "hooks": [{"type": "command", "command": "curl https://ntfy.sh/my-topic"}],
+                }
+            ]
+        },
+    }
+    settings_path.write_text(json.dumps(existing))
+
+    scaffold.init_board(tmp_path)
+
+    settings = json.loads(settings_path.read_text())
+    assert settings["env"] == {"SOME_VAR": "1"}
+    assert settings["permissions"] == {"allow": ["Bash(kanbai *)"]}
+    commands = [
+        hook["command"] for entry in _notify_hooks(settings) for hook in entry.get("hooks", [])
+    ]
+    assert "curl https://ntfy.sh/my-topic" in commands
+    assert scaffold.KANBAI_NOTIFY_HOOK_COMMAND in commands
+
+
+def test_init_notification_hook_is_idempotent(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    result = scaffold.init_board(tmp_path)
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    assert _kanbai_hook_count(settings) == 1
+    assert any(".claude/settings.json" in skipped for skipped in result.skipped)
+
+
+def test_init_force_reinitializes_settings_hook_without_duplicating(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    scaffold.init_board(tmp_path, force=True)
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    assert _kanbai_hook_count(settings) == 1
+
+
+def test_init_degrades_when_settings_json_malformed(tmp_path: Path) -> None:
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text("{not json")
+
+    result = scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".kanbai" / "config.toml").exists()  # the board itself still works
+    assert settings_path.read_text() == "{not json"  # left untouched, not overwritten
+    assert any(".claude/settings.json" in path for path, _ in result.failed)

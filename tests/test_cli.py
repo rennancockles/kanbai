@@ -151,6 +151,72 @@ def test_review_skips_ntfy_when_topic_not_configured(
     assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
 
 
+def test_notify_hook_fires_on_agent_needs_input(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    payload = json.dumps({"notification_type": "agent_needs_input", "cwd": str(project)})
+    result = runner.invoke(app, ["notify-hook"], input=payload)
+    assert result.exit_code == 0
+    assert calls
+    assert calls[0][0] == "my-topic"
+
+
+def test_notify_hook_ignores_unrelated_notification_type(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    payload = json.dumps({"notification_type": "agent_completed", "cwd": str(project)})
+    result = runner.invoke(app, ["notify-hook"], input=payload)
+    assert result.exit_code == 0
+    assert calls == []
+
+
+def test_notify_hook_no_board_found_is_a_silent_noop(tmp_path: Path) -> None:
+    payload = json.dumps({"notification_type": "agent_needs_input", "cwd": str(tmp_path)})
+    result = runner.invoke(app, ["notify-hook"], input=payload)
+    assert result.exit_code == 0
+
+
+def test_notify_hook_malformed_json_is_a_silent_noop() -> None:
+    result = runner.invoke(app, ["notify-hook"], input="not json")
+    assert result.exit_code == 0
+
+
+def test_notify_hook_uses_cwd_from_payload_not_process_cwd(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No board where the test runner's cwd actually is...
+    elsewhere = tmp_path / "no-board-here"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+
+    # ...but the payload's `cwd` points at the board, and that's what must be used.
+    payload = json.dumps({"notification_type": "agent_needs_input", "cwd": str(project)})
+    result = runner.invoke(app, ["notify-hook"], input=payload)
+    assert result.exit_code == 0
+    assert calls
+
+
 def test_close_sprint_archives_done_and_keeps_active(project: Path) -> None:
     runner.invoke(app, ["add", "A", "-c", "todo"])
     runner.invoke(app, ["add", "B", "-c", "done"])

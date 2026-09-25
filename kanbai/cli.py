@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import sys
 from pathlib import Path
 
 import typer
@@ -34,6 +36,10 @@ _PRIORITY_STYLE = {
 
 
 # --------------------------------------------------------------------------- helpers
+
+# Notification-hook `notification_type` values that mean Claude Code is stuck waiting on the
+# user (as opposed to e.g. a completed subagent or an auth event) — see `notify_hook()`.
+_WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
 def _notify(board: Board, title: str, body: str) -> None:
@@ -608,6 +614,37 @@ def hub_remove(name: str = typer.Argument(..., help="Registered board name.")) -
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(f"[green]✓[/green] Removed [cyan]{name}[/cyan]")
+
+
+@app.command(name="notify-hook", hidden=True)
+def notify_hook() -> None:
+    """Claude Code `Notification` hook entrypoint, installed by `kanbai init` — not for humans.
+
+    Reads the hook's JSON payload from stdin and, when `notification_type` means Claude is
+    waiting on the user, fires the same notification channels configured in config.toml
+    (native/ntfy) via `_notify()`. Every failure mode (malformed input, no board found at the
+    payload's `cwd`, a notification backend raising) is a silent no-op — this command is
+    invoked by Claude Code itself, so it must never exit non-zero or raise.
+    """
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return
+    if not isinstance(payload, dict):
+        return
+    if payload.get("notification_type") not in _WAITING_NOTIFICATION_TYPES:
+        return
+
+    cwd = payload.get("cwd")
+    start = Path(cwd) if isinstance(cwd, str) and cwd else None
+    try:
+        board = Board.load(start)
+    except KanbaiError:
+        return
+
+    title = f"{board.config.name}: Claude needs input"
+    with contextlib.suppress(Exception):  # must never surface as a Claude Code hook error
+        _notify(board, title, "Claude Code is waiting for you.")
 
 
 if __name__ == "__main__":  # pragma: no cover

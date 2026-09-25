@@ -34,6 +34,9 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 
 Scaffold a `.kanbai/` board in the current directory and install the
 [Claude Code integration](claude-code.md). Safe to re-run — it only creates what's missing.
+This also merges a [`Notification` hook](claude-code.md#notified-when-claude-needs-you) into
+`.claude/settings.json` (pointed at the hidden `notify-hook` command), without touching any
+other keys or hooks already there.
 
 ```bash
 kanbai init                      # scaffold in the current directory

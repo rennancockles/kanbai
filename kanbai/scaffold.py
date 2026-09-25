@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import storage
 from .config import render_config
 from .models import BoardConfig
+
+# The literal command kanbai registers in .claude/settings.json's `hooks.Notification`. JSON
+# has no comments to tag "this hook is ours", so this string doubles as the idempotency
+# marker `_merge_settings_hook` looks for on re-runs.
+KANBAI_NOTIFY_HOOK_COMMAND = "kanbai notify-hook"
 
 RULE_DOC = """# kanbai board workflow
 
@@ -194,6 +200,89 @@ def _write(
     result.created.append(rel)
 
 
+def _has_kanbai_notify_hook(notifications: list[object]) -> bool:
+    for entry in notifications:
+        if not isinstance(entry, dict):
+            continue
+        hooks = entry.get("hooks")
+        if not isinstance(hooks, list):
+            continue
+        if any(
+            isinstance(hook, dict) and hook.get("command") == KANBAI_NOTIFY_HOOK_COMMAND
+            for hook in hooks
+        ):
+            return True
+    return False
+
+
+def _strip_kanbai_notify_hook(notifications: list[object]) -> None:
+    """Remove only kanbai's own hook (in place), leaving unrelated hooks/entries untouched."""
+    for entry in list(notifications):
+        if not isinstance(entry, dict):
+            continue
+        hooks = entry.get("hooks")
+        if not isinstance(hooks, list):
+            continue
+        hooks[:] = [
+            hook
+            for hook in hooks
+            if not (isinstance(hook, dict) and hook.get("command") == KANBAI_NOTIFY_HOOK_COMMAND)
+        ]
+        if not hooks:
+            notifications.remove(entry)
+
+
+def _merge_settings_hook(root: Path, result: ScaffoldResult, *, force: bool = False) -> None:
+    """Register kanbai's `Notification` hook in `.claude/settings.json`, preserving the rest.
+
+    Unlike `_write()` (overwrite-or-skip), this is read-modify-write: an existing
+    settings.json may carry unrelated keys (env, permissions, sandbox, ...) and unrelated
+    hooks (including a user's own `Notification` entries) that must survive untouched — only
+    `hooks.Notification` is ever modified, and only to add/replace kanbai's own entry
+    (identified by ``KANBAI_NOTIFY_HOOK_COMMAND``). A malformed existing file is recorded as
+    failed and left exactly as-is, never overwritten with a guess.
+    """
+    path = root / ".claude" / "settings.json"
+    rel = str(path.relative_to(root))
+
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            result.failed.append((rel, str(exc)))
+            return
+        if not isinstance(data, dict):
+            result.failed.append((rel, "settings.json does not contain a JSON object"))
+            return
+    else:
+        data = {}
+
+    hooks = data.setdefault("hooks", {})
+    notifications = hooks.setdefault("Notification", [])
+
+    already_present = _has_kanbai_notify_hook(notifications)
+    if already_present and not force:
+        result.skipped.append(rel)
+        return
+    if already_present:
+        _strip_kanbai_notify_hook(notifications)
+
+    notifications.append(
+        {
+            "matcher": "*",
+            "hooks": [{"type": "command", "command": KANBAI_NOTIFY_HOOK_COMMAND}],
+        }
+    )
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        result.failed.append((rel, exc.strerror or str(exc)))
+        return
+    result.created.append(rel)
+
+
 def init_board(root: Path, *, force: bool = False, name: str | None = None) -> ScaffoldResult:
     """Create the `.kanbai/` board and Claude integration files under ``root``.
 
@@ -237,5 +326,6 @@ def init_board(root: Path, *, force: bool = False, name: str | None = None) -> S
         force,
         optional=True,
     )
+    _merge_settings_hook(root, result, force=force)
 
     return result
