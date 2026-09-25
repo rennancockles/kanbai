@@ -33,7 +33,7 @@ dependencies = [
     "pydantic>=2.6",
     "pyyaml>=6.0",
     "rich>=13.0",
-    "httpx2>=2.13",
+    "httpx2[socks]>=2.13",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
@@ -46,6 +46,9 @@ ui = [
     "python-multipart>=0.0.9",
     "desktop-notifier>=6.0",
 ]
+# Lets the python-semantic-release GitHub Action's build_command install a pinned uv — its
+# Docker environment doesn't ship one, unlike the CI/release runners (astral-sh/setup-uv).
+build = ["uv>=0.7"]
 
 [dependency-groups]
 dev = [
@@ -58,6 +61,7 @@ dev = [
     "pytest-rerunfailures>=16.6",
     "pytest-xdist>=3.8.0",
     "types-pyyaml>=6.0",
+    "python-semantic-release>=10.7",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -185,3 +189,30 @@ source = ["kanbai"]
 
 [tool.coverage.report]
 fail_under = 75
+
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["kanbai/__init__.py:__version__"]
+allow_zero_version = true
+commit_message = "chore(release): bumping to version {version}"
+build_command = """
+    python -m pip install -e '.[build]'
+    uv lock --upgrade-package kanbai
+    git add uv.lock
+"""
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = ["chore(release): bumping to version .*"]
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test"]
+minor_tags = ["feat"]
+patch_tags = ["build", "ci", "docs", "fix", "perf", "refactor", "style", "test"]
+default_bump_level = 0
+
+[tool.semantic_release.remote]
+type = "github"

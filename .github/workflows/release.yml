@@ -1,9 +1,12 @@
 name: Release
 
-# Publish to PyPI when a version tag is pushed, e.g. `git tag v0.1.0 && git push --tags`.
+# Publish to PyPI when the version.yml workflow (python-semantic-release) publishes a
+# GitHub Release. Not triggered by `push: tags` — a tag created with the default
+# GITHUB_TOKEN does not retrigger a `push` workflow, so this listens for the Release object
+# semantic-release creates instead.
 on:
-  push:
-    tags: ["v*.*.*"]
+  release:
+    types: [published]
 
 permissions:
   contents: read

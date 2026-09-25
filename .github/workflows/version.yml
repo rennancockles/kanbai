@@ -1,0 +1,31 @@
+name: Version
+
+# Bump the version, update the changelog, and cut a GitHub Release from Conventional Commits
+# on every push to main. The release.yml workflow (PyPI publish) then triggers on that
+# Release being published, not on the tag push — a tag created with GITHUB_TOKEN does not
+# retrigger a `push: tags` workflow, so `release: published` is used instead.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: version-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Release
+        uses: python-semantic-release/python-semantic-release@v10.7.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
