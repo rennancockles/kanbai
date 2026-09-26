@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.routing import Mount
 
@@ -16,6 +17,7 @@ from .. import APP_NAME, __version__
 from ..board import Board
 from ..errors import KanbaiError
 from .app import create_app
+from .errors import render_http_error
 
 _WEB_DIR = Path(__file__).parent
 _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
@@ -80,5 +82,9 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
             "hub.html",
             {"boards": mounted, "app_name": APP_NAME, "app_version": __version__},
         )
+
+    @hub.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, exc: StarletteHTTPException) -> Response:
+        return render_http_error(request, exc, _TEMPLATES, boards=mounted)
 
     return hub

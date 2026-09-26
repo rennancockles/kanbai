@@ -10,6 +10,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from .. import APP_NAME, __version__
@@ -18,6 +19,7 @@ from ..errors import KanbaiError
 from ..models import Card, Priority
 from ..notify_ntfy import notify_ntfy_background
 from . import watcher
+from .errors import render_http_error
 from .notify import notify_native
 
 _WEB_DIR = Path(__file__).parent
@@ -346,5 +348,9 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         with contextlib.suppress(KanbaiError):
             resolved.move(card_id, column, position=position)
         return render(request, "_board.html", context())
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, exc: StarletteHTTPException) -> Response:
+        return render_http_error(request, exc, _TEMPLATES, base_path=base_path, boards=boards)
 
     return app

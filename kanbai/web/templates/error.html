@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ status_code }} · {{ app_name }}</title>
+  <link rel="icon" type="image/png" href="{{ base }}/static/icon.png">
+  <link rel="apple-touch-icon" href="{{ base }}/static/apple-touch-icon.png">
+  <link rel="stylesheet" href="{{ base }}/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <img class="logo" src="{{ base }}/static/icon.png" alt="{{ app_name }}" width="38" height="38">
+      <h1>{{ app_name }}</h1>
+    </div>
+  </header>
+
+  <main class="error-page{% if status_code == 404 %} error-page-404{% endif %}"
+        {% if status_code == 404 %}style="background-image: url('{{ base }}/static/404.jpeg');"{% endif %}>
+    <div class="error-content">
+      {% if boards %}
+      <p class="error-hint">Maybe you meant one of these boards:</p>
+      <ul class="hub-list">
+        {% for b in boards %}
+        <li>
+          <a class="hub-board" href="{{ b.url }}">
+            <span class="hub-name">{{ b.name }}</span>
+            <span class="hub-path">{{ b.path }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <a class="btn-ghost error-home" href="{{ base }}/">Back to {% if boards %}the hub{% else %}the board{% endif %}</a>
+    </div>
+  </main>
+</body>
+</html>

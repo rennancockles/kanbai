@@ -116,6 +116,21 @@ def test_hub_skips_missing_boards(tmp_path: Path) -> None:
     assert client.get("/b/gone/").status_code == 404  # unmounted
 
 
+def test_hub_unknown_route_renders_html_error_page(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a)}))
+
+    resp = client.get("/b/KanbAI2/")
+    assert resp.status_code == 404
+    assert "text/html" in resp.headers["content-type"]
+    assert "/b/a/" in resp.text  # suggests a registered board instead
+
+    json_resp = client.get("/b/KanbAI2/", headers={"accept": "application/json"})
+    assert json_resp.status_code == 404
+    assert json_resp.json() == {"detail": "Not Found"}
+
+
 def test_hub_picks_up_boards_registered_after_startup(tmp_path: Path) -> None:
     board_a = tmp_path / "a"
     board_b = tmp_path / "b"
@@ -737,6 +752,21 @@ def test_card_detail_unknown_returns_404(tmp_path: Path) -> None:
     board = Board.load(tmp_path)
     resp = TestClient(create_app(board)).get("/cards/999")
     assert resp.status_code == 404
+
+
+def test_board_unknown_route_renders_html_error_page(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    resp = client.get("/nonexistent-route")
+    assert resp.status_code == 404
+    assert "text/html" in resp.headers["content-type"]
+    assert "404" in resp.text
+
+    json_resp = client.get("/nonexistent-route", headers={"accept": "application/json"})
+    assert json_resp.status_code == 404
+    assert json_resp.json() == {"detail": "Not Found"}
 
 
 def test_board_cards_link_to_detail(tmp_path: Path) -> None:
