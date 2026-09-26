@@ -129,6 +129,31 @@ def test_hub_skips_missing_boards(tmp_path: Path) -> None:
     assert client.get("/b/gone/").status_code == 404  # unmounted
 
 
+def test_hub_skips_unreadable_board_without_crashing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # e.g. macOS TCC denying access to a protected folder (~/Documents) when the hub runs
+    # detached from the terminal that granted it — the load must raise OSError, not just
+    # a missing-board KanbaiError, and the hub must still serve the other boards.
+    board_a = tmp_path / "a"
+    board_denied = tmp_path / "denied"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_denied)
+
+    real_load = Board.load
+
+    def fake_load(start: Path | None = None) -> Board:
+        if start is not None and Path(start) == board_denied:
+            raise PermissionError(f"Operation not permitted: '{start}'")
+        return real_load(start)
+
+    monkeypatch.setattr(Board, "load", staticmethod(fake_load))
+    client = TestClient(create_hub_app({"a": str(board_a), "denied": str(board_denied)}))
+
+    assert client.get("/b/a/").status_code == 200
+    assert client.get("/b/denied/").status_code == 404  # unmounted, not a hub-wide crash
+
+
 def test_hub_unknown_route_renders_html_error_page(tmp_path: Path) -> None:
     board_a = tmp_path / "a"
     scaffold.init_board(board_a)

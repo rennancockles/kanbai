@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -26,7 +27,10 @@ _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
 def _mount_boards(hub: FastAPI, boards: dict[str, str]) -> list[dict[str, str]]:
     """(Re)mount one board app per registered board under ``/b/<name>``, replacing any prior
     ``/b/*`` mounts. Returns the ``mounted`` list used by the landing page. A board whose path
-    no longer has a ``.kanbai/`` is skipped rather than crashing the whole hub.
+    no longer has a ``.kanbai/`` is skipped rather than crashing the whole hub — likewise a
+    board the process simply can't read (e.g. macOS TCC denying access to a protected folder
+    like ``~/Documents`` when the hub runs detached, without the terminal's grant) is skipped
+    with a warning rather than taking every other board down with it.
     """
     hub.router.routes = [
         r for r in hub.router.routes if not (isinstance(r, Mount) and r.path.startswith("/b/"))
@@ -38,6 +42,9 @@ def _mount_boards(hub: FastAPI, boards: dict[str, str]) -> list[dict[str, str]]:
         try:
             loaded.append((name, path, Board.load(Path(path))))
         except KanbaiError:
+            continue
+        except OSError as exc:
+            print(f"! skipping board '{name}' at {path}: {exc}", file=sys.stderr)
             continue
     mounted = [{"name": name, "path": path, "url": f"/b/{name}/"} for name, path, _ in loaded]
     switcher = [{"name": item["name"], "url": item["url"]} for item in mounted]
