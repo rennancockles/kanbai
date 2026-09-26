@@ -116,6 +116,10 @@ class BoardConfig(BaseModel):
     # ntfy (https://ntfy.sh) topic to push to; empty/unset means the channel is off. Opt-in
     # by presence (unlike the two booleans above) since a topic is required to publish at all.
     notifications_ntfy_topic: str = ""
+    # Skip the review stage: `kanbai review` and the workflow skills finalize a card straight
+    # to `done` instead of waiting in `review` for approval. The `review` column (if present)
+    # is treated as absent everywhere a column role resolves — see `review_column` below.
+    bypass_review: bool = False
 
     def wip_limit(self, column: str) -> int | None:
         """The configured WIP limit for ``column``, or ``None`` if it has no limit."""
@@ -146,8 +150,22 @@ class BoardConfig(BaseModel):
 
     @property
     def review_column(self) -> str | None:
-        """The column finished cards await approval in, if the board has a ``review`` stage."""
+        """The column finished cards await approval in, if the board has a ``review`` stage.
+
+        ``None`` both when the board has no ``review`` column and when ``bypass_review`` is
+        set — the latter treats an existing ``review`` column as absent everywhere a column
+        role resolves, so `kanbai review` finalizes straight to `done` and the UI hides it.
+        """
+        if self.bypass_review:
+            return None
         return "review" if "review" in self.columns else None
+
+    @property
+    def visible_columns(self) -> list[str]:
+        """Columns to show in the UI: every configured column except a bypassed ``review``."""
+        if not self.bypass_review or "review" not in self.columns:
+            return self.columns
+        return [c for c in self.columns if c != "review"]
 
     @property
     def doing_column(self) -> str:

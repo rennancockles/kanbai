@@ -50,6 +50,13 @@ When asked to work on the project, do **one card at a time** and stop:
 Only work several cards back-to-back when the user explicitly asks for it (for example
 "work the whole sprint", or the `kanbai-sprint` skill).
 
+**If the board has `bypass_review = true`** in `config.toml`, `kanbai review <id>` finalizes
+the card straight to `done` instead of `review` — there is no approval step to wait for.
+Commit the work once the card lands in `done`. This changes step 5 depending on how you were
+invoked: doing one card at a time, still stop and report — wait for the user before starting
+the next one. Working the whole sprint, keep going to the next card automatically instead of
+stopping (nothing is left to approve).
+
 **Never move a card to `review` with failing checks.** Run the project's linters, type
 checkers, and test suite before `kanbai review <id>` — every one of them must pass. A card
 in `review` is a claim that the work is done and verified; don't make that claim if it isn't
@@ -104,6 +111,10 @@ edit `.kanbai/` files directly):
 If the user asks for a change on a card that is in `review`, move it back to `doing` first
 (`kanbai move <id> doing`) before writing any code, then repeat from step 3.
 
+If the board has `bypass_review = true` in `config.toml`, `kanbai review <id>` in step 4
+finalizes the card straight to `done` instead — there is no approval step. Commit the work,
+then still stop and report as in step 5; wait for the user before starting the next card.
+
 To work several cards back-to-back, use the `kanbai-sprint` skill instead.
 """
 
@@ -132,6 +143,10 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
 
 If the user asks for a change on a card that is in `review`, move it back to `doing` first
 (`kanbai move <id> doing`) before writing any code.
+
+If the board has `bypass_review = true` in `config.toml`, `kanbai review <id>` in step 2
+finalizes the card straight to `done` instead of `review` — commit the work once it lands
+there, then continue looping to the next card as usual (nothing is left to approve).
 
 Note: this changes many files without committing along the way. Prefer `kanbai-next` (one
 card at a time) unless the user asked for the whole sprint.

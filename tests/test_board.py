@@ -304,6 +304,32 @@ def test_new_sprint_ignored_when_board_has_no_review_column(tmp_path: Path) -> N
     assert result == {"archived": 1, "reset": 0}
 
 
+def test_new_sprint_ignores_pending_review_cards_when_bypass_review_is_set(
+    tmp_path: Path,
+) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    bypass_board = Board.load(tmp_path)
+    bypass_board.add("Pending", column="review")  # the folder still exists, just not a role
+    bypass_board.add("Finished", column="done")
+    result = bypass_board.new_sprint(reset_to_backlog=False)
+    assert result == {"archived": 1, "reset": 0}
+
+
+def test_move_to_done_notifies_when_bypass_review_is_set(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    bypass_board = Board.load(tmp_path)
+    notes: list[tuple[str, str]] = []
+    bypass_board.on_notify = lambda title, body: notes.append((title, body))
+    bypass_board.add("Other task", column="todo")
+    card = bypass_board.add("Task", column="doing")
+    bypass_board.move(card.id, bypass_board.config.done_column)
+    assert notes == [(f"{bypass_board.config.name}: card {card.id} in done", "Task")]
+
+
 def test_remove_deletes_card(board: Board) -> None:
     card = board.add("Task")
     board.remove(card.id)

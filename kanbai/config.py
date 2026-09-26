@@ -47,6 +47,9 @@ def load_config(kanbai_dir: Path) -> BoardConfig:
     columns = board.get("columns")
     if isinstance(columns, list):
         config.columns = [str(column) for column in columns]
+    bypass_review = board.get("bypass_review")
+    if isinstance(bypass_review, bool):
+        config.bypass_review = bypass_review
     priority = defaults.get("priority")
     if isinstance(priority, str):
         config.default_priority = Priority(priority)
@@ -72,6 +75,10 @@ def render_config(config: BoardConfig) -> str:
         "[board]\n"
         f'name = "{config.name}"\n'
         f"columns = [{columns}]\n"
+        "\n"
+        "# Skip the review stage: `kanbai review` finalizes cards straight to `done`, and the\n"
+        "# review column (if present) is hidden from the UI and the workflow skills.\n"
+        "# bypass_review = true\n"
         "\n"
         "[defaults]\n"
         f'priority = "{config.default_priority.value}"\n'

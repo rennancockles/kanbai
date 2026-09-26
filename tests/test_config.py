@@ -40,6 +40,47 @@ def test_roles_fall_back_positionally_for_custom_names() -> None:
     assert config.review_column is None
 
 
+def test_bypass_review_off_by_default() -> None:
+    assert BoardConfig().bypass_review is False
+
+
+def test_bypass_review_hides_review_column_role() -> None:
+    config = BoardConfig(bypass_review=True)
+    assert config.review_column is None
+    # The other roles are unaffected.
+    assert config.doing_column == "doing"
+    assert config.done_column == "done"
+
+
+def test_bypass_review_removes_review_from_visible_columns() -> None:
+    config = BoardConfig(bypass_review=True)
+    assert config.visible_columns == ["backlog", "todo", "doing", "done"]
+    assert config.columns == ["backlog", "todo", "doing", "review", "done"]  # unchanged
+
+
+def test_visible_columns_matches_columns_without_bypass() -> None:
+    config = BoardConfig()
+    assert config.visible_columns == config.columns
+
+
+def test_visible_columns_unaffected_by_bypass_without_a_review_column() -> None:
+    config = BoardConfig(columns=["backlog", "todo", "doing", "done"], bypass_review=True)
+    assert config.visible_columns == ["backlog", "todo", "doing", "done"]
+
+
+def test_load_config_reads_bypass_review(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    config = load_config(tmp_path / ".kanbai")
+    assert config.bypass_review is True
+
+
+def test_render_config_documents_bypass_review_commented_out() -> None:
+    text = render_config(BoardConfig())
+    assert "# bypass_review = true" in text
+
+
 def test_wip_limit_lookup() -> None:
     config = BoardConfig(wip={"doing": 3})
     assert config.wip_limit("doing") == 3

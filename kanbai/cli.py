@@ -334,15 +334,17 @@ def review(
     card_id: str = typer.Argument(..., help="Card id."),
     as_json: bool = typer.Option(False, "--json", help="Emit the moved card as JSON."),
 ) -> None:
-    """Finish a card: move it to the review column to await approval."""
+    """Finish a card: move it to the review column to await approval (or straight to done
+    on a board with no review stage, e.g. ``bypass_review`` is set)."""
     board = _load()
-    target = board.config.review_column or board.config.done_column
+    review = board.config.review_column
+    target = review or board.config.done_column
     card = board.move(card_id, target)
+    suffix = " [dim](awaiting approval)[/dim]" if review is not None else ""
     _emit_card(
         card,
         as_json,
-        f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold] "
-        "[dim](awaiting approval)[/dim]",
+        f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]{suffix}",
     )
     _warn_over_wip(board, card.status)
 

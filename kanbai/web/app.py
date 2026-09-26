@@ -116,12 +116,13 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 "over": limit is not None and len(cards) > limit,  # WIP uses the real count
             }
 
+        visible = resolved.config.visible_columns
         return {
             "app_name": APP_NAME,
             "app_version": __version__,
             "board_name": resolved.config.name,
-            "columns": [column_view(name, cards) for name, cards in board_data.items()],
-            "column_names": resolved.columns,
+            "columns": [column_view(name, board_data[name]) for name in visible],
+            "column_names": visible,
             "priorities": [p.value for p in Priority],
             "priority_class": PRIORITY_CLASS,
             "types": resolved.config.types,
@@ -164,7 +165,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             request,
             "_new_card.html",
             {
-                "column_names": resolved.columns,
+                "column_names": resolved.config.visible_columns,
                 "default_column": resolved.config.add_column,
                 "priorities": [p.value for p in Priority],
                 "types": resolved.config.types,
@@ -185,7 +186,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 "priority_class": PRIORITY_CLASS,
                 "type_class": TYPE_CLASS,
                 "type_style": type_style(),
-                "column_names": resolved.columns,
+                "column_names": resolved.config.visible_columns,
             },
         )
 

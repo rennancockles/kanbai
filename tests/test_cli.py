@@ -116,6 +116,19 @@ def test_review_then_done_flow(project: Path) -> None:
     assert runner.invoke(app, ["list", "done", "--json"]).output.strip() == "[]"
 
 
+def test_review_finalizes_straight_to_done_when_bypass_review_is_set(project: Path) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+    runner.invoke(app, ["start", "001"])
+
+    result = runner.invoke(app, ["review", "001"])
+    assert result.exit_code == 0
+    assert "awaiting approval" not in result.output
+    assert json.loads(runner.invoke(app, ["list", "done", "--json"]).output)[0]["id"] == "001"
+    assert runner.invoke(app, ["list", "review", "--json"]).output.strip() == "[]"
+
+
 def test_review_pushes_ntfy_notification_when_topic_configured(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

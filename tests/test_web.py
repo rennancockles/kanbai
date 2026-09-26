@@ -40,6 +40,19 @@ def test_index_renders_all_columns(tmp_path: Path) -> None:
         assert column in resp.text
 
 
+def test_bypass_review_hides_review_column(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo")
+    resp = TestClient(create_app(board)).get("/")
+    assert resp.status_code == 200
+    assert 'data-column="review"' not in resp.text
+    for column in ("backlog", "todo", "doing", "done"):
+        assert f'data-column="{column}"' in resp.text
+
+
 def test_index_shows_brand_name(tmp_path: Path) -> None:
     resp = _client(tmp_path).get("/")
     assert "KanbAI" in resp.text  # app name is branded with AI uppercased
@@ -231,6 +244,17 @@ def test_new_card_form_renders_all_fields(tmp_path: Path) -> None:
     assert 'name="type"' in resp.text
     assert 'name="labels"' in resp.text
     assert 'name="description"' in resp.text
+
+
+def test_new_card_form_omits_review_column_with_bypass_review(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    board = Board.load(tmp_path)
+    resp = TestClient(create_app(board)).get("/cards/new")
+    assert resp.status_code == 200
+    assert '<option value="review">' not in resp.text
+    assert '<option value="done">' in resp.text
 
 
 def test_board_has_new_card_button(tmp_path: Path) -> None:
