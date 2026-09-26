@@ -55,3 +55,21 @@ class CardsInReviewError(KanbaiError):
         super().__init__(
             f"{count} {noun} still in review — approve or move them before closing the sprint."
         )
+
+
+class HubAlreadyRunningError(KanbaiError):
+    """Raised by `kanbai hub start` when the hub daemon is already running."""
+
+    def __init__(self, pid: int, host: str, port: int) -> None:
+        self.pid = pid
+        super().__init__(
+            f"Hub already running (pid {pid}) at http://{host}:{port}. "
+            "Stop it first with `kanbai hub stop`."
+        )
+
+
+class HubNotRunningError(KanbaiError):
+    """Raised by `kanbai hub stop` when there is no running hub daemon."""
+
+    def __init__(self) -> None:
+        super().__init__("Hub is not running. Start it with `kanbai hub start`.")

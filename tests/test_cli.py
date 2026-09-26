@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 from kanbai import scaffold
 from kanbai.cli import app
+from kanbai.daemon import DaemonInfo
+from kanbai.errors import HubAlreadyRunningError
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -373,3 +375,98 @@ def test_hub_serve_invokes_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     result = runner.invoke(app, ["hub", "--port", "9000", "--no-browser"])
     assert result.exit_code == 0, result.output
     assert calls == {"host": "127.0.0.1", "port": 9000, "count": 1, "open_browser": False}
+
+
+def test_hub_start_without_boards_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["hub", "start"])
+    assert result.exit_code == 1
+
+
+def test_hub_start_invokes_daemon(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "proj"
+    scaffold.init_board(board)
+    runner.invoke(app, ["hub", "add", str(board)])
+
+    calls: dict[str, object] = {}
+
+    def fake_start(host: str, port: int) -> DaemonInfo:
+        calls.update(host=host, port=port)
+        return DaemonInfo(pid=123, host=host, port=port)
+
+    monkeypatch.setattr("kanbai.daemon.start", fake_start)
+    result = runner.invoke(app, ["hub", "start", "--port", "9000", "--no-browser"])
+    assert result.exit_code == 0, result.output
+    assert calls == {"host": "127.0.0.1", "port": 9000}
+    assert "123" in result.output
+
+
+def test_hub_start_reports_already_running(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "proj"
+    scaffold.init_board(board)
+    runner.invoke(app, ["hub", "add", str(board)])
+
+    def fake_start(host: str, port: int) -> None:
+        raise HubAlreadyRunningError(123, host, port)
+
+    monkeypatch.setattr("kanbai.daemon.start", fake_start)
+    result = runner.invoke(app, ["hub", "start"])
+    assert result.exit_code == 1
+    assert "already running" in result.output
+
+
+def test_hub_stop_when_not_running(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["hub", "stop"])
+    assert result.exit_code == 1
+    assert "not running" in result.output
+
+
+def test_hub_stop_invokes_daemon(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    calls: list[bool] = []
+    monkeypatch.setattr("kanbai.daemon.stop", lambda: calls.append(True))
+    result = runner.invoke(app, ["hub", "stop"])
+    assert result.exit_code == 0, result.output
+    assert calls == [True]
+
+
+def test_hub_status_reports_not_running(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["hub", "status"])
+    assert result.exit_code == 0, result.output
+    assert "not running" in result.output
+
+    as_json = json.loads(runner.invoke(app, ["hub", "status", "--json"]).output)
+    assert as_json == {"running": False}
+
+
+def test_hub_status_reports_running(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(
+        "kanbai.daemon.status", lambda: DaemonInfo(pid=123, host="127.0.0.1", port=9000)
+    )
+    result = runner.invoke(app, ["hub", "status"])
+    assert result.exit_code == 0, result.output
+    assert "123" in result.output
+
+    as_json = json.loads(runner.invoke(app, ["hub", "status", "--json"]).output)
+    assert as_json == {"running": True, "pid": 123, "host": "127.0.0.1", "port": 9000}
+
+
+def test_hub_logs_missing_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["hub", "logs"])
+    assert result.exit_code == 1
+
+
+def test_hub_logs_prints_file_contents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    log_dir = tmp_path / "home"
+    log_dir.mkdir(parents=True)
+    (log_dir / "hub.log").write_text("hello from the hub\n")
+    result = runner.invoke(app, ["hub", "logs"])
+    assert result.exit_code == 0, result.output
+    assert "hello from the hub" in result.output

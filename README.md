@@ -171,6 +171,21 @@ kanbai hub                           # serve them all; opens a landing to pick a
 Each board is served at `/b/<name>/` and the registry lives in `~/.kanbai/boards.toml`.
 Remove one with `kanbai hub remove <name>`.
 
+### Running the hub in the background
+
+`kanbai hub` blocks the terminal it's run in. To keep the hub always available without
+tying up a terminal, run it as a background daemon instead:
+
+```bash
+kanbai hub start --port 8000   # start it, detached
+kanbai hub status              # check whether it's running
+kanbai hub logs -f             # follow its log
+kanbai hub stop                # stop it
+```
+
+The daemon's PID and log file live under `~/.kanbai/` (`hub.pid` / `hub.log`), alongside
+the registry.
+
 ## Configuration
 
 `.kanbai/config.toml` is created by `init` and can be edited:
@@ -207,6 +222,8 @@ doing = 3
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 | `kanbai hub add/list/remove` | Manage the multi-board hub registry. |
 | `kanbai hub` | Serve all registered boards on one port (needs the `ui` extra). |
+| `kanbai hub start/stop/status` | Run the hub as a background daemon instead. |
+| `kanbai hub logs [-f]` | Show (or follow) the hub daemon's log. |
 
 Add `--json` to read-only commands for machine-readable output.
 

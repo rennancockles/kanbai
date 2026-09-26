@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import contextlib
 import json
+import socket
 import sys
+import time
+import webbrowser
 from pathlib import Path
+from urllib.parse import urlparse
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, registry, scaffold, storage
+from . import APP_NAME, daemon, registry, scaffold, storage
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
@@ -615,6 +619,112 @@ def hub_remove(name: str = typer.Argument(..., help="Registered board name.")) -
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(f"[green]✓[/green] Removed [cyan]{name}[/cyan]")
+
+
+def _require_ui_extra() -> None:
+    """Fail with a friendly message if the optional ``ui`` extra isn't installed."""
+    try:
+        import kanbai.web.server  # noqa: F401, PLC0415 - optional extra, checked on demand
+    except ImportError as exc:
+        err_console.print(
+            '[red]error:[/red] the hub needs the "ui" extra. Install it with '
+            "[cyan]pip install 'kanbai[ui]'[/cyan]."
+        )
+        raise typer.Exit(code=1) from exc
+
+
+@hub_app.command("start")
+def hub_start(
+    host: str = typer.Option("127.0.0.1", "--host", help="Host to bind."),
+    port: int = typer.Option(8000, "--port", help="Port to bind."),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser."),
+) -> None:
+    """Start the hub as a detached background process."""
+    if not registry.load_boards():
+        err_console.print(
+            "[yellow]![/yellow] No boards registered. Add one with "
+            "[cyan]kanbai hub add <path>[/cyan]."
+        )
+        raise typer.Exit(code=1)
+    _require_ui_extra()
+    try:
+        info = daemon.start(host, port)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]✓[/green] Hub started (pid {info.pid}) at "
+        f"[cyan]http://{info.host}:{info.port}[/cyan] "
+        f"[dim](logs: {daemon.log_path()})[/dim]"
+    )
+    if not no_browser:
+        _open_browser_when_ready(f"http://{info.host}:{info.port}")
+
+
+def _open_browser_when_ready(url: str, *, timeout: float = 2.0) -> None:
+    """Open ``url`` in a browser once it accepts connections, giving up after ``timeout``."""
+    parsed = urlparse(url)
+    host, port = parsed.hostname or "127.0.0.1", parsed.port or 80
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with contextlib.suppress(OSError), socket.create_connection((host, port), timeout=0.2):
+            webbrowser.open(url)
+            return
+        time.sleep(0.1)
+
+
+@hub_app.command("stop")
+def hub_stop() -> None:
+    """Stop the background hub daemon."""
+    try:
+        daemon.stop()
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print("[green]✓[/green] Hub stopped")
+
+
+@hub_app.command("status")
+def hub_status(as_json: bool = typer.Option(False, "--json", help="Emit status as JSON.")) -> None:
+    """Check whether the hub daemon is running."""
+    info = daemon.status()
+    if as_json:
+        _emit_json(
+            {"running": info is not None}
+            if info is None
+            else {"running": True, "pid": info.pid, "host": info.host, "port": info.port}
+        )
+        return
+    if info is None:
+        console.print("[dim]○ not running[/dim]")
+        return
+    console.print(
+        f"[green]●[/green] running (pid {info.pid}) at [cyan]http://{info.host}:{info.port}[/cyan]"
+    )
+
+
+@hub_app.command("logs")
+def hub_logs(
+    follow: bool = typer.Option(False, "--follow", "-f", help="Keep printing new log lines."),
+) -> None:
+    """Show (or follow) the hub daemon's log."""
+    path = daemon.log_path()
+    if not path.exists():
+        err_console.print(
+            f"[red]error:[/red] no log file at {path} — has the hub ever been started?"
+        )
+        raise typer.Exit(code=1)
+    with path.open(encoding="utf-8") as handle:
+        console.print(handle.read(), end="")
+        if not follow:
+            return
+        with contextlib.suppress(KeyboardInterrupt):
+            while True:
+                line = handle.readline()
+                if line:
+                    console.print(line, end="")
+                else:
+                    time.sleep(0.5)
 
 
 @app.command(name="notify-hook", hidden=True)
