@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, daemon, registry, scaffold, storage
+from . import APP_NAME, __version__, daemon, registry, scaffold, storage
 from .board import Board
 from .errors import KanbaiError
 from .models import Card, Priority
@@ -31,6 +31,26 @@ app = typer.Typer(
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _print_version(value: bool) -> None:
+    if value:
+        console.print(f"kanbai {__version__}")
+        raise typer.Exit
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_print_version,
+        is_eager=True,
+        help="Show the installed kanbai version and exit.",
+    ),
+) -> None:
+    pass
+
 
 _PRIORITY_STYLE = {
     Priority.high: "bold red",

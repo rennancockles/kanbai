@@ -244,6 +244,7 @@ from the web UI even if it's still present in `columns`.
 
 | Command | Description |
 |---------|-------------|
+| `kanbai --version` | Print the installed kanbai version. |
 | `kanbai init` | Scaffold `.kanbai/` and install the Claude Code integration. |
 | `kanbai add "title"` | Create a card in `backlog` (use `-c todo` for the sprint). |
 | `kanbai list [column]` | Show the board, a single column, or the `archive`. |

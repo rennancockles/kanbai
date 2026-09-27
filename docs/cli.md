@@ -11,6 +11,7 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 
 | Command | Description |
 |---------|-------------|
+| [`--version`](#-version) | Print the installed kanbai version and exit. |
 | [`init`](#init) | Scaffold `.kanbai/` and install the Claude Code integration. |
 | [`add`](#add) | Create a card (defaults to the backlog). |
 | [`list`](#list) | Show the board, a single column, or the archive. |
@@ -29,6 +30,14 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 | [`hub`](#hub) | Serve or manage the multi-board hub. |
 
 ---
+
+## --version
+
+Print the installed kanbai version and exit. Works without a `.kanbai/` board present.
+
+```bash
+kanbai --version
+```
 
 ## init
 

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from kanbai import scaffold
+from kanbai import __version__, scaffold
 from kanbai.cli import app
 from kanbai.daemon import DaemonInfo
 from kanbai.errors import HubAlreadyRunningError
@@ -23,6 +23,17 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     result = runner.invoke(app, ["init", "--name", "Demo"])
     assert result.exit_code == 0, result.output
     return tmp_path
+
+
+def test_version_flag_prints_version_and_exits() -> None:
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0, result.output
+    assert __version__ in result.output
+
+
+def test_no_args_still_shows_help() -> None:
+    result = runner.invoke(app, [])
+    assert "Usage:" in result.output
 
 
 def test_add_lands_in_backlog_json(project: Path) -> None:
