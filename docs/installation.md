@@ -44,6 +44,26 @@ Uvicorn, …). Install the `ui` extra to enable them:
 
 Without the extra, the CLI works fully; only `kanbai ui` / `kanbai hub` are unavailable.
 
+## The AI extra
+
+The [AI command input](web-ui.md#ai-command-input) needs the Anthropic and/or OpenAI SDKs.
+Install the `ai` extra alongside `ui` to enable it:
+
+=== "uv"
+
+    ```bash
+    uv add --dev 'kanbai[ui,ai]'
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install 'kanbai[ui,ai]'
+    ```
+
+It's independent of `ui` — without it, the rest of the web UI works normally; the AI input
+just doesn't appear.
+
 ## Installing globally (for the hub)
 
 The [hub](hub.md) serves the boards of **several** projects at once, so it makes sense to

@@ -238,4 +238,10 @@ kanbai hub add ~/projects/api        # register a board (named after its config.
 kanbai hub list                      # show registered boards
 kanbai hub remove api                # unregister a board
 kanbai hub                           # serve all registered boards on one port
+
+# or run it as a background daemon instead of blocking the terminal:
+kanbai hub start --port 8000         # start it, detached
+kanbai hub status                    # check whether it's running
+kanbai hub logs -f                   # follow its log
+kanbai hub stop                      # stop it
 ```

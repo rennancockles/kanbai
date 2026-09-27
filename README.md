@@ -122,8 +122,9 @@ Claude then works one card at a time:
 1. `kanbai next --json` — pick the next actionable sprint task.
 2. `kanbai start <id>` — move it to `doing`.
 3. Implement it (reading `kanbai show <id> --json` for the details).
-4. `kanbai review <id>` — send it to `review` and **stop**.
-5. You review the work and approve it with `kanbai done <id>`.
+4. `kanbai review <id>` — send it to `review`, on its own initiative, then **stop**.
+5. You review it: approve and Claude runs `kanbai done <id>` (and commits) right away; ask
+   for a change and it moves the card back to `doing` and repeats from step 3.
 
 Allow the CLI without prompts by adding `Bash(kanbai *)` to your `.claude/settings.json`.
 
@@ -195,7 +196,9 @@ kanbai hub                           # serve them all; opens a landing to pick a
 ```
 
 Each board is served at `/b/<name>/` and the registry lives in `~/.kanbai/boards.toml`.
-Remove one with `kanbai hub remove <name>`.
+Remove one with `kanbai hub remove <name>`. Hitting an unregistered or misspelled board
+URL shows a themed 404 page (with the registered boards as suggestions) instead of a bare
+JSON error.
 
 ### Running the hub in the background
 
@@ -221,6 +224,10 @@ the registry.
 name = "my-project"
 columns = ["backlog", "todo", "doing", "review", "done"]
 
+# Skip the review stage: `kanbai review` finalizes cards straight to `done`, and the
+# review column (if present) is hidden from the UI and the workflow skills.
+# bypass_review = true
+
 [defaults]
 priority = "medium"
 
@@ -228,6 +235,10 @@ priority = "medium"
 [wip]
 doing = 3
 ```
+
+With `bypass_review = true`, there's no approval step — `kanbai review <id>` (and the
+Claude workflow skills) send a card straight to `done`, and the `review` column disappears
+from the web UI even if it's still present in `columns`.
 
 ## Commands
 

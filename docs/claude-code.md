@@ -20,15 +20,21 @@ By default Claude works a single card and then stops for your review:
 2. **`kanbai start <id>`** — move the card into `doing`.
 3. **Implement it**, reading `kanbai show <id> --json` for the description and acceptance
    criteria. If the scope or a design decision is unclear, Claude stops and asks first.
-4. **`kanbai review <id>`** — move the card into `review` and **stop**. Claude never runs
-   `kanbai done`, and never moves a card to `review` with failing lints, type checks, or
-   tests — a card in `review` is a claim that the work is verified.
-5. **You review** the work and approve it with **`kanbai done <id>`**. If you instead ask for
-   a change, Claude moves the card back to `doing` first — it never edits a card's work while
-   it sits in `review`.
+4. **`kanbai review <id>`** — move the card into `review` **as soon as the work is
+   verified**, on Claude's own initiative — it never asks whether you want to review it
+   first, and never leaves a finished card sitting in `doing` waiting for permission.
+   It also never moves a card to `review` with failing lints, type checks, or tests — a
+   card in `review` is a claim that the work is verified. Then Claude **stops**.
+5. **You review** the work in the `review` column and give your verdict:
+    - **You approve it** (e.g. "aprovado", "looks good") — Claude runs **`kanbai done
+      <id>`** itself right away and commits the work, without waiting for you to run the
+      command or asking for confirmation first.
+    - **You ask for a change** — Claude moves the card back to `doing` first (it never
+      edits a card's work while it sits in `review`), makes the change, and repeats from
+      step 4 — as many rounds as it takes.
 
-This keeps you in the loop: nothing is marked complete without your approval, and you can
-review or commit between cards.
+This keeps you in the loop: nothing is marked complete without your approval, but once you
+give it, Claude finishes the job (move to `done` + commit) without extra prompting.
 
 !!! tip "Work the whole sprint"
     When you explicitly want Claude to work several cards back-to-back, invoke the

@@ -7,6 +7,7 @@ TOML you can edit by hand.
 [board]
 name = "my-project"
 columns = ["backlog", "todo", "doing", "review", "done"]
+# bypass_review = true
 
 [defaults]
 priority = "medium"
@@ -30,6 +31,15 @@ doing = 3
 |-----|-------------|
 | `name` | The board's display name (shown in the CLI and the web UI). |
 | `columns` | The ordered list of columns. The folders under `.kanbai/` follow this list. |
+| `bypass_review` | Skip the review stage. Default `false` — see [below](#skipping-review). |
+
+### Skipping review
+
+With `bypass_review = true`, [`kanbai review`](cli.md#review) (and the Claude workflow
+skills) finalize a card straight to `done` instead of `review` — there's no approval step.
+The `review` column, if still present in `columns`, is treated as absent everywhere a
+column role resolves and disappears from the web UI, without needing to remove it from
+`columns`.
 
 ### Column roles
 

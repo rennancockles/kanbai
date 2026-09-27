@@ -41,6 +41,30 @@ between boards without leaving the page:
 
 ![A board served through the hub, with the board switcher in the top bar](assets/hub_board.png)
 
+Visiting an unregistered or misspelled board URL shows a themed 404 page — with the
+registered boards listed as suggestions — instead of a bare JSON error. A board whose
+`.kanbai/config.toml` can't be read (a missing folder, or a permissions issue — e.g. macOS
+denying a detached daemon access to a protected folder like `~/Documents`) is skipped with
+a warning rather than taking every other board down with it.
+
+## Running the hub in the background
+
+`kanbai hub` blocks the terminal it runs in. To keep it always available without tying up a
+terminal, run it as a background daemon instead:
+
+```bash
+kanbai hub start --port 8000   # start it, detached
+kanbai hub status              # check whether it's running
+kanbai hub status --json       # machine-readable
+kanbai hub logs                # show its log
+kanbai hub logs -f             # follow it
+kanbai hub stop                # stop it
+```
+
+The daemon's PID and log file live under `~/.kanbai/` (`hub.pid` / `hub.log`), alongside the
+registry. `kanbai hub start` refuses to run if a daemon is already running; `kanbai hub
+stop` sends a graceful shutdown signal and escalates if it doesn't exit in time.
+
 ## Where the registry lives
 
 The list of registered boards is stored in `~/.kanbai/boards.toml`. Override the location by

@@ -120,6 +120,26 @@ the full width. The choice is remembered in your browser.
 
 ![The board with the backlog hidden, focused on the sprint](assets/sprint.png)
 
+## AI command input
+
+Type a natural-language instruction — *"add a bug card about the login timeout"* — and it
+pre-fills the **New card** modal for you to review and confirm; it never creates the card
+directly. Needs the [`ai` extra](installation.md#the-ai-extra) and an API key from
+**Anthropic or OpenAI** — whichever key is set, the input appears in the top bar with no
+further configuration:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY=sk-...
+kanbai ui
+```
+
+If neither key is set, the input simply doesn't render — no error, and it's never required
+to use the rest of the UI. If both keys are set, Anthropic is used by default; override
+with `KANBAI_AI_PROVIDER` (`anthropic`/`openai`, requires that provider's own key to also
+be set) and `KANBAI_AI_MODEL` (a specific model ID). These are process-wide environment
+variables, not `config.toml` settings — the same choice applies across every board a hub
+serves.
+
 ## Multiple projects
 
 To watch several projects at once from a single server, use the
