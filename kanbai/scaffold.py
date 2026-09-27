@@ -41,11 +41,25 @@ When asked to work on the project, do **one card at a time** and stop:
 3. Implement the task. Consult `kanbai show <id> --json` for the full description and
    acceptance criteria. **If the scope, acceptance criteria, or a design decision is
    unclear or open, stop and ask the user before writing code — do not assume.**
-4. When it is complete and verified, run `kanbai review <id>` to move it into `review`.
-   **Do NOT run `kanbai done`** — only the user approves (they run `kanbai done <id>` to
-   move it from `review` to `done`).
-5. **Stop and report. Do NOT pick up the next card** — wait for the user to tell you to
-   continue (they may want to review or commit first).
+4. As soon as the work is complete and verified (checks + tests passing), run
+   `kanbai review <id>` **immediately, on your own initiative — never ask the user whether
+   they want to review it first, and never leave a finished card sitting in `doing`
+   waiting for permission to move it.** `review` is the column where the user does their
+   review; getting a card there is your job, not something that needs their go-ahead.
+5. **Stop and report. Do NOT pick up the next card** — wait for the user's verdict on the
+   card now in `review` (see below).
+
+**The `review` → `done`/`doing` cycle, once a card is in `review`:**
+
+- **The user approves it** (e.g. "aprovado", "approved", "looks good, ship it") — run
+  `kanbai done <id>` yourself immediately, then commit the work (see the repo's own commit
+  conventions/instructions for how). Do not wait for them to run `kanbai done` themselves,
+  and do not ask for confirmation first or ask whether to commit; their approval is the
+  confirmation for both. This applies every time a card is approved, not just once.
+- **The user asks for a change** — run `kanbai move <id> doing` before writing any code
+  (never edit a card's work while it sits in `review`), make the change, re-verify (checks
+  + tests), then run `kanbai review <id>` again. This repeats the same review/doing cycle
+  for as many rounds as it takes.
 
 Only work several cards back-to-back when the user explicitly asks for it (for example
 "work the whole sprint", or the `kanbai-sprint` skill).
@@ -61,10 +75,6 @@ stopping (nothing is left to approve).
 checkers, and test suite before `kanbai review <id>` — every one of them must pass. A card
 in `review` is a claim that the work is done and verified; don't make that claim if it isn't
 true.
-
-**If the user asks for a change on a card that is in `review`**, move it back to `doing`
-first (`kanbai move <id> doing`) before writing any code — never edit a card's work while it
-sits in `review`. Re-verify (checks + tests) and run `kanbai review <id>` again when done.
 
 Capturing new work:
 
@@ -101,15 +111,21 @@ edit `.kanbai/` files directly):
 3. Read the full task with `kanbai show <id> --json` and implement it, satisfying any
    acceptance criteria in the body. **If the scope or a design decision is unclear or open,
    stop and ask the user before writing code — do not assume.**
-4. Once the work is complete and verified — linters, type checkers, and tests all
-   passing — run `kanbai review <id>` to send it to review. **Never move a card to review
-   with failing checks.** Do NOT run `kanbai done` — only the user approves (they move it
-   from review to done).
+4. As soon as the work is complete and verified — linters, type checkers, and tests all
+   passing — run `kanbai review <id>` **immediately, on your own initiative — never ask
+   the user whether they want to review it first, and never leave a finished card sitting
+   in `doing` waiting for permission to move it.** **Never move a card to review with
+   failing checks.**
 5. **Stop and report which card you finished. Do NOT start the next card** — wait for the
-   user to ask for it (they may want to review or commit first).
+   user's verdict on the card now in `review`.
 
-If the user asks for a change on a card that is in `review`, move it back to `doing` first
-(`kanbai move <id> doing`) before writing any code, then repeat from step 3.
+**When the user approves the card**, run `kanbai done <id>` yourself right away, then
+commit the work — don't wait for them to run `kanbai done`, and don't ask for confirmation
+first or ask whether to commit; their approval covers both.
+
+**When the user asks for a change** on a card in `review`, move it back to `doing` first
+(`kanbai move <id> doing`) before writing any code, then repeat from step 3 — this
+review/doing cycle repeats for as many rounds as it takes.
 
 If the board has `bypass_review = true` in `config.toml`, `kanbai review <id>` in step 4
 finalizes the card straight to `done` instead — there is no approval step. Commit the work,
@@ -137,12 +153,19 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
 2. Run `kanbai start <id>`, implement the task (see `kanbai show <id> --json` for the
    description and acceptance criteria). If a card's scope or a design decision is unclear,
    stop and ask the user before coding it. Verify the work — linters, type checkers, and
-   tests all passing — then run `kanbai review <id>` (send it to review — the user approves
-   it to done). **Never move a card to review with failing checks.**
+   tests all passing — then run `kanbai review <id>` **immediately, on your own
+   initiative — never ask the user whether they want to review it first, and never leave
+   a finished card sitting in `doing` waiting for permission to move it.** **Never move a
+   card to review with failing checks.**
 3. Repeat from step 1 for the next card, reporting each card's outcome as you go.
 
-If the user asks for a change on a card that is in `review`, move it back to `doing` first
-(`kanbai move <id> doing`) before writing any code.
+**When the user approves a card in `review`**, run `kanbai done <id>` yourself right away,
+then commit the work — don't wait for them to run `kanbai done`, and don't ask for
+confirmation first or ask whether to commit; their approval covers both.
+
+**When the user asks for a change** on a card in `review`, move it back to `doing` first
+(`kanbai move <id> doing`) before writing any code — this review/doing cycle repeats for
+as many rounds as it takes.
 
 If the board has `bypass_review = true` in `config.toml`, `kanbai review <id>` in step 2
 finalizes the card straight to `done` instead of `review` — commit the work once it lands

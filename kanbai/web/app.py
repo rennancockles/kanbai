@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from .. import APP_NAME, __version__
+from ..ai import ExtractedCard, ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Card, Priority
@@ -136,6 +137,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "boards": boards or [],
             "current": current,
             "backlog_column": resolved.config.add_column,
+            "ai_available": ai_available(),
         }
 
     @app.get("/", response_class=HTMLResponse)
@@ -159,18 +161,35 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             resolved.sort_column(column, by, descending=dir == "desc")
         return render(request, "_board.html", context(q, label))
 
+    def new_card_context(prefill: ExtractedCard | None = None) -> dict[str, object]:
+        """Context for `_new_card.html` — blank by default, or pre-filled from the AI
+        command (already clamped to this board's real column/type by the caller)."""
+        return {
+            "column_names": resolved.config.visible_columns,
+            "default_column": prefill.column if prefill else resolved.config.add_column,
+            "priorities": [p.value for p in Priority],
+            "types": resolved.config.types,
+            "default_type": prefill.type if prefill else None,
+            "default_priority": prefill.priority if prefill else "medium",
+            "prefill_title": prefill.title if prefill else "",
+            "prefill_description": prefill.description if prefill else "",
+            "prefill_labels": ", ".join(prefill.labels) if prefill else "",
+        }
+
     @app.get("/cards/new", response_class=HTMLResponse)
     def new_card_form(request: Request) -> Response:
-        return render(
-            request,
-            "_new_card.html",
-            {
-                "column_names": resolved.config.visible_columns,
-                "default_column": resolved.config.add_column,
-                "priorities": [p.value for p in Priority],
-                "types": resolved.config.types,
-            },
-        )
+        return render(request, "_new_card.html", new_card_context())
+
+    @app.post("/ai/command", response_class=HTMLResponse)
+    def ai_command(request: Request, instruction: str = Form(...)) -> Response:
+        card = extract_card(instruction, board_names=None)
+        if card is None:
+            response = render(request, "_ai_error.html")
+            response.headers["HX-Retarget"] = "#detail"
+            response.headers["HX-Reswap"] = "innerHTML"
+            return response
+        prefill = clamp_to_board(card, resolved.config)
+        return render(request, "_new_card.html", new_card_context(prefill))
 
     @app.get("/cards/{card_id}", response_class=HTMLResponse)
     def card_detail(request: Request, card_id: str) -> Response:

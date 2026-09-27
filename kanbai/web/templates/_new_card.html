@@ -1,6 +1,6 @@
 <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.innerHTML=''">
   <form class="modal card" hx-post="{{ base }}/cards" hx-target="#board" hx-swap="outerHTML"
-        hx-on::after-request="if(event.detail.successful) document.getElementById('detail').innerHTML=''">
+        hx-on::after-request="if(event.detail.successful) {% if redirect_url %}location.href='{{ redirect_url }}'{% else %}document.getElementById('detail').innerHTML=''{% endif %}">
     <div class="modal-head">
       <span class="card-id">New card</span>
       <button class="modal-close" type="button" aria-label="Close"
@@ -9,7 +9,8 @@
 
     <label class="field">
       <span>Title</span>
-      <input type="text" name="title" placeholder="Card title…" required autocomplete="off" autofocus>
+      <input type="text" name="title" placeholder="Card title…" required autocomplete="off"
+             autofocus value="{{ prefill_title or '' }}">
     </label>
     <label class="field">
       <span>Column</span>
@@ -23,24 +24,27 @@
       <span>Priority</span>
       <select name="priority">
         {% for p in priorities %}
-        <option value="{{ p }}"{% if p == 'medium' %} selected{% endif %}>{{ p }}</option>
+        <option value="{{ p }}"{% if p == (default_priority or 'medium') %} selected{% endif %}>{{ p }}</option>
         {% endfor %}
       </select>
     </label>
     <label class="field">
       <span>Type</span>
       <select name="type">
-        <option value="" selected>—</option>
-        {% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        <option value=""{% if not default_type %} selected{% endif %}>—</option>
+        {% for t in types %}
+        <option value="{{ t }}"{% if t == default_type %} selected{% endif %}>{{ t }}</option>
+        {% endfor %}
       </select>
     </label>
     <label class="field">
       <span>Labels</span>
-      <input type="text" name="labels" placeholder="comma, separated" autocomplete="off">
+      <input type="text" name="labels" placeholder="comma, separated" autocomplete="off"
+             value="{{ prefill_labels or '' }}">
     </label>
     <label class="field">
       <span>Description</span>
-      <textarea name="description" rows="8"></textarea>
+      <textarea name="description" rows="8">{{ prefill_description or '' }}</textarea>
     </label>
 
     <div class="modal-actions">

@@ -56,6 +56,17 @@
       </button>
       {% endif %}
     </div>
+    {% if ai_available %}
+    <form class="ai-command" hx-post="{{ base }}/ai/command" hx-target="#detail" hx-swap="innerHTML"
+          hx-disabled-elt="find input, find button" hx-on::after-request="this.reset()">
+      <input type="text" name="instruction" placeholder="Ask AI to create a card…" autocomplete="off"
+             hx-on:keydown="if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit()}">
+      <button class="btn-ghost" type="submit">
+        <span class="ai-command-label">Ask</span>
+        <span class="ai-command-spinner htmx-indicator" aria-hidden="true"></span>
+      </button>
+    </form>
+    {% endif %}
   </header>
 
   <div class="toolbar">

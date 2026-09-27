@@ -6,7 +6,7 @@ import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,8 +15,10 @@ from starlette.responses import Response
 from starlette.routing import Mount
 
 from .. import APP_NAME, __version__
+from ..ai import ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
+from ..models import Priority
 from .app import create_app
 from .errors import render_http_error
 
@@ -87,7 +89,43 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
         return _TEMPLATES.TemplateResponse(
             request,
             "hub.html",
-            {"boards": mounted, "app_name": APP_NAME, "app_version": __version__},
+            {
+                "boards": mounted,
+                "app_name": APP_NAME,
+                "app_version": __version__,
+                "ai_available": ai_available(),
+            },
+        )
+
+    @hub.post("/ai/command", response_class=HTMLResponse)
+    def ai_command(request: Request, instruction: str = Form(...)) -> Response:
+        card = extract_card(instruction, board_names=[item["name"] for item in mounted])
+        board_entry = next((b for b in mounted if card and b["name"] == card.board), None)
+        if card is None or board_entry is None:
+            response = _TEMPLATES.TemplateResponse(request, "_ai_error.html")
+            response.headers["HX-Retarget"] = "#detail"
+            response.headers["HX-Reswap"] = "innerHTML"
+            return response
+
+        board = Board.load(Path(board_entry["path"]))
+        prefill = clamp_to_board(card, board.config)
+        base = board_entry["url"].removesuffix("/")
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "_new_card.html",
+            {
+                "base": base,
+                "column_names": board.config.visible_columns,
+                "default_column": prefill.column,
+                "priorities": [p.value for p in Priority],
+                "types": board.config.types,
+                "default_type": prefill.type,
+                "default_priority": prefill.priority,
+                "prefill_title": prefill.title,
+                "prefill_description": prefill.description,
+                "prefill_labels": ", ".join(prefill.labels),
+                "redirect_url": board_entry["url"],
+            },
         )
 
     @hub.exception_handler(StarletteHTTPException)

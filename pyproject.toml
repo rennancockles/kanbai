@@ -46,6 +46,13 @@ ui = [
     "python-multipart>=0.0.9",
     "desktop-notifier>=6.0",
 ]
+# The AI command input (hub/board topbar): natural-language card creation via Anthropic
+# or OpenAI, whichever the user has an API key for. Independent of `ui` — installing the
+# web UI alone does not pull in either LLM SDK.
+ai = [
+    "anthropic>=0.69",
+    "openai>=1.60",
+]
 # Lets the python-semantic-release GitHub Action's build_command install a pinned uv — its
 # Docker environment doesn't ship one, unlike the CI/release runners (astral-sh/setup-uv).
 build = ["uv>=0.7"]

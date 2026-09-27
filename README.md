@@ -93,6 +93,9 @@ pip install kanbai
 
 # for the web UI, install the extra:
 uv add --dev 'kanbai[ui]'    # or: pip install 'kanbai[ui]'
+
+# for the AI command input (Anthropic and/or OpenAI), add the `ai` extra too:
+uv add --dev 'kanbai[ui,ai]'    # or: pip install 'kanbai[ui,ai]'
 ```
 
 ## Quick start
@@ -145,6 +148,29 @@ The UI (FastAPI + HTMX, assets vendored so it works offline) lets you:
 - Browse and **restore** archived cards.
 - See **WIP-limit** and **blocked-by-dependency** indicators, and **live updates** as Claude
   moves cards from the CLI (via Server-Sent Events).
+
+## AI command input
+
+Type a natural-language instruction — "add a bug card about the login timeout" — and it
+pre-fills the "New card" form for you to review and confirm (it never creates the card
+directly). Works with **Anthropic or OpenAI**, whichever you have an API key for:
+
+```bash
+uv add --dev 'kanbai[ui,ai]'    # or: pip install 'kanbai[ui,ai]'
+export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY=sk-...
+kanbai ui                                # the input appears in the topbar
+```
+
+The input only appears when a key is set — no configuration required, and no error if
+you don't want to use it. Auto-detection order: `ANTHROPIC_API_KEY` first, then
+`OPENAI_API_KEY` (if both are set, Anthropic wins). Override with:
+
+- `KANBAI_AI_PROVIDER` (`anthropic` or `openai`) — picks precedence between providers
+  whose keys are already set; it does not work without that provider's own key present.
+- `KANBAI_AI_MODEL` — a specific model ID, for either provider.
+
+In the hub, the instruction can also name which board the card belongs to; in a single
+board's UI, the board is implicit.
 
 ## Multi-board hub
 

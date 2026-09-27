@@ -12,11 +12,12 @@ import httpx2 as httpx
 import pytest
 from fastapi.testclient import TestClient
 from kanbai import __version__, scaffold
+from kanbai.ai.schema import ExtractedCard
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
 from kanbai.notify_ntfy import notify_ntfy, notify_ntfy_background
-from kanbai.web import server
+from kanbai.web import app as app_module, hub as hub_module, server
 from kanbai.web.app import create_app
 from kanbai.web.hub import create_hub_app
 from kanbai.web.watcher import watch_board
@@ -285,6 +286,126 @@ def test_new_card_form_omits_review_column_with_bypass_review(tmp_path: Path) ->
 def test_board_has_new_card_button(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert 'hx-get="/cards/new"' in body
+
+
+def test_ai_command_input_absent_when_unconfigured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    body = _client(tmp_path).get("/").text
+    assert 'name="instruction"' not in body
+
+
+def test_ai_command_prefills_new_card_form(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    fake_card = ExtractedCard(
+        title="Fix login bug",
+        description="users can't sign in",
+        type="bug",
+        priority="high",
+        labels=["auth", "urgent"],
+        column="todo",
+    )
+    monkeypatch.setattr(app_module, "extract_card", lambda *a, **kw: fake_card)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "add a bug card about login"})
+    assert resp.status_code == 200
+    assert 'value="Fix login bug"' in resp.text
+    assert "users can&#39;t sign in" in resp.text
+    assert "auth, urgent" in resp.text
+    assert '<option value="bug" selected>' in resp.text
+    assert '<option value="high" selected>' in resp.text
+    assert '<option value="todo" selected>' in resp.text
+
+
+def test_ai_command_clamps_column_and_type_to_this_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    fake_card = ExtractedCard(title="x", column="not-a-real-column", type="not-a-real-type")
+    monkeypatch.setattr(app_module, "extract_card", lambda *a, **kw: fake_card)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "..."})
+    assert resp.status_code == 200
+    assert f'<option value="{board.config.add_column}" selected>' in resp.text
+    assert '<option value="" selected>' in resp.text  # type falls back to blank
+
+
+def test_ai_command_error_targets_detail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    monkeypatch.setattr(app_module, "extract_card", lambda *a, **kw: None)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "gibberish"})
+    assert resp.status_code == 200
+    assert resp.headers["hx-retarget"] == "#detail"
+    assert resp.headers["hx-reswap"] == "innerHTML"
+    assert "Couldn't understand" in resp.text
+
+
+def test_hub_ai_command_input_absent_when_unconfigured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a)}))
+    assert 'name="instruction"' not in client.get("/").text
+
+
+def test_hub_ai_command_routes_to_the_chosen_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b, name="ProjectB")
+    client = TestClient(create_hub_app({"a": str(board_a), "ProjectB": str(board_b)}))
+
+    fake_card = ExtractedCard(
+        title="New feature", column="backlog", priority="low", board="ProjectB"
+    )
+    monkeypatch.setattr(hub_module, "extract_card", lambda *a, **kw: fake_card)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "add a feature to ProjectB"})
+    assert resp.status_code == 200
+    assert 'hx-post="/b/ProjectB/cards"' in resp.text
+    assert "location.href='/b/ProjectB/'" in resp.text
+    assert 'value="New feature"' in resp.text
+
+
+def test_hub_ai_command_error_when_extraction_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a)}))
+
+    monkeypatch.setattr(hub_module, "extract_card", lambda *a, **kw: None)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "gibberish"})
+    assert resp.status_code == 200
+    assert resp.headers["hx-retarget"] == "#detail"
+    assert "Couldn't understand" in resp.text
+
+
+def test_hub_ai_command_error_when_board_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a)}))
+
+    fake_card = ExtractedCard(title="x", column="backlog", board="not-a-registered-board")
+    monkeypatch.setattr(hub_module, "extract_card", lambda *a, **kw: fake_card)  # noqa: ARG005
+    resp = client.post("/ai/command", data={"instruction": "..."})
+    assert resp.status_code == 200
+    assert "Couldn't understand" in resp.text
 
 
 def test_move_card_via_post(tmp_path: Path) -> None:

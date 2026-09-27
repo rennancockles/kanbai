@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/static/icon.png">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -14,6 +15,17 @@
       <img class="logo" src="/static/icon.png" alt="{{ app_name }}" width="38" height="38">
       <h1 title="{{ app_name }} v{{ app_version }}">{{ app_name }} <span class="hub-tag">hub</span></h1>
     </div>
+    {% if ai_available %}
+    <form class="ai-command" hx-post="/ai/command" hx-target="#detail" hx-swap="innerHTML"
+          hx-disabled-elt="find input, find button" hx-on::after-request="this.reset()">
+      <input type="text" name="instruction" placeholder="Ask AI to create a card…" autocomplete="off"
+             hx-on:keydown="if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit()}">
+      <button class="btn-ghost" type="submit">
+        <span class="ai-command-label">Ask</span>
+        <span class="ai-command-spinner htmx-indicator" aria-hidden="true"></span>
+      </button>
+    </form>
+    {% endif %}
   </header>
 
   <main class="hub">
@@ -32,5 +44,11 @@
     <p class="empty">No boards registered. Add one with <code>kanbai hub add &lt;path&gt;</code>.</p>
     {% endif %}
   </main>
+
+  <!-- Card detail modal target (populated by HTMX for the AI command result). Hidden
+       #board placeholder satisfies _new_card.html's hx-target when submitted from here
+       (the form redirects to the chosen board afterwards rather than swapping it in). -->
+  <div id="detail"></div>
+  <div id="board" hidden></div>
 </body>
 </html>

@@ -575,3 +575,43 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .error-hint { margin: 0 0 0.5rem; font-size: 1.3rem; font-weight: 650; color: var(--accent); }
 .error-page .hub-list { width: 100%; margin-top: 0.5rem; }
 .error-home { margin-top: 1.5rem; text-decoration: none; }
+
+/* AI command input (hub topbar + board actions) — always the topbar's right column. */
+.topbar .ai-command {
+  grid-column: 3;
+  justify-self: end;
+}
+.ai-command {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: 0;
+}
+.ai-command input {
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  width: min(280px, 100%);
+}
+.ai-command input::placeholder { color: var(--muted); }
+.ai-command input:disabled { opacity: 0.6; }
+.ai-command button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ai-command-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ai-command-spin 0.6s linear infinite;
+}
+@keyframes ai-command-spin {
+  to { transform: rotate(360deg); }
+}
