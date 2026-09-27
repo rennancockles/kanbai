@@ -11,6 +11,33 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.6.0 (2026-09-27)
+
+### Bug Fixes
+
+- Hub nao derruba boards saudaveis quando outro tem config.toml ilegivel (073)
+  ([`5c8d64e`](https://github.com/rennancockles/kanbai/commit/5c8d64e1b37c14066fc78729244f42f88b8b37a0))
+
+### Documentation
+
+- Atualizar README e site com features das ultimas sprints (074)
+  ([`c049609`](https://github.com/rennancockles/kanbai/commit/c049609bfb05c19cca19ae0644e7619edeb5b281))
+
+### Features
+
+- Input de IA na topbar para criar cards, provider-agnostic (069)
+  ([`77fcc63`](https://github.com/rennancockles/kanbai/commit/77fcc633177134dcf56e50ec3d3d9e350e5eb476))
+
+- Opcao bypass_review no config para pular a coluna review (030)
+  ([`a98c681`](https://github.com/rennancockles/kanbai/commit/a98c681377045fcdca98a4f014978b4f5e361b8a))
+
+- Pagina de erro 404 estilizada no hub/UI (072)
+  ([`d166fa5`](https://github.com/rennancockles/kanbai/commit/d166fa5a24ea966948cf38db74222bfb1f61db7e))
+
+- Rodar o hub como daemon em background (071)
+  ([`d1ac4c4`](https://github.com/rennancockles/kanbai/commit/d1ac4c42e913294b7463b96af915e97792b67cd8))
+
+
 ## v0.5.1 (2026-09-25)
 
 ### Bug Fixes
