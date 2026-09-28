@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.7.0 (2026-09-28)
+
+### Documentation
+
+- Atualizar screenshots e consolidar assets em docs/assets
+  ([`7558a1d`](https://github.com/rennancockles/kanbai/commit/7558a1d6fed28891c950f74c7a7d1115e520e680))
+
+### Features
+
+- Adicionar comando 'kanbai --version' (075)
+  ([`4344ea5`](https://github.com/rennancockles/kanbai/commit/4344ea54814644e9cd7233bc6b124a7a89b966d8))
+
+
 ## v0.6.0 (2026-09-27)
 
 ### Bug Fixes
