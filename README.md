@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/logo.png" alt="KanbAI" width="650">
+  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/docs/assets/logo.png" alt="KanbAI" width="650">
 </p>
 
 # KanbAI
@@ -19,7 +19,7 @@ driven by a simple `kanbai` CLI and a local web UI. Installed and invoked as `ka
 📖 **Full documentation: [www.r3ck.com.br/kanbai](https://www.r3ck.com.br/kanbai/)**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/assets/board.png" alt="KanbAI web UI" width="840">
+  <img src="https://raw.githubusercontent.com/rennancockles/kanbai/main/docs/assets/board.png" alt="KanbAI web UI" width="840">
 </p>
 
 ## Why

@@ -47,6 +47,8 @@ registered boards listed as suggestions — instead of a bare JSON error. A boar
 denying a detached daemon access to a protected folder like `~/Documents`) is skipped with
 a warning rather than taking every other board down with it.
 
+![The themed 404 page for an unregistered or misspelled board URL, listing registered boards as suggestions](assets/hub_404.png)
+
 ## Running the hub in the background
 
 `kanbai hub` blocks the terminal it runs in. To keep it always available without tying up a

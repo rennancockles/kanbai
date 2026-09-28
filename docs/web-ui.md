@@ -30,6 +30,8 @@ The **New card** button opens a modal with every field — title, column, priori
 [type](concepts.md#card-type), labels, and description — so a card can be created fully formed
 in one step.
 
+![The New card modal](assets/new_card_modal.png)
+
 ## Card details
 
 Click any card to open its details — description and acceptance criteria, labels,
@@ -127,6 +129,8 @@ pre-fills the **New card** modal for you to review and confirm; it never creates
 directly. Needs the [`ai` extra](installation.md#the-ai-extra) and an API key from
 **Anthropic or OpenAI** — whichever key is set, the input appears in the top bar with no
 further configuration:
+
+![The AI command input in the top bar](assets/ai_input_field.png)
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY=sk-...
