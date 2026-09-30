@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from .models import BoardConfig, Priority
@@ -15,6 +16,40 @@ else:  # pragma: no cover - exercised only on Python 3.10
 
 CONFIG_FILENAME = "config.toml"
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+@dataclass(frozen=True)
+class RemoteConfig:
+    """Hosted-mode connection details, read from ``config.toml``'s ``[server]`` section.
+
+    Presence of this section (with all three fields set) is what switches the CLI into
+    remote mode — see :func:`load_remote_config` and ``kanbai.cli._load``.
+    """
+
+    url: str
+    token: str
+    board_id: str
+
+
+def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
+    """Read the ``[server]`` section of ``config.toml``, if present and complete.
+
+    Returns ``None`` when ``config.toml`` is missing, has no ``[server]`` section, or the
+    section is missing any of ``url``/``token``/``board_id`` — in every one of those cases
+    the CLI falls back to local/self-hosted mode, unchanged.
+    """
+    config_path = kanbai_dir / CONFIG_FILENAME
+    if not config_path.exists():
+        return None
+    with config_path.open("rb") as handle:
+        raw = tomllib.load(handle)
+    server = raw.get("server")
+    if not isinstance(server, dict):
+        return None
+    url, token, board_id = server.get("url"), server.get("token"), server.get("board_id")
+    if not (isinstance(url, str) and isinstance(token, str) and isinstance(board_id, str)):
+        return None
+    return RemoteConfig(url=url, token=token, board_id=board_id)
 
 
 def _apply_notifications(config: BoardConfig, notifications: dict[str, object]) -> None:

@@ -73,3 +73,15 @@ class HubNotRunningError(KanbaiError):
 
     def __init__(self) -> None:
         super().__init__("Hub is not running. Start it with `kanbai hub start`.")
+
+
+class RemoteAPIError(KanbaiError):
+    """Raised by `RemoteBoard` when the hosted API is unreachable or returns an error.
+
+    ``status_code`` is ``None`` for network-level failures (DNS, connection refused,
+    timeout) that never got an HTTP response at all.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        self.status_code = status_code
+        super().__init__(message)

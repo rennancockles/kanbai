@@ -18,9 +18,16 @@ from rich.table import Table
 
 from . import APP_NAME, __version__, daemon, registry, scaffold, storage
 from .board import Board
+from .config import load_remote_config
 from .errors import KanbaiError
 from .models import Card, Priority
 from .notify_ntfy import notify_ntfy
+from .remote_board import RemoteBoard
+
+#: Either a local, filesystem-backed board or a hosted one talking to a kanbai_server API —
+#: every command function below only calls verbs both implement, so callers never branch on
+#: which one `_load()` returned.
+AnyBoard = Board | RemoteBoard
 
 app = typer.Typer(
     name="kanbai",
@@ -66,7 +73,7 @@ _PRIORITY_STYLE = {
 _WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
-def _notify(board: Board, title: str, body: str) -> None:
+def _notify(board: AnyBoard, title: str, body: str) -> None:
     """``Board.on_notify`` for the CLI: ntfy always, native desktop if the extra is installed.
 
     Native notifications need the optional ``ui`` extra (``desktop-notifier``); a plain CLI
@@ -83,15 +90,23 @@ def _notify(board: Board, title: str, body: str) -> None:
     notify_native(title, body)
 
 
-def _load() -> Board:
-    """Load the board or exit with a friendly message."""
+def _load_board_at(start: Path | None) -> AnyBoard:
+    """Load the board at (or above) ``start`` — remote if its `config.toml` has a complete
+    `[server]` section, local (filesystem-backed) otherwise. Raises :class:`KanbaiError`."""
+    kanbai_dir = storage.find_kanbai_dir(start)
+    remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+    board: AnyBoard = RemoteBoard(remote) if remote is not None else Board.load(start)
+    board.on_notify = lambda title, body: _notify(board, title, body)
+    return board
+
+
+def _load() -> AnyBoard:
+    """Load the board from the current directory, or exit with a friendly message."""
     try:
-        board = Board.load()
+        return _load_board_at(None)
     except KanbaiError as exc:  # pragma: no cover - exercised via CLI tests
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    board.on_notify = lambda title, body: _notify(board, title, body)
-    return board
 
 
 def _card_dict(card: Card) -> dict[str, object]:
@@ -115,7 +130,7 @@ def _emit_card(card: Card, as_json: bool, message: str | None = None) -> None:
         console.print(message)
 
 
-def _warn_over_wip(board: Board, column: str) -> None:
+def _warn_over_wip(board: AnyBoard, column: str) -> None:
     """Warn (on stderr) when ``column`` is over its configured WIP limit — never blocks."""
     limit = board.config.wip_limit(column)
     if limit is None:
@@ -528,6 +543,12 @@ def ui(
 ) -> None:
     """Serve the board in a local web UI and open it in your browser."""
     board = _load()
+    if isinstance(board, RemoteBoard):
+        err_console.print(
+            "[red]error:[/red] `kanbai ui` serves a local filesystem board and does not "
+            "support hosted (remote) boards yet."
+        )
+        raise typer.Exit(code=1)
     # Imported lazily so the core CLI never requires the optional "ui" extra.
     try:
         from .web.server import serve  # noqa: PLC0415 - optional extra, imported on demand
@@ -769,7 +790,7 @@ def notify_hook() -> None:
     cwd = payload.get("cwd")
     start = Path(cwd) if isinstance(cwd, str) and cwd else None
     try:
-        board = Board.load(start)
+        board = _load_board_at(start)
     except KanbaiError:
         return
 
