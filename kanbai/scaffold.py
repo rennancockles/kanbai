@@ -15,6 +15,10 @@ from .models import BoardConfig
 # marker `_merge_settings_hook` looks for on re-runs.
 KANBAI_NOTIFY_HOOK_COMMAND = "kanbai notify-hook"
 
+# Permissions added to `permissions.allow` so Claude never prompts before running kanbai
+# commands or invoking kanbai skills.
+KANBAI_PERMISSIONS = ["Bash(kanbai *)", "Skill(kanbai-*)"]
+
 RULE_DOC = """# kanbai board workflow
 
 This project uses **kanbai**, a file-based Kanban board stored in `.kanbai/`. Each column
@@ -270,15 +274,17 @@ def _strip_kanbai_notify_hook(notifications: list[object]) -> None:
             notifications.remove(entry)
 
 
-def _merge_settings_hook(root: Path, result: ScaffoldResult, *, force: bool = False) -> None:
-    """Register kanbai's `Notification` hook in `.claude/settings.json`, preserving the rest.
+def _merge_settings(root: Path, result: ScaffoldResult, *, force: bool = False) -> None:
+    """Merge kanbai's entries into `.claude/settings.json`, preserving everything else.
 
-    Unlike `_write()` (overwrite-or-skip), this is read-modify-write: an existing
-    settings.json may carry unrelated keys (env, permissions, sandbox, ...) and unrelated
-    hooks (including a user's own `Notification` entries) that must survive untouched — only
-    `hooks.Notification` is ever modified, and only to add/replace kanbai's own entry
-    (identified by ``KANBAI_NOTIFY_HOOK_COMMAND``). A malformed existing file is recorded as
-    failed and left exactly as-is, never overwritten with a guess.
+    Unlike `_write()` (overwrite-or-skip), this is read-modify-write:
+    - ``permissions.allow`` — appends ``KANBAI_PERMISSIONS`` entries that are not already
+      present (always additive; ``force`` has no effect here).
+    - ``hooks.Notification`` — adds/replaces kanbai's own entry (identified by
+      ``KANBAI_NOTIFY_HOOK_COMMAND``); with ``force``, the existing entry is replaced.
+
+    All other keys (env, sandbox, other hooks, ...) are left exactly as-is. A malformed
+    existing file is recorded as failed and left untouched.
     """
     path = root / ".claude" / "settings.json"
     rel = str(path.relative_to(root))
@@ -295,22 +301,36 @@ def _merge_settings_hook(root: Path, result: ScaffoldResult, *, force: bool = Fa
     else:
         data = {}
 
+    changed = False
+
+    # Merge permissions.allow — always additive.
+    permissions = data.setdefault("permissions", {})
+    allow: list[object] = permissions.setdefault("allow", [])
+    for perm in KANBAI_PERMISSIONS:
+        if perm not in allow:
+            allow.append(perm)
+            changed = True
+
+    # Merge Notification hook.
     hooks = data.setdefault("hooks", {})
     notifications = hooks.setdefault("Notification", [])
-
     already_present = _has_kanbai_notify_hook(notifications)
     if already_present and not force:
+        pass  # hook already registered; leave it alone
+    else:
+        if already_present:
+            _strip_kanbai_notify_hook(notifications)
+        notifications.append(
+            {
+                "matcher": "*",
+                "hooks": [{"type": "command", "command": KANBAI_NOTIFY_HOOK_COMMAND}],
+            }
+        )
+        changed = True
+
+    if not changed:
         result.skipped.append(rel)
         return
-    if already_present:
-        _strip_kanbai_notify_hook(notifications)
-
-    notifications.append(
-        {
-            "matcher": "*",
-            "hooks": [{"type": "command", "command": KANBAI_NOTIFY_HOOK_COMMAND}],
-        }
-    )
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -364,6 +384,6 @@ def init_board(root: Path, *, force: bool = False, name: str | None = None) -> S
         force,
         optional=True,
     )
-    _merge_settings_hook(root, result, force=force)
+    _merge_settings(root, result, force=force)
 
     return result

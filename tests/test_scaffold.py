@@ -105,7 +105,7 @@ def test_init_merges_hook_into_existing_settings_json_preserving_other_keys(
     settings_path.parent.mkdir(parents=True)
     existing = {
         "env": {"SOME_VAR": "1"},
-        "permissions": {"allow": ["Bash(kanbai *)"]},
+        "permissions": {"allow": ["SomeTool(*)"]},
         "hooks": {
             "Notification": [
                 {
@@ -121,12 +121,48 @@ def test_init_merges_hook_into_existing_settings_json_preserving_other_keys(
 
     settings = json.loads(settings_path.read_text())
     assert settings["env"] == {"SOME_VAR": "1"}
-    assert settings["permissions"] == {"allow": ["Bash(kanbai *)"]}
+    # Existing unrelated permission is preserved; kanbai ones are appended.
+    allow = settings["permissions"]["allow"]
+    assert "SomeTool(*)" in allow
+    for perm in scaffold.KANBAI_PERMISSIONS:
+        assert perm in allow
     commands = [
         hook["command"] for entry in _notify_hooks(settings) for hook in entry.get("hooks", [])
     ]
     assert "curl https://ntfy.sh/my-topic" in commands
     assert scaffold.KANBAI_NOTIFY_HOOK_COMMAND in commands
+
+
+def test_init_writes_permissions_into_fresh_settings_json(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    allow = settings.get("permissions", {}).get("allow", [])
+    for perm in scaffold.KANBAI_PERMISSIONS:
+        assert perm in allow
+
+
+def test_init_permissions_are_idempotent(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    scaffold.init_board(tmp_path)
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    allow = settings.get("permissions", {}).get("allow", [])
+    for perm in scaffold.KANBAI_PERMISSIONS:
+        assert allow.count(perm) == 1
+
+
+def test_init_permissions_added_when_allow_list_already_exists(tmp_path: Path) -> None:
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"permissions": {"allow": ["Bash(kanbai *)"]}}))
+
+    scaffold.init_board(tmp_path)
+
+    settings = json.loads(settings_path.read_text())
+    allow = settings["permissions"]["allow"]
+    assert allow.count("Bash(kanbai *)") == 1
+    assert "Skill(kanbai-*)" in allow
 
 
 def test_init_notification_hook_is_idempotent(tmp_path: Path) -> None:

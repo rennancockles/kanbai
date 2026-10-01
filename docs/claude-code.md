@@ -41,22 +41,26 @@ give it, Claude finishes the job (move to `done` + commit) without extra prompti
     `kanbai-sprint` skill (or just ask it to “work the whole sprint”). It runs the same loop
     per card, still finishing each into `review` for your approval.
 
-## Allowing the CLI without prompts
+## Allowing the CLI and skills without prompts
 
-Claude Code asks before running shell commands. Pre-approve KanbAI by adding `Bash(kanbai *)`
-to the `permissions.allow` list in `.claude/settings.json`:
+Claude Code asks before running shell commands or invoking skills. `kanbai init` automatically
+merges two entries into `permissions.allow` in `.claude/settings.json` so Claude never prompts
+for kanbai operations:
 
 ```json
 {
   "permissions": {
-    "allow": ["Bash(kanbai *)"]
+    "allow": ["Bash(kanbai *)", "Skill(kanbai-*)"]
   }
 }
 ```
 
-`kanbai init` prints this reminder. Editing the rest of `settings.json` is left to you, since
-it's a sensitive file — the one exception is the `Notification` hook below, which `init`
-merges in on its own.
+- **`Bash(kanbai *)`** — pre-approves every `kanbai` CLI call.
+- **`Skill(kanbai-*)`** — pre-approves the `kanbai-next`, `kanbai-sprint`, and `kanbai-status`
+  skills so they run without a prompt.
+
+The merge is additive: any entries already in your `allow` list (or any other key in
+`settings.json`) are left exactly as-is. Re-running `init` won't duplicate the entries.
 
 ## Notified when Claude needs you
 
