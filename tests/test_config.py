@@ -81,6 +81,23 @@ def test_render_config_documents_bypass_review_commented_out() -> None:
     assert "# bypass_review = true" in text
 
 
+def test_load_config_reads_category(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", 'category = "Work"\n\n[defaults]'))
+    config = load_config(tmp_path / ".kanbai")
+    assert config.category == "Work"
+
+
+def test_category_defaults_to_empty_string() -> None:
+    assert BoardConfig().category == ""
+
+
+def test_render_config_documents_category_commented_out() -> None:
+    text = render_config(BoardConfig())
+    assert "# category" in text
+
+
 def test_wip_limit_lookup() -> None:
     config = BoardConfig(wip={"doing": 3})
     assert config.wip_limit("doing") == 3

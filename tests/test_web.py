@@ -80,6 +80,18 @@ def test_default_base_path_has_no_prefix(tmp_path: Path) -> None:
     assert "/b/" not in html
 
 
+def test_logo_links_to_hub_when_in_hub_mode(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    html = TestClient(create_app(board, base_path="/b/proj")).get("/").text
+    assert 'href="/"' in html  # logo wraps a link back to hub root
+
+
+def test_logo_has_no_link_in_standalone_mode(tmp_path: Path) -> None:
+    html = _client(tmp_path).get("/").text
+    assert 'class="logo-link"' not in html  # no hub to go back to
+
+
 def test_board_switcher_shown_with_boards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
@@ -185,6 +197,49 @@ def test_hub_picks_up_boards_registered_after_startup(tmp_path: Path) -> None:
 
     assert client.get("/b/b/").status_code == 200
     assert "/b/b/" in client.get("/").text
+
+
+def test_hub_groups_boards_by_category(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    board_c = tmp_path / "c"
+    scaffold.init_board(board_a, name="a")
+    scaffold.init_board(board_b, name="b")
+    scaffold.init_board(board_c, name="c")
+
+    # Give "a" and "c" the same category, leave "b" uncategorized.
+    for proj in (board_a, board_c):
+        cfg = proj / ".kanbai" / "config.toml"
+        cfg.write_text(cfg.read_text().replace("[defaults]", 'category = "Work"\n\n[defaults]'))
+
+    html = (
+        TestClient(create_hub_app({"a": str(board_a), "b": str(board_b), "c": str(board_c)}))
+        .get("/")
+        .text
+    )
+
+    assert "Work" in html  # category heading is visible
+    # Both categorized boards appear
+    assert "/b/a/" in html
+    assert "/b/c/" in html
+    # Uncategorized board also appears
+    assert "/b/b/" in html
+    # Category heading comes before both grouped boards
+    assert html.index("Work") < html.index("/b/a/")
+    assert html.index("Work") < html.index("/b/c/")
+
+
+def test_hub_no_category_renders_flat_list(tmp_path: Path) -> None:
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+
+    html = TestClient(create_hub_app({"a": str(board_a), "b": str(board_b)})).get("/").text
+
+    assert "hub-category-name" not in html  # no category headers rendered
+    assert "/b/a/" in html
+    assert "/b/b/" in html
 
 
 def test_index_has_favicon_and_logo(tmp_path: Path) -> None:

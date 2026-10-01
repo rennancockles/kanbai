@@ -136,6 +136,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "type": type_,
             "boards": boards or [],
             "current": current,
+            "hub_url": "/" if base_path else "",
             "backlog_column": resolved.config.add_column,
             "ai_available": ai_available(),
         }

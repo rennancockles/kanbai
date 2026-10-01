@@ -101,6 +101,28 @@ body {
 }
 .hub-board:hover { border-color: var(--accent); background: var(--surface-2); }
 .hub-name { flex: none; font-weight: 600; }
+.logo-link { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit; }
+.hub-category { margin-bottom: 1.5rem; }
+details.hub-category { border: none; }
+details.hub-category .hub-list { margin-top: 0.5rem; }
+.hub-category-name {
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+  margin: 0 0 0.5rem 0;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.hub-category-name::before {
+  content: "▾";
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+details.hub-category:not([open]) .hub-category-name::before { transform: rotate(-90deg); }
 .hub-path {
   min-width: 0;
   overflow: hidden;

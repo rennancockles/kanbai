@@ -85,6 +85,9 @@ def load_config(kanbai_dir: Path) -> BoardConfig:
     bypass_review = board.get("bypass_review")
     if isinstance(bypass_review, bool):
         config.bypass_review = bypass_review
+    category = board.get("category")
+    if isinstance(category, str):
+        config.category = category
     priority = defaults.get("priority")
     if isinstance(priority, str):
         config.default_priority = Priority(priority)
@@ -114,6 +117,10 @@ def render_config(config: BoardConfig) -> str:
         "# Skip the review stage: `kanbai review` finalizes cards straight to `done`, and the\n"
         "# review column (if present) is hidden from the UI and the workflow skills.\n"
         "# bypass_review = true\n"
+        "\n"
+        "# Optional category for the hub landing page — boards with the same category are\n"
+        "# grouped together. Leave unset (or empty) for no grouping.\n"
+        '# category = "Work"\n'
         "\n"
         "[defaults]\n"
         f'priority = "{config.default_priority.value}"\n'

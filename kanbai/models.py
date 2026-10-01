@@ -120,6 +120,8 @@ class BoardConfig(BaseModel):
     # to `done` instead of waiting in `review` for approval. The `review` column (if present)
     # is treated as absent everywhere a column role resolves — see `review_column` below.
     bypass_review: bool = False
+    # Optional grouping label shown on the hub landing page; empty string means no category.
+    category: str = ""
 
     def wip_limit(self, column: str) -> int | None:
         """The configured WIP limit for ``column``, or ``None`` if it has no limit."""

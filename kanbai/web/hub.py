@@ -48,7 +48,10 @@ def _mount_boards(hub: FastAPI, boards: dict[str, str]) -> list[dict[str, str]]:
         except OSError as exc:
             print(f"! skipping board '{name}' at {path}: {exc}", file=sys.stderr)
             continue
-    mounted = [{"name": name, "path": path, "url": f"/b/{name}/"} for name, path, _ in loaded]
+    mounted = [
+        {"name": name, "path": path, "url": f"/b/{name}/", "category": board.config.category}
+        for name, path, board in loaded
+    ]
     switcher = [{"name": item["name"], "url": item["url"]} for item in mounted]
 
     for name, _path, board in loaded:

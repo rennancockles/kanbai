@@ -30,6 +30,39 @@
 
   <main class="hub">
     {% if boards %}
+    {% set categorized = boards | selectattr("category") | list %}
+    {% set uncategorized = boards | rejectattr("category") | list %}
+    {% if categorized %}
+      {% for cat_name, group in categorized | groupby("category") %}
+      <details class="hub-category" open>
+        <summary class="hub-category-name">{{ cat_name }}</summary>
+        <ul class="hub-list">
+          {% for b in group %}
+          <li>
+            <a class="hub-board" href="{{ b.url }}">
+              <span class="hub-name">{{ b.name }}</span>
+              <span class="hub-path">{{ b.path }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endfor %}
+      {% if uncategorized %}
+      <section class="hub-category">
+        <ul class="hub-list">
+          {% for b in uncategorized %}
+          <li>
+            <a class="hub-board" href="{{ b.url }}">
+              <span class="hub-name">{{ b.name }}</span>
+              <span class="hub-path">{{ b.path }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    {% else %}
     <ul class="hub-list">
       {% for b in boards %}
       <li>
@@ -40,6 +73,7 @@
       </li>
       {% endfor %}
     </ul>
+    {% endif %}
     {% else %}
     <p class="empty">No boards registered. Add one with <code>kanbai hub add &lt;path&gt;</code>.</p>
     {% endif %}

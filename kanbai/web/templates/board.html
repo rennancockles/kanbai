@@ -13,8 +13,10 @@
 <body>
   <header class="topbar">
     <div class="topbar-left">
+      {% if hub_url %}<a href="{{ hub_url }}" class="logo-link" title="Back to hub">{% endif %}
       <img class="logo" src="{{ base }}/static/icon.png" alt="{{ app_name }}" width="38" height="38">
       <h1 title="{{ app_name }} v{{ app_version }}">{{ app_name }}{% if boards %} <span class="hub-tag">hub</span>{% endif %}</h1>
+      {% if hub_url %}</a>{% endif %}
       {% if boards %}
       <select class="board-switcher" aria-label="Switch board"
               onchange="if(this.value)location.href=this.value">
