@@ -164,3 +164,87 @@ def test_round_trip_import_then_export_preserves_cards_and_deps(local_project: P
     assert exported_blocker.priority.value == "high"
     assert exported_blocker.labels == ["urgent"]
     assert exported_blocked.deps == [exported_blocker.id]
+
+
+def test_diff_boards_reports_in_sync_right_after_import(local_project: Path) -> None:
+    board = Board.load(local_project)
+    board.add("A card")
+
+    remote_config = hosted.import_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+
+    diff = hosted.diff_boards(board, remote)
+
+    assert diff.in_sync
+    assert diff.only_local == []
+    assert diff.only_remote == []
+    assert diff.changed == []
+
+
+def test_diff_boards_detects_card_only_on_remote(local_project: Path) -> None:
+    board = Board.load(local_project)
+    remote_config = hosted.import_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    added = remote.add("Added remotely")
+
+    diff = hosted.diff_boards(board, remote)
+
+    assert not diff.in_sync
+    assert diff.only_remote == [added.id]
+    assert diff.only_local == []
+
+
+def test_diff_boards_detects_card_only_on_local(local_project: Path) -> None:
+    board = Board.load(local_project)
+    remote_config = hosted.import_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    added = board.add("Added locally")
+
+    diff = hosted.diff_boards(board, remote)
+
+    assert not diff.in_sync
+    assert diff.only_local == [added.id]
+    assert diff.only_remote == []
+
+
+def test_diff_boards_detects_differing_fields_on_shared_card(local_project: Path) -> None:
+    board = Board.load(local_project)
+    card = board.add("Original title", priority="low")
+    remote_config = hosted.import_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Original title")
+    remote.edit(remote_card.id, title="Changed remotely", priority="high")
+
+    diff = hosted.diff_boards(board, remote)
+
+    assert not diff.in_sync
+    assert len(diff.changed) == 1
+    card_diff = diff.changed[0]
+    assert card_diff.card_id == card.id
+    changed_fields = {c.field for c in card_diff.changes}
+    assert changed_fields == {"title", "priority"}
+
+
+def test_diff_boards_ignores_order_and_timestamps(local_project: Path) -> None:
+    board = Board.load(local_project)
+    board.add("First")
+    board.add("Second")
+    remote_config = hosted.import_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+
+    # Sorting changes `order` on the hosted side without changing any compared field.
+    remote.sort_column("backlog", "title", descending=True)
+
+    diff = hosted.diff_boards(board, remote)
+
+    assert diff.in_sync

@@ -633,6 +633,69 @@ def hosted_export() -> None:
     console.print(f"[green]✓[/green] Exported {count} card(s) to [cyan]{kanbai_dir}[/cyan].")
 
 
+@hosted_app.command("diff")
+def hosted_diff(
+    as_json: bool = typer.Option(False, "--json", help="Emit the diff as JSON."),
+) -> None:
+    """Compare the local board against the hosted one configured in `[server]`.
+
+    Read-only — makes no changes to either side. Exits 0 if the two boards match, 1 if any
+    differences are found (cards only on one side, or shared ids with differing fields).
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        remote_config = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        if kanbai_dir is None or remote_config is None:
+            raise KanbaiError(
+                "No [server] section configured — nothing to compare. "
+                "Run `kanbai hosted import` first, or hand-edit config.toml."
+            )
+        board_diff = hosted.diff_boards(Board.load(kanbai_dir.parent), RemoteBoard(remote_config))
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    if as_json:
+        _emit_json(
+            {
+                "in_sync": board_diff.in_sync,
+                "only_local": board_diff.only_local,
+                "only_remote": board_diff.only_remote,
+                "changed": [
+                    {
+                        "card_id": c.card_id,
+                        "changes": [
+                            {"field": ch.field, "local": ch.local, "remote": ch.remote}
+                            for ch in c.changes
+                        ],
+                    }
+                    for c in board_diff.changed
+                ],
+            }
+        )
+    else:
+        _print_board_diff(board_diff)
+
+    raise typer.Exit(code=0 if board_diff.in_sync else 1)
+
+
+def _print_board_diff(board_diff: hosted.BoardDiff) -> None:
+    if board_diff.in_sync:
+        console.print("[green]✓[/green] Local and hosted boards are in sync.")
+        return
+    err_console.print("[yellow]![/yellow] Local and hosted boards differ:")
+    if board_diff.only_local:
+        err_console.print(f"  only local:  {', '.join(board_diff.only_local)}")
+    if board_diff.only_remote:
+        err_console.print(f"  only hosted: {', '.join(board_diff.only_remote)}")
+    for card_diff in board_diff.changed:
+        err_console.print(f"  [cyan]{card_diff.card_id}[/cyan] differs:")
+        for change in card_diff.changes:
+            err_console.print(
+                f"    {change.field}: local={change.local!r} hosted={change.remote!r}"
+            )
+
+
 # --------------------------------------------------------------------------- hub (multi-board)
 
 hub_app = typer.Typer(

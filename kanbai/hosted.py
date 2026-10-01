@@ -8,6 +8,7 @@ stays — removing it to fully return to self-hosted is a manual step, by design
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import storage
@@ -15,6 +16,22 @@ from .board import Board
 from .config import CONFIG_FILENAME, RemoteConfig
 from .models import Card
 from .remote_board import RemoteBoard, create_remote_board, login
+
+#: Card fields compared by :func:`diff_boards`. Excludes ``id`` (the comparison key),
+#: ``order`` (position noise, not meaningful content), and ``created``/``updated``
+#: (timestamps that differ by nature between two independently-written copies).
+_COMPARED_FIELDS = (
+    "title",
+    "status",
+    "priority",
+    "type",
+    "version",
+    "labels",
+    "deps",
+    "assignee",
+    "archived_from",
+    "body",
+)
 
 
 def import_board(kanbai_dir: Path, url: str, email: str, password: str) -> RemoteConfig:
@@ -117,3 +134,71 @@ def export_board(remote: RemoteBoard, kanbai_dir: Path) -> int:
     for card in all_cards:
         storage.write_card(kanbai_dir, card)
     return len(all_cards)
+
+
+@dataclass(frozen=True)
+class FieldChange:
+    """One field that differs between the local and hosted copy of a card."""
+
+    field: str
+    local: object
+    remote: object
+
+
+@dataclass(frozen=True)
+class CardDiff:
+    """Field-level differences for a card id present on both sides."""
+
+    card_id: str
+    changes: list[FieldChange] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BoardDiff:
+    """The result of comparing a local board against its hosted counterpart.
+
+    ``only_local``/``only_remote`` are card ids present on just one side; ``changed`` holds a
+    :class:`CardDiff` for every id present on both sides with at least one differing field.
+    """
+
+    only_local: list[str]
+    only_remote: list[str]
+    changed: list[CardDiff]
+
+    @property
+    def in_sync(self) -> bool:
+        """``True`` when the two boards have exactly the same cards and field values."""
+        return not (self.only_local or self.only_remote or self.changed)
+
+
+def diff_boards(local: Board, remote: RemoteBoard) -> BoardDiff:
+    """Compare every card on ``local`` against its hosted counterpart on ``remote``.
+
+    Read-only: makes no changes to either board. Cards are matched by id; ``_COMPARED_FIELDS``
+    lists which fields count toward a difference (position and timestamps are excluded as
+    noise — two independently-maintained copies will never agree on those).
+    """
+    local_cards = {c.id: c for col in local.columns for c in local.list_column(col)}
+    local_cards.update({c.id: c for c in local.list_archive()})
+    remote_cards = {c.id: c for col in remote.columns for c in remote.list_column(col)}
+    remote_cards.update({c.id: c for c in remote.list_archive()})
+
+    only_local = sorted(local_cards.keys() - remote_cards.keys())
+    only_remote = sorted(remote_cards.keys() - local_cards.keys())
+
+    changed: list[CardDiff] = []
+    for card_id in sorted(local_cards.keys() & remote_cards.keys()):
+        card_diff = _diff_card(local_cards[card_id], remote_cards[card_id])
+        if card_diff.changes:
+            changed.append(card_diff)
+
+    return BoardDiff(only_local=only_local, only_remote=only_remote, changed=changed)
+
+
+def _diff_card(local_card: Card, remote_card: Card) -> CardDiff:
+    changes = [
+        FieldChange(field=name, local=getattr(local_card, name), remote=getattr(remote_card, name))
+        for name in _COMPARED_FIELDS
+        if getattr(local_card, name) != getattr(remote_card, name)
+    ]
+    return CardDiff(card_id=local_card.id, changes=changes)
