@@ -22,6 +22,55 @@ from .models import BoardConfig, Card, Priority
 _TIMEOUT = 10.0
 
 
+def _send(client: httpx.Client, base_url: str, method: str, path: str, **kwargs: Any) -> Any:
+    """Send a request through ``client``, raising :class:`RemoteAPIError` on any failure.
+
+    Shared by :class:`RemoteBoard` and the standalone :func:`login`/:func:`create_remote_board`
+    helpers, which need to talk to the API before a board (and thus a ``RemoteBoard``) exists.
+    """
+    try:
+        response = client.request(method, path, **kwargs)
+    except httpx.RequestError as exc:
+        raise RemoteAPIError(f"Could not reach {base_url}: {exc}") from exc
+    if response.is_error:
+        raise RemoteAPIError(_error_detail(response), status_code=response.status_code)
+    if response.status_code == httpx.codes.NO_CONTENT or not response.content:
+        return None
+    return response.json()
+
+
+def login(url: str, email: str, password: str) -> str:
+    """Authenticate with a hosted kanbai_server, returning a bearer access token."""
+    with httpx.Client(base_url=url, timeout=_TIMEOUT) as client:
+        data = _send(
+            client, url, "POST", "/auth/login", json={"email": email, "password": password}
+        )
+    return str(data["access_token"])
+
+
+def create_remote_board(url: str, token: str, config: BoardConfig) -> RemoteConfig:
+    """Provision a new hosted board matching ``config``, returning its :class:`RemoteConfig`."""
+    with httpx.Client(
+        base_url=url, headers={"Authorization": f"Bearer {token}"}, timeout=_TIMEOUT
+    ) as client:
+        data = _send(
+            client,
+            url,
+            "POST",
+            "/boards",
+            json={
+                "name": config.name,
+                "columns": config.columns,
+                "default_priority": config.default_priority.value,
+                "types": config.types,
+                "type_colors": config.type_colors,
+                "wip": config.wip,
+                "bypass_review": config.bypass_review,
+            },
+        )
+    return RemoteConfig(url=url, token=token, board_id=str(data["id"]))
+
+
 class RemoteBoard:
     """A board served by a hosted kanbai_server, addressed by ``config.board_id``."""
 
@@ -62,15 +111,7 @@ class RemoteBoard:
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         """Send a request to the hosted API, raising :class:`RemoteAPIError` on any failure."""
-        try:
-            response = self._client.request(method, path, **kwargs)
-        except httpx.RequestError as exc:
-            raise RemoteAPIError(f"Could not reach {self._remote.url}: {exc}") from exc
-        if response.is_error:
-            raise RemoteAPIError(_error_detail(response), status_code=response.status_code)
-        if response.status_code == httpx.codes.NO_CONTENT or not response.content:
-            return None
-        return response.json()
+        return _send(self._client, self._remote.url, method, path, **kwargs)
 
     # ------------------------------------------------------------------ commands
 

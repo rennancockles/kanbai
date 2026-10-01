@@ -16,10 +16,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, __version__, daemon, registry, scaffold, storage
+from . import APP_NAME, __version__, daemon, hosted, registry, scaffold, storage
 from .board import Board
 from .config import load_remote_config
-from .errors import KanbaiError
+from .errors import KanbaiError, RemoteAPIError
 from .models import Card, Priority
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard
@@ -571,6 +571,66 @@ def ui(
         force_polling=poll,
         reload=reload,
     )
+
+
+# --------------------------------------------------------------------------- hosted (onboarding)
+
+hosted_app = typer.Typer(
+    name="hosted",
+    help="Move a board between local (filesystem) and hosted (kanbai_server) storage.",
+    add_completion=False,
+)
+app.add_typer(hosted_app, name="hosted")
+
+
+@hosted_app.command("import")
+def hosted_import(
+    url: str = typer.Option(..., "--url", help="Base URL of the hosted kanbai_server."),
+    email: str = typer.Option(..., "--email", help="Email of an existing hosted account."),
+    password: str = typer.Option(..., "--password", help="Password for that account."),
+) -> None:
+    """Upload this local board to a new hosted board and switch to remote mode.
+
+    Requires an account that already exists on the hosted server (accounts are provisioned
+    by an admin, not self-service via this command). Every local card is uploaded, and
+    `config.toml` gets a `[server]` section pointing at the new hosted board — local files
+    under `.kanbai/` are left as-is.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        if kanbai_dir is None:
+            raise KanbaiError("No local kanbai board found here to import.")
+        remote_config = hosted.import_board(kanbai_dir, url, email, password)
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]✓[/green] Imported board to [cyan]{remote_config.board_id}[/cyan] on "
+        f"[cyan]{remote_config.url}[/cyan]. This project now runs in hosted mode."
+    )
+
+
+@hosted_app.command("export")
+def hosted_export() -> None:
+    """Write the hosted board configured in `[server]` back to local `.kanbai/` files.
+
+    Requires `config.toml` to already have a `[server]` section (see `kanbai hosted
+    import`). Leaves `[server]` in place afterwards — remove it by hand to fully return to
+    self-hosted mode.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        if kanbai_dir is None or remote is None:
+            raise KanbaiError(
+                "No [server] section configured — nothing to export. "
+                "Run `kanbai hosted import` first, or hand-edit config.toml."
+            )
+        count = hosted.export_board(RemoteBoard(remote), kanbai_dir)
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]✓[/green] Exported {count} card(s) to [cyan]{kanbai_dir}[/cyan].")
 
 
 # --------------------------------------------------------------------------- hub (multi-board)

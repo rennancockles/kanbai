@@ -21,32 +21,40 @@ from kanbai.remote_board import RemoteBoard
 
 BOARD_ID = "board-1"
 _NOW = datetime(2026, 1, 1, 12, 0, 0)
-_CARDS_PATH = f"/boards/{BOARD_ID}/cards"
-_CARD_ID_RE = re.compile(rf"^{re.escape(_CARDS_PATH)}/(\w+)(?:/(move|archive|restore))?$")
+
+#: Credentials the fake server accepts on POST /auth/login (mirrors an account provisioned
+#: out-of-band by an admin, as ``kanbai hosted import`` expects — see card 080).
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = "s3cret"
+ADMIN_TOKEN = "fake-admin-token"
 
 
 class _FakeServer:
-    """In-memory card store, matching kanbai_server's request/response shapes closely enough
-    for RemoteBoard's tests. Not a reimplementation of the real API's business logic beyond
-    what these tests exercise."""
+    """In-memory multi-board store, matching kanbai_server's request/response shapes closely
+    enough for RemoteBoard/hosted import/export tests. Not a reimplementation of the real
+    API's business logic beyond what these tests exercise. Starts with one pre-existing
+    board (id ``BOARD_ID``) for tests that don't care about `kanbai hosted import`."""
 
     def __init__(self) -> None:
-        self.board_config = {
-            "id": BOARD_ID,
-            "name": "Remote board",
-            "columns": ["backlog", "todo", "doing", "review", "done"],
-            "default_priority": "medium",
-            "types": ["feature", "bug", "refactor", "chore", "docs", "spike"],
-            "type_colors": {},
-            "wip": {},
-            "bypass_review": False,
+        self.boards: dict[str, dict[str, object]] = {
+            BOARD_ID: {
+                "id": BOARD_ID,
+                "name": "Remote board",
+                "columns": ["backlog", "todo", "doing", "review", "done"],
+                "default_priority": "medium",
+                "types": ["feature", "bug", "refactor", "chore", "docs", "spike"],
+                "type_colors": {},
+                "wip": {},
+                "bypass_review": False,
+            }
         }
-        self.cards: dict[str, dict[str, object]] = {}
-        self._next_id = 1
+        self.cards: dict[str, dict[str, dict[str, object]]] = {BOARD_ID: {}}
+        self._next_board_id = 1
+        self._next_card_id: dict[str, int] = {BOARD_ID: 1}
 
-    def _card_dict(self, **overrides: object) -> dict[str, object]:
+    def _card_dict(self, board_id: str, **overrides: object) -> dict[str, object]:
         base: dict[str, object] = {
-            "id": f"{self._next_id:03d}",
+            "id": f"{self._next_card_id[board_id]:03d}",
             "title": "",
             "status": "backlog",
             "priority": "medium",
@@ -68,48 +76,100 @@ class _FakeServer:
         method, path = request.method, request.url.path
         body = _json_body(request)
 
-        fixed_routes: dict[str, Callable[[], httpx.Response]] = {
-            "/boards": lambda: httpx.Response(200, json=[self.board_config]),
-            _CARDS_PATH: lambda: self._handle_cards(method, request, body),
-            f"/boards/{BOARD_ID}/next": lambda: self._find_first(lambda c: c["status"] == "todo"),
-            f"/boards/{BOARD_ID}/blocked": lambda: httpx.Response(200, json=[]),
-            f"/boards/{BOARD_ID}/archive": lambda: self._list_where(
-                lambda c: c["status"] == "archive"
-            ),
-            f"/boards/{BOARD_ID}/sprint/close": self._close_sprint,
-        }
-        if path in fixed_routes:
-            return fixed_routes[path]()
+        if path == "/auth/login":
+            return self._login(body)
+        if path == "/boards":
+            return self._create_board(body) if method == "POST" else self._list_boards()
 
-        card_match = _CARD_ID_RE.match(path)
-        if card_match:
-            return self._handle_card(method, card_match.group(1), card_match.group(2), body)
-        sort_match = re.match(rf"^/boards/{BOARD_ID}/columns/(\w+)/sort$", path)
-        if sort_match:
-            return self._sort_column(sort_match.group(1), body)
+        board_match = re.match(r"^/boards/([\w-]+)/(.*)$", path)
+        if board_match:
+            return self._handle_board_route(
+                request, board_match.group(1), board_match.group(2), body
+            )
 
         return httpx.Response(404, json={"detail": f"unhandled route: {method} {path}"})
 
-    def _handle_cards(
-        self, method: str, request: httpx.Request, body: dict[str, object]
+    def _login(self, body: dict[str, object]) -> httpx.Response:
+        if body.get("email") == ADMIN_EMAIL and body.get("password") == ADMIN_PASSWORD:
+            return httpx.Response(200, json={"access_token": ADMIN_TOKEN, "token_type": "bearer"})
+        return httpx.Response(401, json={"detail": "Invalid email or password."})
+
+    def _create_board(self, body: dict[str, object]) -> httpx.Response:
+        board_id = f"board-{self._next_board_id}"
+        self._next_board_id += 1
+        board_config = {
+            "id": board_id,
+            "name": body.get("name") or "kanbai board",
+            "columns": body.get("columns") or ["backlog", "todo", "doing", "review", "done"],
+            "default_priority": body.get("default_priority") or "medium",
+            "types": body.get("types") or [],
+            "type_colors": body.get("type_colors") or {},
+            "wip": body.get("wip") or {},
+            "bypass_review": body.get("bypass_review") or False,
+        }
+        self.boards[board_id] = board_config
+        self.cards[board_id] = {}
+        self._next_card_id[board_id] = 1
+        return httpx.Response(200, json=board_config)
+
+    def _list_boards(self) -> httpx.Response:
+        return httpx.Response(200, json=list(self.boards.values()))
+
+    def _handle_board_route(
+        self, request: httpx.Request, board_id: str, rest: str, body: dict[str, object]
     ) -> httpx.Response:
-        if method == "POST":
-            return self._create_card(body)
+        if board_id not in self.boards:
+            return httpx.Response(404, json={"detail": f"No board found with id '{board_id}'."})
+        cards = self.cards[board_id]
+        method = request.method
+
+        fixed_routes: dict[str, Callable[[], httpx.Response]] = {
+            "cards": lambda: self._handle_cards(request, board_id, body),
+            "next": lambda: self._find_first(cards, lambda c: c["status"] == "todo"),
+            "blocked": lambda: httpx.Response(200, json=[]),
+            "archive": lambda: self._list_where(cards, lambda c: c["status"] == "archive"),
+            "sprint/close": lambda: self._close_sprint(cards),
+        }
+        if rest in fixed_routes:
+            return fixed_routes[rest]()
+
+        card_match = re.match(r"^cards/(\w+)(?:/(move|archive|restore))?$", rest)
+        if card_match:
+            return self._handle_card(cards, method, card_match.group(1), card_match.group(2), body)
+        sort_match = re.match(r"^columns/(\w+)/sort$", rest)
+        if sort_match:
+            return self._sort_column(cards, sort_match.group(1), body)
+
+        return httpx.Response(404, json={"detail": f"unhandled route on {board_id}: {rest}"})
+
+    def _handle_cards(
+        self, request: httpx.Request, board_id: str, body: dict[str, object]
+    ) -> httpx.Response:
+        cards = self.cards[board_id]
+        if request.method == "POST":
+            return self._create_card(board_id, body)
         column = request.url.params.get("column")
         if column is not None:
-            return self._list_where(lambda c: c["status"] == column)
+            return self._list_where(cards, lambda c: c["status"] == column)
+        return self._list_or_group_cards(board_id, cards)
+
+    def _list_or_group_cards(
+        self, board_id: str, cards: dict[str, dict[str, object]]
+    ) -> httpx.Response:
         columns: dict[str, list[dict[str, object]]] = {
             c: []
-            for c in self.board_config["columns"]  # type: ignore[union-attr]
+            for c in self.boards[board_id]["columns"]  # type: ignore[union-attr]
         }
-        for card in self.cards.values():
+        for card in cards.values():
             columns.setdefault(str(card["status"]), []).append(card)
         return httpx.Response(200, json=columns)
 
-    def _create_card(self, body: dict[str, object]) -> httpx.Response:
-        card_id = f"{self._next_id:03d}"
-        self._next_id += 1
+    def _create_card(self, board_id: str, body: dict[str, object]) -> httpx.Response:
+        cards = self.cards[board_id]
+        card_id = f"{self._next_card_id[board_id]:03d}"
+        self._next_card_id[board_id] += 1
         card = self._card_dict(
+            board_id,
             id=card_id,
             title=body["title"],
             status=body.get("column") or "backlog",
@@ -121,52 +181,63 @@ class _FakeServer:
             assignee=body.get("assignee"),
             body=body.get("description") or "",
         )
-        self.cards[card_id] = card
+        cards[card_id] = card
         return httpx.Response(200, json=card)
 
     def _handle_card(
-        self, method: str, card_id: str, action: str | None, body: dict[str, object]
+        self,
+        cards: dict[str, dict[str, object]],
+        method: str,
+        card_id: str,
+        action: str | None,
+        body: dict[str, object],
     ) -> httpx.Response:
-        if card_id not in self.cards:
+        if card_id not in cards:
             return _not_found(card_id)
         if action == "move":
-            self.cards[card_id]["status"] = body["column"]
+            cards[card_id]["status"] = body["column"]
         elif action == "archive":
-            self.cards[card_id]["archived_from"] = self.cards[card_id]["status"]
-            self.cards[card_id]["status"] = "archive"
+            cards[card_id]["archived_from"] = cards[card_id]["status"]
+            cards[card_id]["status"] = "archive"
         elif action == "restore":
-            self.cards[card_id]["status"] = self.cards[card_id]["archived_from"] or "backlog"
-            self.cards[card_id]["archived_from"] = None
+            cards[card_id]["status"] = cards[card_id]["archived_from"] or "backlog"
+            cards[card_id]["archived_from"] = None
         elif method == "PATCH":
             fields = ("title", "priority", "type", "version", "labels", "deps", "assignee")
             for field in fields:
                 if body.get(field) is not None:
-                    self.cards[card_id][field] = body[field]
+                    cards[card_id][field] = body[field]
         elif method == "DELETE":
-            return httpx.Response(200, json=self.cards.pop(card_id))
-        return httpx.Response(200, json=self.cards[card_id])
+            return httpx.Response(200, json=cards.pop(card_id))
+        return httpx.Response(200, json=cards[card_id])
 
-    def _sort_column(self, column: str, body: dict[str, object]) -> httpx.Response:
-        cards = sorted(
-            (c for c in self.cards.values() if c["status"] == column),
+    def _sort_column(
+        self, cards: dict[str, dict[str, object]], column: str, body: dict[str, object]
+    ) -> httpx.Response:
+        sorted_cards = sorted(
+            (c for c in cards.values() if c["status"] == column),
             key=lambda c: str(c[body["key"]]),  # type: ignore[index]
             reverse=bool(body.get("descending", False)),
         )
-        return httpx.Response(200, json=cards)
+        return httpx.Response(200, json=sorted_cards)
 
-    def _close_sprint(self) -> httpx.Response:
-        archived = sum(1 for c in self.cards.values() if c["status"] == "done")
-        for card in self.cards.values():
+    def _close_sprint(self, cards: dict[str, dict[str, object]]) -> httpx.Response:
+        archived = sum(1 for c in cards.values() if c["status"] == "done")
+        for card in cards.values():
             if card["status"] == "done":
                 card["status"] = "archive"
         return httpx.Response(200, json={"archived": archived, "reset": 0})
 
-    def _list_where(self, predicate: Callable[[dict[str, object]], bool]) -> httpx.Response:
-        matches = [c for c in self.cards.values() if predicate(c)]
+    def _list_where(
+        self, cards: dict[str, dict[str, object]], predicate: Callable[[dict[str, object]], bool]
+    ) -> httpx.Response:
+        matches = [c for c in cards.values() if predicate(c)]
         return httpx.Response(200, json=matches)
 
-    def _find_first(self, predicate: Callable[[dict[str, object]], bool]) -> httpx.Response:
-        for card in self.cards.values():
+    def _find_first(
+        self, cards: dict[str, dict[str, object]], predicate: Callable[[dict[str, object]], bool]
+    ) -> httpx.Response:
+        for card in cards.values():
             if predicate(card):
                 return httpx.Response(200, json=card)
         return httpx.Response(200, json=None)
