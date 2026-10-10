@@ -11,6 +11,38 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.8.0 (2026-10-10)
+
+### Features
+
+- Aceitar path em 'kanbai hub remove' (089)
+  ([`c715070`](https://github.com/rennancockles/kanbai/commit/c7150705dc27d1be1435b8e9a4d7da276802f322))
+
+- Adicionar comando para comparar board local e hospedado (084)
+  ([`21485c5`](https://github.com/rennancockles/kanbai/commit/21485c5a1099c10df9b2bb387e1799710f903344))
+
+- Adicionar modo remoto ao CLI via [server] no config.toml (079)
+  ([`47913cc`](https://github.com/rennancockles/kanbai/commit/47913ccabac9f0c3b932465ce23594d7df370d8c))
+
+- Adicionar onboarding entre board local e hospedado (080)
+  ([`973c75e`](https://github.com/rennancockles/kanbai/commit/973c75ece9f1e5738db1e991bcb325e9fc3ea137))
+
+- Adicionar view multi-board no hub (088)
+  ([`639dc2f`](https://github.com/rennancockles/kanbai/commit/639dc2fa030a57be0356115f61d5961a66a9e90a))
+
+- Agrupar boards por categoria no hub (086)
+  ([`dda4fdf`](https://github.com/rennancockles/kanbai/commit/dda4fdf4394732d05852c872489445dddd5aceab))
+
+- Exibir contagens de cards por coluna na landing page do hub (088)
+  ([`7863da0`](https://github.com/rennancockles/kanbai/commit/7863da0d9773ac866f581c25857c2833d8e650c3))
+
+- Filtro de categoria no board switcher do hub (087)
+  ([`ae73597`](https://github.com/rennancockles/kanbai/commit/ae735975c631d44a8998464e15ed50a2656ea2ac))
+
+- Kanbai init now merges Skill(kanbai-*) into permissions.allow
+  ([`5269b58`](https://github.com/rennancockles/kanbai/commit/5269b587fa4500d3bc6219e102497f9469f6d1cc))
+
+
 ## v0.7.0 (2026-09-28)
 
 ### Documentation
