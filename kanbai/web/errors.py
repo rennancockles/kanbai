@@ -25,7 +25,7 @@ def render_http_error(
     templates: Jinja2Templates,
     *,
     base_path: str = "",
-    boards: list[dict[str, str]] | None = None,
+    boards: list[dict[str, str | None]] | None = None,
 ) -> Response:
     """Build the response for a raised ``HTTPException`` (typically a 404 from no route
     matching). ``base_path`` and ``boards`` mirror the same-named ``create_app``/hub

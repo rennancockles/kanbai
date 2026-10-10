@@ -69,7 +69,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
     *,
     force_polling: bool = False,
     base_path: str = "",
-    boards: list[dict[str, str]] | None = None,
+    boards: list[dict[str, str | None]] | None = None,
     current: str | None = None,
 ) -> FastAPI:
     """Build the FastAPI app.

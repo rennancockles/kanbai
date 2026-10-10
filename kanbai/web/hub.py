@@ -30,7 +30,7 @@ _OVERVIEW_COLS = ("todo", "doing", "review", "done")
 
 def _mount_boards(
     hub: FastAPI, boards: dict[str, str]
-) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, str | None]]]:
     """(Re)mount one board app per registered board under ``/b/<name>``, replacing any prior
     ``/b/*`` mounts. Returns ``(mounted, switcher)`` where ``mounted`` is the full list used by
     the landing page (includes column counts) and ``switcher`` is the name/url-only list used by
@@ -70,8 +70,9 @@ def _mount_boards(
                 "counts": counts,
             }
         )
-    switcher: list[dict[str, str]] = [
-        {"name": str(item["name"]), "url": str(item["url"])} for item in mounted
+    switcher: list[dict[str, str | None]] = [
+        {"name": str(item["name"]), "url": str(item["url"]), "category": item.get("category")}
+        for item in mounted
     ]
 
     for name, _path, board in loaded:

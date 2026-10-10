@@ -50,7 +50,8 @@ body {
   text-transform: lowercase;
   color: var(--muted);
 }
-.board-switcher {
+.board-switcher,
+.category-filter {
   font: inherit;
   font-size: 0.82rem;
   color: var(--text);
@@ -60,6 +61,7 @@ body {
   padding: 0.3rem 0.5rem;
   cursor: pointer;
 }
+.category-filter { color: var(--muted); max-width: 120px; }
 .board-switcher:disabled {
   cursor: default;
   opacity: 0.85;

@@ -99,8 +99,45 @@ def test_board_switcher_shown_with_boards(tmp_path: Path) -> None:
     client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
     html = client.get("/").text
     assert 'class="board-switcher"' in html
-    assert '<option value="/b/a/" selected>a</option>' in html
-    assert '<option value="/b/b/">b</option>' in html
+    assert 'value="/b/a/" selected' in html
+    assert 'value="/b/b/"' in html
+
+
+def test_category_filter_shown_when_multiple_categories(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    switcher = [
+        {"name": "a", "url": "/b/a/", "category": "Work"},
+        {"name": "b", "url": "/b/b/", "category": "Personal"},
+    ]
+    client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
+    html = client.get("/").text
+    assert 'class="category-filter"' in html
+    assert "Work" in html
+    assert "Personal" in html
+    assert 'data-category="work"' in html
+
+
+def test_category_filter_shown_when_mixed_categorized(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    switcher = [
+        {"name": "a", "url": "/b/a/", "category": "Work"},
+        {"name": "b", "url": "/b/b/", "category": None},
+    ]
+    client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
+    assert 'class="category-filter"' in client.get("/").text
+
+
+def test_category_filter_hidden_when_single_category(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    switcher = [
+        {"name": "a", "url": "/b/a/", "category": "Work"},
+        {"name": "b", "url": "/b/b/", "category": "Work"},
+    ]
+    client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
+    assert 'class="category-filter"' not in client.get("/").text
 
 
 def test_static_board_name_for_single_board(tmp_path: Path) -> None:

@@ -18,10 +18,20 @@
       <h1 title="{{ app_name }} v{{ app_version }}">{{ app_name }}{% if boards %} <span class="hub-tag">hub</span>{% endif %}</h1>
       {% if hub_url %}</a>{% endif %}
       {% if boards %}
+      {% set categories = boards | map(attribute='category') | select | map('lower') | unique | sort | list %}
+      {% if categories | length > 1 or (categories and (boards | rejectattr('category') | list)) %}
+      <select class="category-filter" id="category-filter" aria-label="Filter by category">
+        <option value="">All</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}">{{ cat | title }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
       <select class="board-switcher" aria-label="Switch board"
               onchange="if(this.value)location.href=this.value">
         {% for b in boards %}
-        <option value="{{ b.url }}"{% if b.name == current %} selected{% endif %}>{{ b.name }}</option>
+        <option value="{{ b.url }}"{% if b.name == current %} selected{% endif %}
+                data-category="{{ (b.category or '') | lower }}">{{ b.name }}</option>
         {% endfor %}
       </select>
       {% else %}
@@ -206,6 +216,27 @@
       window.__kanbaiArchiveReturn = null;
       document.getElementById('detail').innerHTML = '';
     }
+
+    // Filter the board-switcher <select> to show only boards from the chosen category.
+    (function () {
+      var catFilter = document.getElementById('category-filter');
+      if (!catFilter) return;
+      catFilter.addEventListener('change', function () {
+        var cat = this.value;
+        var switcher = document.querySelector('.board-switcher');
+        if (!switcher) return;
+        for (var i = 0; i < switcher.options.length; i++) {
+          var opt = switcher.options[i];
+          opt.hidden = !!(cat && opt.dataset.category !== cat);
+        }
+        // If the current selection is now hidden, move to the first visible option.
+        if (switcher.selectedOptions.length && switcher.selectedOptions[0].hidden) {
+          for (var j = 0; j < switcher.options.length; j++) {
+            if (!switcher.options[j].hidden) { switcher.selectedIndex = j; break; }
+          }
+        }
+      });
+    }());
 
     // Filter the items in a modal list (Plan sprint / Archive) client-side, so checkbox
     // selections are preserved across filtering — just hide the rows that don't match.
