@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
@@ -24,15 +25,19 @@ from .errors import render_http_error
 
 _WEB_DIR = Path(__file__).parent
 _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
+_OVERVIEW_COLS = ("todo", "doing", "review", "done")
 
 
-def _mount_boards(hub: FastAPI, boards: dict[str, str]) -> list[dict[str, str]]:
+def _mount_boards(
+    hub: FastAPI, boards: dict[str, str]
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """(Re)mount one board app per registered board under ``/b/<name>``, replacing any prior
-    ``/b/*`` mounts. Returns the ``mounted`` list used by the landing page. A board whose path
-    no longer has a ``.kanbai/`` is skipped rather than crashing the whole hub — likewise a
-    board the process simply can't read (e.g. macOS TCC denying access to a protected folder
-    like ``~/Documents`` when the hub runs detached, without the terminal's grant) is skipped
-    with a warning rather than taking every other board down with it.
+    ``/b/*`` mounts. Returns ``(mounted, switcher)`` where ``mounted`` is the full list used by
+    the landing page (includes column counts) and ``switcher`` is the name/url-only list used by
+    per-board topbars and error pages. A board whose path no longer has a ``.kanbai/`` is skipped
+    rather than crashing the whole hub — likewise a board the process simply can't read (e.g.
+    macOS TCC denying access to a protected folder like ``~/Documents`` when the hub runs
+    detached, without the terminal's grant) is skipped with a warning.
     """
     hub.router.routes = [
         r for r in hub.router.routes if not (isinstance(r, Mount) and r.path.startswith("/b/"))
@@ -48,17 +53,32 @@ def _mount_boards(hub: FastAPI, boards: dict[str, str]) -> list[dict[str, str]]:
         except OSError as exc:
             print(f"! skipping board '{name}' at {path}: {exc}", file=sys.stderr)
             continue
-    mounted = [
-        {"name": name, "path": path, "url": f"/b/{name}/", "category": board.config.category}
-        for name, path, board in loaded
+
+    mounted: list[dict[str, Any]] = []
+    for name, path, board in loaded:
+        try:
+            all_cols = board.board()
+            counts = {col: len(all_cols.get(col, [])) for col in _OVERVIEW_COLS}
+        except (KanbaiError, OSError):
+            counts = dict.fromkeys(_OVERVIEW_COLS, 0)
+        mounted.append(
+            {
+                "name": name,
+                "path": path,
+                "url": f"/b/{name}/",
+                "category": board.config.category,
+                "counts": counts,
+            }
+        )
+    switcher: list[dict[str, str]] = [
+        {"name": str(item["name"]), "url": str(item["url"])} for item in mounted
     ]
-    switcher = [{"name": item["name"], "url": item["url"]} for item in mounted]
 
     for name, _path, board in loaded:
         base = f"/b/{name}"
         hub.mount(base, create_app(board, base_path=base, boards=switcher, current=name))
 
-    return mounted
+    return mounted, switcher
 
 
 def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]]) -> FastAPI:
@@ -74,17 +94,17 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
 
     get_boards = boards_provider if callable(boards_provider) else (lambda: boards_provider)
     last_boards = dict(get_boards())
-    mounted = _mount_boards(hub, last_boards)
+    mounted, switcher = _mount_boards(hub, last_boards)
 
     @hub.middleware("http")
     async def refresh_boards(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        nonlocal last_boards, mounted
+        nonlocal last_boards, mounted, switcher
         current = dict(get_boards())
         if current != last_boards:
             last_boards = current
-            mounted = _mount_boards(hub, current)
+            mounted, switcher = _mount_boards(hub, current)
         return await call_next(request)
 
     @hub.get("/", response_class=HTMLResponse)
@@ -133,6 +153,6 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
 
     @hub.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException) -> Response:
-        return render_http_error(request, exc, _TEMPLATES, boards=mounted)
+        return render_http_error(request, exc, _TEMPLATES, boards=switcher)
 
     return hub

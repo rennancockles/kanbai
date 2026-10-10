@@ -134,6 +134,23 @@ def test_hub_lists_and_serves_boards(tmp_path: Path) -> None:
     assert client.get("/b/b/board").status_code == 200
 
 
+def test_hub_shows_column_counts(tmp_path: Path) -> None:
+    board_path = tmp_path / "proj"
+    scaffold.init_board(board_path)
+    board = Board.load(board_path)
+    board.add("card one", column="todo")
+    board.add("card two", column="todo")
+    board.add("card doing", column="doing")
+
+    html = TestClient(create_hub_app({"proj": str(board_path)})).get("/").text
+
+    assert "hub-count--todo" in html
+    assert "hub-count--doing" in html
+    assert "2 todo" in html
+    assert "1 doing" in html
+    assert "0 review" in html
+
+
 def test_hub_skips_missing_boards(tmp_path: Path) -> None:
     board_a = tmp_path / "a"
     scaffold.init_board(board_a)

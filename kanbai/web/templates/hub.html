@@ -42,6 +42,13 @@
             <a class="hub-board" href="{{ b.url }}">
               <span class="hub-name">{{ b.name }}</span>
               <span class="hub-path">{{ b.path }}</span>
+              {% if b.counts %}
+              <span class="hub-counts">
+                {% for col in ["todo", "doing", "review", "done"] %}
+                <span class="hub-count hub-count--{{ col }}">{{ b.counts[col] }} {{ col }}</span>
+                {% endfor %}
+              </span>
+              {% endif %}
             </a>
           </li>
           {% endfor %}
@@ -56,6 +63,13 @@
             <a class="hub-board" href="{{ b.url }}">
               <span class="hub-name">{{ b.name }}</span>
               <span class="hub-path">{{ b.path }}</span>
+              {% if b.counts %}
+              <span class="hub-counts">
+                {% for col in ["todo", "doing", "review", "done"] %}
+                <span class="hub-count hub-count--{{ col }}">{{ b.counts[col] }} {{ col }}</span>
+                {% endfor %}
+              </span>
+              {% endif %}
             </a>
           </li>
           {% endfor %}
@@ -69,6 +83,13 @@
         <a class="hub-board" href="{{ b.url }}">
           <span class="hub-name">{{ b.name }}</span>
           <span class="hub-path">{{ b.path }}</span>
+          {% if b.counts %}
+          <span class="hub-counts">
+            {% for col in ["todo", "doing", "review", "done"] %}
+            <span class="hub-count hub-count--{{ col }}">{{ b.counts[col] }} {{ col }}</span>
+            {% endfor %}
+          </span>
+          {% endif %}
         </a>
       </li>
       {% endfor %}

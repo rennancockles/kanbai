@@ -85,10 +85,10 @@ body {
 
 /* hub landing */
 .hub { padding: 1.5rem; }
-.hub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; max-width: 640px; }
+.hub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; max-width: 820px; }
 .hub-board {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border: 1px solid var(--border);
@@ -124,6 +124,7 @@ details.hub-category .hub-list { margin-top: 0.5rem; }
 }
 details.hub-category:not([open]) .hub-category-name::before { transform: rotate(-90deg); }
 .hub-path {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -131,6 +132,19 @@ details.hub-category:not([open]) .hub-category-name::before { transform: rotate(
   font-size: 0.8rem;
   color: var(--muted);
 }
+.hub-counts { display: flex; gap: 0.35rem; flex-shrink: 0; align-items: center; }
+.hub-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.18em 0.55em;
+  border-radius: 5px;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+.hub-count--todo   { background: var(--surface-2); color: var(--muted); }
+.hub-count--doing  { background: rgba(110,168,254,0.15); color: var(--accent); }
+.hub-count--review { background: rgba(245,196,81,0.15);  color: var(--medium); }
+.hub-count--done   { background: rgba(107,203,139,0.15); color: var(--low); }
 
 .board {
   display: grid;
