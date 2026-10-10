@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>View — {{ app_name }} hub</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+  <script src="/static/Sortable.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="/" class="logo-link" title="Back to hub">
+        <img class="logo" src="/static/icon.png" alt="{{ app_name }}" width="38" height="38">
+        <h1 title="{{ app_name }} v{{ app_version }}">{{ app_name }} <span class="hub-tag">hub</span></h1>
+      </a>
+      <span class="view-label">view</span>
+    </div>
+    <div class="board-actions">
+      {% if view_boards | selectattr('backlog_column') | list %}
+      <button class="icon-btn" id="toggle-backlog" type="button" aria-pressed="false"
+              title="Show or hide backlog columns">
+        <svg class="icon icon-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="icon icon-eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <span>Backlog</span>
+      </button>
+      {% endif %}
+      <button class="icon-btn" type="button" title="Edit view boards"
+              hx-get="/view/edit" hx-target="#detail" hx-swap="innerHTML">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span>Edit view</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="multi-view">
+    {% for bd in view_boards %}
+    {% set base = bd.base %}
+    {% set columns = bd.columns %}
+    {% set backlog_column = bd.backlog_column %}
+    {% set priority_class = bd.priority_class %}
+    {% set type_class = bd.type_class %}
+    {% set type_style = bd.type_style %}
+    {% set blocked = bd.blocked %}
+    {% set board_name = bd.name %}
+    <section class="view-board-section">
+      <header class="view-board-header">
+        <button class="view-collapse-btn" type="button" aria-label="Collapse board" title="Collapse">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <h2 class="view-board-title">
+          <a href="{{ bd.base }}/" class="view-board-link">{{ bd.board_name }}</a>
+        </h2>
+      </header>
+      {% include "_view_board.html" %}
+    </section>
+    {% else %}
+    <p class="empty view-empty">
+      No boards configured.
+      <button class="btn-link" hx-get="/view/edit" hx-target="#detail" hx-swap="innerHTML">Add boards to the view.</button>
+    </p>
+    {% endfor %}
+  </main>
+
+  <div id="detail"></div>
+
+  <script>
+    function refreshBoard(boardName) {
+      return fetch('/b/' + boardName + '/board')
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var newContent = doc.querySelector('#board');
+          var ourBoard = document.getElementById('board-' + boardName);
+          if (newContent && ourBoard) {
+            ourBoard.innerHTML = newContent.innerHTML;
+            initSortables();
+            htmx.process(ourBoard);
+          }
+        });
+    }
+
+    function initSortables() {
+      document.querySelectorAll('[data-board-name]').forEach(function (boardDiv) {
+        var boardName = boardDiv.getAttribute('data-board-name');
+        boardDiv.querySelectorAll('.cards').forEach(function (el) {
+          if (el._sortable) return;
+          el._sortable = Sortable.create(el, {
+            group: 'kanbai-' + boardName,
+            animation: 150,
+            draggable: '.card',
+            ghostClass: 'card-ghost',
+            onEnd: function (evt) {
+              var id = evt.item.getAttribute('data-id');
+              var column = evt.to.getAttribute('data-column');
+              if (!id || !column) return;
+              fetch('/b/' + boardName + '/cards/' + id + '/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ column: column, position: evt.newIndex })
+              }).then(function () { refreshBoard(boardName); });
+            }
+          });
+        });
+      });
+    }
+
+    function initCollapse() {
+      document.querySelectorAll('.view-collapse-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var section = btn.closest('.view-board-section');
+          var boardName = section.querySelector('[data-board-name]').getAttribute('data-board-name');
+          section.classList.toggle('is-collapsed');
+          var collapsed = section.classList.contains('is-collapsed');
+          try { localStorage.setItem('kanbai:view-collapsed:' + boardName, collapsed ? '1' : ''); } catch (_) {}
+        });
+      });
+    }
+
+    (function () {
+      var btn = document.getElementById('toggle-backlog');
+      if (!btn) return;
+      var KEY = 'kanbai:hide-backlog';
+      function apply(hidden) {
+        document.body.classList.toggle('hide-backlog', hidden);
+        btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+      }
+      apply(localStorage.getItem(KEY) === '1');
+      btn.addEventListener('click', function () {
+        var hidden = !document.body.classList.contains('hide-backlog');
+        localStorage.setItem(KEY, hidden ? '1' : '0');
+        apply(hidden);
+      });
+    }());
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Restore collapsed state before rendering.
+      document.querySelectorAll('[data-board-name]').forEach(function (boardDiv) {
+        var boardName = boardDiv.getAttribute('data-board-name');
+        try {
+          if (localStorage.getItem('kanbai:view-collapsed:' + boardName)) {
+            boardDiv.closest('.view-board-section').classList.add('is-collapsed');
+          }
+        } catch (_) {}
+      });
+      initSortables();
+      initCollapse();
+    });
+
+    // After a card action via HTMX (detail modal), refresh the affected board section.
+    document.body.addEventListener('htmx:afterRequest', function (evt) {
+      var path = (evt.detail.pathInfo || {}).requestPath || '';
+      var m = path.match(/^\/b\/([^/]+)\/cards\//);
+      if (!m || evt.detail.requestConfig.verb === 'get') return;
+      var boardName = m[1];
+      document.getElementById('detail').innerHTML = '';
+      refreshBoard(boardName);
+    });
+  </script>
+</body>
+</html>

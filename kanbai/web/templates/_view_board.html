@@ -1,0 +1,20 @@
+<div class="board" id="board-{{ board_name }}" data-board-name="{{ board_name }}">
+  {% for column in columns %}
+  <section class="column{% if column.name == backlog_column %} is-backlog{% endif %}"
+           data-column="{{ column.name }}">
+    <div class="column-head">
+      <h2 class="column-title">{{ column.name }}</h2>
+      <span class="count{% if column.over %} over{% endif %}"
+            {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
+        {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
+    </div>
+    <div class="cards" data-column="{{ column.name }}">
+      {% for card in column.cards %}
+        {% include "_card.html" %}
+      {% else %}
+        <p class="empty">Nothing here yet</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

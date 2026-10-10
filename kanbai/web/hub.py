@@ -15,17 +15,57 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.routing import Mount
 
-from .. import APP_NAME, __version__
+from .. import APP_NAME, __version__, view_registry
 from ..ai import ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Priority
-from .app import create_app
+from .app import PRIORITY_CLASS, TYPE_CLASS, create_app
 from .errors import render_http_error
 
 _WEB_DIR = Path(__file__).parent
 _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
 _OVERVIEW_COLS = ("todo", "doing", "review", "done")
+
+
+def _board_view_data(name: str, path: str) -> dict[str, Any] | None:
+    """Load board at *path* and return the context dict needed to render it in a view.
+
+    Returns ``None`` if the board can't be loaded.
+    """
+    try:
+        board = Board.load(Path(path))
+    except (KanbaiError, OSError):
+        return None
+    all_cols = board.board()
+    visible = board.config.visible_columns
+    blocked = board.blocked_ids()
+    type_style = {
+        t: f"background: {color}; color: #000"
+        for t, color in (board.config.type_colors or {}).items()
+    }
+
+    def col_view(col_name: str) -> dict[str, Any]:
+        cards = all_cols.get(col_name, [])
+        limit = board.config.wip_limit(col_name)
+        return {
+            "name": col_name,
+            "cards": cards,
+            "limit": limit,
+            "over": limit is not None and len(cards) > limit,
+        }
+
+    return {
+        "name": name,
+        "board_name": board.config.name,
+        "base": f"/b/{name}",
+        "columns": [col_view(c) for c in visible],
+        "backlog_column": board.config.add_column,
+        "blocked": blocked,
+        "priority_class": PRIORITY_CLASS,
+        "type_class": TYPE_CLASS,
+        "type_style": type_style,
+    }
 
 
 def _mount_boards(
@@ -82,7 +122,7 @@ def _mount_boards(
     return mounted, switcher
 
 
-def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]]) -> FastAPI:
+def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]]) -> FastAPI:  # noqa: C901
     """Build a hub app that mounts one board app per registered board under ``/b/<name>``.
 
     ``boards_provider`` is either a static ``{name: path}`` mapping (as stored in the
@@ -115,6 +155,7 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
             "hub.html",
             {
                 "boards": mounted,
+                "view_board_names": view_registry.load_view(),
                 "app_name": APP_NAME,
                 "app_version": __version__,
                 "ai_available": ai_available(),
@@ -149,6 +190,51 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
                 "prefill_description": prefill.description,
                 "prefill_labels": ", ".join(prefill.labels),
                 "redirect_url": board_entry["url"],
+            },
+        )
+
+    @hub.get("/view/edit", response_class=HTMLResponse)
+    def edit_view_form(request: Request) -> Response:
+        current = view_registry.load_view()
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "_edit_view.html",
+            {
+                "all_boards": [{"name": b["name"], "category": b.get("category")} for b in mounted],
+                "current_boards": current,
+            },
+        )
+
+    @hub.post("/view", response_class=HTMLResponse)
+    def save_view(request: Request, boards: list[str] = Form(default=[])) -> Response:
+        # Keep only board names that are actually registered.
+        valid = {str(b["name"]) for b in mounted}
+        view_registry.save_view([b for b in boards if b in valid])
+        return Response(status_code=303, headers={"Location": "/v/"})
+
+    @hub.post("/view/delete", response_class=HTMLResponse)
+    def delete_view(request: Request) -> Response:
+        view_registry.save_view([])
+        return Response(status_code=303, headers={"Location": "/"})
+
+    @hub.get("/v/", response_class=HTMLResponse)
+    def view_page(request: Request) -> Response:
+        board_names = view_registry.load_view()
+        view_boards = []
+        for name in board_names:
+            path = last_boards.get(name)
+            if path is None:
+                continue
+            data = _board_view_data(name, path)
+            if data is not None:
+                view_boards.append(data)
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "view.html",
+            {
+                "view_boards": view_boards,
+                "app_name": APP_NAME,
+                "app_version": __version__,
             },
         )
 

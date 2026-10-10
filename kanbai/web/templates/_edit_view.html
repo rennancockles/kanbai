@@ -1,0 +1,34 @@
+<div class="modal-overlay" onclick="if(event.target===this)document.getElementById('detail').innerHTML=''">
+<form class="modal card" method="post" action="/view">
+  <div class="modal-head">
+    <span class="card-id">Multi-board view</span>
+    <span class="card-pri">select boards</span>
+    <button class="modal-close" type="button" aria-label="Close"
+            onclick="document.getElementById('detail').innerHTML=''">✕</button>
+  </div>
+  {% if all_boards %}
+  <input class="modal-search" type="search" placeholder="Filter boards…" autocomplete="off"
+         oninput="(function(i){var q=i.value.trim().toLowerCase();i.closest('.modal').querySelectorAll('.plan-item').forEach(function(el){el.style.display=el.textContent.toLowerCase().includes(q)?'':'none'})})(this)">
+  <div class="plan-list">
+    {% for b in all_boards %}
+    <label class="plan-item">
+      <input type="checkbox" name="boards" value="{{ b.name }}"
+             {% if b.name in current_boards %}checked{% endif %}>
+      <span class="plan-title">{{ b.name }}</span>
+      {% if b.category %}<span class="item-pri">{{ b.category }}</span>{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  <div class="modal-actions">
+    <button type="button" class="btn-ghost"
+            onclick="document.getElementById('detail').innerHTML=''">Cancel</button>
+    <button type="submit" class="btn-primary">Save</button>
+  </div>
+  {% else %}
+  <div class="modal-empty">
+    <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+    <p>No boards registered yet.</p>
+  </div>
+  {% endif %}
+</form>
+</div>

@@ -1335,3 +1335,84 @@ def test_watch_board_detects_change_with_polling(tmp_path: Path) -> None:
             await agen.aclose()
 
     asyncio.run(run())
+
+
+# ---------------------------------------------------------------------------
+# Multi-board view
+# ---------------------------------------------------------------------------
+
+
+def test_hub_landing_shows_create_view_button(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "a"
+    scaffold.init_board(board)
+    html = TestClient(create_hub_app({"a": str(board)})).get("/").text
+    assert "Create multi-board view" in html or "hub-view-card" in html
+
+
+def test_hub_view_edit_form_lists_boards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    client = TestClient(create_hub_app({"a": str(board_a), "b": str(board_b)}))
+    html = client.get("/view/edit").text
+    assert 'value="a"' in html
+    assert 'value="b"' in html
+
+
+def test_hub_save_view_and_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    client = TestClient(
+        create_hub_app({"a": str(board_a), "b": str(board_b)}), follow_redirects=True
+    )
+    r = client.post("/view", data={"boards": ["a", "b"]})
+    assert r.status_code == 200
+    assert "board-a" in r.text or "/b/a/" in r.text
+
+
+def test_hub_delete_view_removes_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board_a = tmp_path / "a"
+    scaffold.init_board(board_a)
+    client = TestClient(create_hub_app({"a": str(board_a)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+    r = client.post("/view/delete")
+    assert r.status_code == 200
+    assert "hub-view-card" not in r.text
+    assert "Create multi-board view" in r.text
+
+
+def test_hub_view_page_empty_when_no_boards_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "a"
+    scaffold.init_board(board)
+    client = TestClient(create_hub_app({"a": str(board)}))
+    html = client.get("/v/").text
+    assert "No boards configured" in html
+
+
+def test_hub_view_page_shows_configured_boards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board_a = tmp_path / "a"
+    board_b = tmp_path / "b"
+    scaffold.init_board(board_a)
+    scaffold.init_board(board_b)
+    client = TestClient(
+        create_hub_app({"a": str(board_a), "b": str(board_b)}), follow_redirects=True
+    )
+    client.post("/view", data={"boards": ["a", "b"]})
+    view_html = client.get("/v/").text
+    assert "board-a" in view_html
+    assert "board-b" in view_html

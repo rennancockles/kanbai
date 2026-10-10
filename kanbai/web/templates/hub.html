@@ -29,6 +29,40 @@
   </header>
 
   <main class="hub">
+    {% if view_board_names %}
+    <div class="hub-view-card">
+      <a class="hub-view-card-link" href="/v/">
+        <svg class="icon hub-view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span class="hub-view-info">
+          <span class="hub-view-title">Multi-board view</span>
+          <span class="hub-view-boards">{{ view_board_names | join(' · ') }}</span>
+        </span>
+        <span class="hub-view-open-label">Open
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
+      </a>
+      <form method="post" action="/view/delete" class="hub-view-delete-form">
+        <button class="hub-view-delete-btn" type="submit" title="Delete view">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <button class="hub-view-create" type="button"
+            hx-get="/view/edit" hx-target="#detail" hx-swap="innerHTML">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Create multi-board view
+    </button>
+    {% endif %}
     {% if boards %}
     {% set categorized = boards | selectattr("category") | list %}
     {% set uncategorized = boards | rejectattr("category") | list %}

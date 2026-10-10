@@ -129,6 +129,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PLR0917",
 ]
 "kanbai/web/app.py" = ["B008"]  # FastAPI's idiom is to call Form()/Depends() in defaults.
+"kanbai/web/hub.py" = ["B008"]  # FastAPI's idiom is to call Form()/Depends() in defaults.
 
 [tool.ruff.lint.pylint]
 max-args = 7
