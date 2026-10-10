@@ -54,3 +54,13 @@ def test_add_rejects_path_without_board(tmp_path: Path) -> None:
 def test_remove_unknown_raises(tmp_path: Path) -> None:
     with pytest.raises(KanbaiError):
         registry.remove_board("nope")
+
+
+def test_resolve_name_by_path(tmp_path: Path) -> None:
+    board = tmp_path / "proj"
+    scaffold.init_board(board, name="myboard")
+    assert registry.resolve_name(str(board)) == "myboard"
+
+
+def test_resolve_name_passthrough(tmp_path: Path) -> None:
+    assert registry.resolve_name("myboard") == "myboard"

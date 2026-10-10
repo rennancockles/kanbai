@@ -775,14 +775,17 @@ def hub_list(
 
 
 @hub_app.command("remove")
-def hub_remove(name: str = typer.Argument(..., help="Registered board name.")) -> None:
+def hub_remove(
+    name: str = typer.Argument(..., help="Registered board name or path to the board directory."),
+) -> None:
     """Remove a board from the hub."""
     try:
-        registry.remove_board(name)
+        resolved = registry.resolve_name(name)
+        registry.remove_board(resolved)
     except KanbaiError as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    console.print(f"[green]✓[/green] Removed [cyan]{name}[/cyan]")
+    console.print(f"[green]✓[/green] Removed [cyan]{resolved}[/cyan]")
 
 
 def _require_ui_extra() -> None:

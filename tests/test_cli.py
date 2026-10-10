@@ -354,6 +354,17 @@ def test_hub_add_list_remove(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert json.loads(runner.invoke(app, ["hub", "list", "--json"]).output) == {}
 
 
+def test_hub_remove_by_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "proj"
+    scaffold.init_board(board)
+
+    runner.invoke(app, ["hub", "add", str(board)])
+    result = runner.invoke(app, ["hub", "remove", str(board)])
+    assert result.exit_code == 0
+    assert json.loads(runner.invoke(app, ["hub", "list", "--json"]).output) == {}
+
+
 def test_hub_add_rejects_path_without_board(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -63,6 +63,19 @@ def add_board(path: Path) -> tuple[str, bool]:
     return name, replaced
 
 
+def resolve_name(name_or_path: str) -> str:
+    """Return the board name for *name_or_path*.
+
+    If the argument resolves to a directory that contains a ``.kanbai/`` board, the name is
+    read from its ``config.toml``; otherwise the string is returned as-is.
+    """
+    candidate = Path(name_or_path).expanduser().resolve()
+    kanbai_dir = candidate / storage.KANBAI_DIRNAME
+    if kanbai_dir.is_dir():
+        return load_config(kanbai_dir).name
+    return name_or_path
+
+
 def remove_board(name: str) -> None:
     """Unregister the board called ``name``. Raises :class:`KanbaiError` if unknown."""
     boards = load_boards()
