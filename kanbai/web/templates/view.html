@@ -66,8 +66,28 @@
   </main>
 
   <div id="detail"></div>
+  <!-- The card modal's actions target #board; there is no single board on this page, so this
+       hidden placeholder satisfies htmx and its swap is cancelled below (the affected board
+       section is refreshed by name instead). -->
+  <div id="board" hidden></div>
 
   <script>
+    function kanbaiCloseDetail() {
+      document.getElementById('detail').innerHTML = '';
+    }
+
+    function kanbaiClearDetail() {
+      document.getElementById('detail').innerHTML = '';
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') kanbaiCloseDetail();
+    });
+
+    document.body.addEventListener('htmx:beforeSwap', function (evt) {
+      if (evt.detail.target && evt.detail.target.id === 'board') evt.detail.shouldSwap = false;
+    });
+
     function refreshBoard(boardName) {
       return fetch('/b/' + boardName + '/board')
         .then(function (r) { return r.text(); })

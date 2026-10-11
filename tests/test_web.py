@@ -1401,6 +1401,24 @@ def test_hub_view_page_empty_when_no_boards_configured(
     assert "No boards configured" in html
 
 
+def test_hub_view_page_can_close_the_card_modal_and_absorbs_its_board_swaps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "a"
+    scaffold.init_board(board)
+    client = TestClient(create_hub_app({"a": str(board)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+
+    html = client.get("/v/").text
+
+    assert "function kanbaiCloseDetail()" in html
+    assert "function kanbaiClearDetail()" in html
+    assert "e.key === 'Escape'" in html
+    assert '<div id="board" hidden></div>' in html
+    assert "evt.detail.shouldSwap = false" in html
+
+
 def test_hub_view_page_shows_configured_boards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
