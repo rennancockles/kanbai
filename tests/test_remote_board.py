@@ -49,7 +49,7 @@ class _FakeServer:
             }
         }
         self.cards: dict[str, dict[str, dict[str, object]]] = {BOARD_ID: {}}
-        self._next_board_id = 1
+        self._next_board_id = 2  # BOARD_ID is already taken
         self._next_card_id: dict[str, int] = {BOARD_ID: 1}
         # Emulates an older kanbai_server that ignores an explicit `id` on card creation.
         self.ignores_card_ids = False

@@ -28,6 +28,7 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 | [`close-sprint`](#close-sprint) | Archive done cards, close out the current sprint. |
 | [`ui`](#ui) | Serve the local web UI. |
 | [`hub`](#hub) | Serve or manage the multi-board hub. |
+| [`hosted`](#hosted) | Connect a board to a hosted kanbai_server: `push`, `pull`, `clone`, `diff`. |
 
 ---
 
@@ -254,3 +255,46 @@ kanbai hub status                    # check whether it's running
 kanbai hub logs -f                   # follow its log
 kanbai hub stop                      # stop it
 ```
+
+## hosted
+
+Keep a board in step with a hosted `kanbai_server`. A project is *connected* once `config.toml`
+has a `[server]` section; `connect` writes it, and every other `hosted` command needs it (without
+one they tell you to run `kanbai hosted connect`). Once connected, the other `kanbai` commands
+operate on the hosted board, and `push` / `pull` copy cards between it and your local `.kanbai/`
+files, matching them by card id.
+
+| Command | What it does |
+|---------|--------------|
+| `kanbai hosted connect` | Log in and save the connection (url, token, board id) in `config.toml`. `--board <id\|name>` connects to an existing hosted board, `--create` makes a new one from the local board; with neither you pick from a list (`0` = new board). The password is prompted for unless `--password` is given. No cards move. |
+| `kanbai hosted push` | **Local wins.** Send the local cards to the hosted board, created with their local ids. |
+| `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. |
+| `kanbai hosted clone` | Create a local board here from a hosted one (its config and cards) and connect it. The one command that connects by itself, since there is no project yet. Takes `--url`, `--email`, `--password` and `--board` like `connect`. |
+| `kanbai hosted diff` | Compare local and hosted, read-only. Exits `0` when in sync, `1` otherwise; `--json` for scripts. |
+
+Options shared by `push`, `pull` and `diff` (and `clone`):
+
+- `--archived` — also sync (or compare) archived cards. They are left out by default: a card
+  archived on *either* side is ignored on both, so it is never created, overwritten or deleted.
+- `--delete` (`push`, `pull`) — remove cards that exist only on the receiving side. Without it
+  they are kept.
+
+```bash
+# link this project to a new hosted board, then send everything
+kanbai hosted connect --url https://kanbai.example.com --email me@example.com --create
+kanbai hosted push
+kanbai hosted push --archived            # include archived cards
+kanbai hosted push --delete              # also remove hosted cards that no longer exist locally
+
+# on another machine
+mkdir myproject && cd myproject
+kanbai hosted clone --url https://kanbai.example.com --email me@example.com
+kanbai hosted pull                       # bring in changes made elsewhere
+kanbai hosted diff                       # what differs?
+
+# or link an existing local board to an existing hosted one
+kanbai hosted connect --url https://kanbai.example.com --email me@example.com --board "My board"
+kanbai hosted pull
+```
+
+This replaces the earlier `hosted publish` / `hosted download` commands and the `sync` group.

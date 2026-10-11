@@ -106,10 +106,15 @@ def load_config(kanbai_dir: Path) -> BoardConfig:
 
 
 def render_config(config: BoardConfig) -> str:
-    """Render a :class:`BoardConfig` back to TOML text for ``kanbai init``."""
+    """Render a :class:`BoardConfig` back to TOML text for ``kanbai init`` (or a clone).
+
+    Settings left at their defaults stay as commented documentation; ones that are set
+    (``bypass_review``, ``category``, type colors, WIP limits) are written for real so a
+    board cloned from a hosted server keeps them.
+    """
     columns = ", ".join(f'"{c}"' for c in config.columns)
     types = ", ".join(f'"{t}"' for t in config.types)
-    return (
+    text = (
         "[board]\n"
         f'name = "{config.name}"\n'
         f"columns = [{columns}]\n"
@@ -145,3 +150,14 @@ def render_config(config: BoardConfig) -> str:
         "# native = false\n"
         '# ntfy_topic = "my-kanbai-topic"\n'
     )
+    if config.bypass_review:
+        text = text.replace("# bypass_review = true\n", "bypass_review = true\n", 1)
+    if config.category:
+        text = text.replace('# category = "Work"\n', f'category = "{config.category}"\n', 1)
+    if config.type_colors:
+        colors = "".join(f'{t} = "{c}"\n' for t, c in config.type_colors.items())
+        text = text.replace('# [types.colors]\n# bug = "#ff0000"\n', f"[types.colors]\n{colors}", 1)
+    if config.wip:
+        limits = "".join(f"{col} = {limit}\n" for col, limit in config.wip.items())
+        text = text.replace("# [wip]\n# doing = 3\n", f"[wip]\n{limits}", 1)
+    return text

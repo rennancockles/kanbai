@@ -18,11 +18,11 @@ from rich.table import Table
 
 from . import APP_NAME, __version__, daemon, hosted, registry, scaffold, storage
 from .board import Board
-from .config import load_remote_config
+from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
 from .models import Card, Priority
 from .notify_ntfy import notify_ntfy
-from .remote_board import RemoteBoard
+from .remote_board import RemoteBoard, list_remote_boards, login
 
 #: Either a local, filesystem-backed board or a hosted one talking to a kanbai_server API —
 #: every command function below only calls verbs both implement, so callers never branch on
@@ -573,185 +573,240 @@ def ui(
     )
 
 
-# --------------------------------------------------------------------------- sync
-
-sync_app = typer.Typer(
-    name="sync",
-    help="Synchronise local and hosted boards by card ID (no duplication).",
-    add_completion=False,
-)
-app.add_typer(sync_app, name="sync")
-
-_NO_SERVER_MSG = (
-    "No [server] section configured. Run `kanbai hosted publish` first, or hand-edit config.toml."
-)
-
-
-@sync_app.command("pull")
-def sync_pull(
-    delete: bool = typer.Option(
-        False, "--delete", help="Remove local cards that no longer exist on the server."
-    ),
-) -> None:
-    """Server wins: update local files to match the hosted board.
-
-    Cards present on both sides move to the remote column when it differs, preventing
-    duplication. Exits with an error if no [server] section is configured.
-    """
-    try:
-        kanbai_dir = storage.find_kanbai_dir()
-        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-        if kanbai_dir is None or remote_cfg is None:
-            raise KanbaiError(_NO_SERVER_MSG)
-        result = hosted.sync_pull(RemoteBoard(remote_cfg), kanbai_dir, delete=delete)
-    except (KanbaiError, RemoteAPIError) as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    console.print(
-        f"[green]✓[/green] sync pull: {result.upserted} upserted"
-        + (f", {result.moved} moved" if result.moved else "")
-        + (f", {result.deleted} deleted" if result.deleted else "")
-        + (f", {result.kept} local-only kept" if result.kept else "")
-        + "."
-    )
-
-
-@sync_app.command("push")
-def sync_push(
-    delete: bool = typer.Option(
-        False, "--delete", help="Remove server cards that no longer exist locally."
-    ),
-) -> None:
-    """Local wins: update the hosted board to match local files.
-
-    Cards present on both sides are updated and moved to the local column when it differs.
-    New local cards are created on the server. Exits with an error if no [server] section
-    is configured.
-    """
-    try:
-        kanbai_dir = storage.find_kanbai_dir()
-        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-        if kanbai_dir is None or remote_cfg is None:
-            raise KanbaiError(_NO_SERVER_MSG)
-        result = hosted.sync_push(RemoteBoard(remote_cfg), kanbai_dir, delete=delete)
-    except (KanbaiError, RemoteAPIError) as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    console.print(
-        f"[green]✓[/green] sync push: {result.upserted} upserted"
-        + (f", {result.moved} moved" if result.moved else "")
-        + (f", {result.created} created" if result.created else "")
-        + (f", {result.deleted} deleted" if result.deleted else "")
-        + (f", {result.kept} remote-only kept" if result.kept else "")
-        + "."
-    )
-
-
-@sync_app.command("status")
-def sync_status(
-    as_json: bool = typer.Option(False, "--json", help="Emit the diff as JSON."),
-) -> None:
-    """Show what differs between local and the hosted board (read-only).
-
-    Exits 0 if in sync, 1 if differences are found.
-    """
-    try:
-        kanbai_dir = storage.find_kanbai_dir()
-        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-        if kanbai_dir is None or remote_cfg is None:
-            raise KanbaiError(_NO_SERVER_MSG)
-        board_diff = hosted.diff_boards(Board.load(kanbai_dir.parent), RemoteBoard(remote_cfg))
-    except (KanbaiError, RemoteAPIError) as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-
-    if as_json:
-        _emit_json(
-            {
-                "in_sync": board_diff.in_sync,
-                "only_local": board_diff.only_local,
-                "only_remote": board_diff.only_remote,
-                "changed": [
-                    {
-                        "card_id": c.card_id,
-                        "changes": [
-                            {"field": ch.field, "local": ch.local, "remote": ch.remote}
-                            for ch in c.changes
-                        ],
-                    }
-                    for c in board_diff.changed
-                ],
-            }
-        )
-    else:
-        _print_board_diff(board_diff)
-
-    raise typer.Exit(code=0 if board_diff.in_sync else 1)
-
-
-# --------------------------------------------------------------------------- hosted (onboarding)
+# --------------------------------------------------------------------------- hosted
 
 hosted_app = typer.Typer(
     name="hosted",
-    help="Move a board between local (filesystem) and hosted (kanbai_server) storage.",
+    help="Connect a board to a hosted kanbai_server and keep both sides in step.",
     add_completion=False,
 )
 app.add_typer(hosted_app, name="hosted")
 
+_NOT_CONNECTED_MSG = (
+    "Not connected to a hosted board. Run `kanbai hosted connect` first "
+    "(or `kanbai hosted clone` to copy an existing hosted board here)."
+)
 
-@hosted_app.command("publish")
-def hosted_publish(
+
+def _sync_summary(label: str, result: hosted.SyncResult) -> str:
+    return (
+        f"[green]✓[/green] {label}: {result.created} created, {result.updated} updated"
+        + (f", {result.deleted} deleted" if result.deleted else "")
+        + (f", {result.kept} kept on the other side" if result.kept else "")
+        + "."
+    )
+
+
+def _connected_project() -> tuple[Path, RemoteConfig]:
+    """The local ``.kanbai/`` dir and its ``[server]`` config, or a :class:`KanbaiError`
+    asking the user to ``kanbai hosted connect`` first."""
+    kanbai_dir = storage.find_kanbai_dir()
+    if kanbai_dir is None:
+        raise KanbaiError("No local kanbai board found here.")
+    remote_config = load_remote_config(kanbai_dir)
+    if remote_config is None:
+        raise KanbaiError(_NOT_CONNECTED_MSG)
+    return kanbai_dir, remote_config
+
+
+def _pick_remote_board(
+    boards: list[dict[str, str]], wanted: str | None, *, allow_create: bool
+) -> str | None:
+    """The id of the hosted board to use, or ``None`` to create a new one (``allow_create``).
+
+    ``wanted`` (an id or a name) wins; otherwise the only board is taken when creating is not
+    an option, and in every other case the user is asked.
+    """
+    if wanted is not None:
+        matches = [b for b in boards if b["id"] == wanted] or [
+            b for b in boards if b["name"].lower() == wanted.lower()
+        ]
+        if len(matches) > 1:
+            raise KanbaiError(f"{len(matches)} boards are named '{wanted}'; pass --board <id>.")
+        if not matches:
+            names = ", ".join(b["name"] for b in boards) or "none"
+            raise KanbaiError(f"No hosted board '{wanted}' (available: {names}).")
+        return matches[0]["id"]
+    if not boards:
+        if allow_create:
+            console.print("This account has no hosted boards yet — creating one.")
+            return None
+        raise KanbaiError(
+            "This account has no hosted boards yet. Create one with `hosted connect`."
+        )
+    if len(boards) == 1 and not allow_create:
+        return boards[0]["id"]
+    if allow_create:
+        console.print("  0. [bold]New board[/bold] (created from this one)")
+    for number, board in enumerate(boards, start=1):
+        console.print(f"  {number}. {board['name']} [dim]({board['id']})[/dim]")
+    low = 0 if allow_create else 1
+    choice: int = typer.prompt("Board number", type=int)
+    if not low <= choice <= len(boards):
+        raise KanbaiError(f"Choose a number between {low} and {len(boards)}.")
+    return None if choice == 0 else str(boards[choice - 1]["id"])
+
+
+@hosted_app.command("connect")
+def hosted_connect(
     url: str = typer.Option(..., "--url", help="Base URL of the hosted kanbai_server."),
-    email: str = typer.Option(..., "--email", help="Email of an existing hosted account."),
-    password: str = typer.Option(..., "--password", help="Password for that account."),
+    email: str = typer.Option(..., "--email", help="Account email."),
+    password: str | None = typer.Option(
+        None, "--password", help="Account password (prompted for if omitted)."
+    ),
+    board: str | None = typer.Option(
+        None, "--board", help="Hosted board id or name to connect to."
+    ),
+    create: bool = typer.Option(
+        False, "--create", help="Create a new hosted board from this one and connect to it."
+    ),
 ) -> None:
-    """Upload this local board to a new hosted board and switch to remote mode.
+    """Connect this project to a hosted board and save the connection in `config.toml`.
 
-    Requires an account that already exists on the hosted server (accounts are provisioned
-    by an admin, not self-service via this command). Every local card is uploaded, and
-    `config.toml` gets a `[server]` section pointing at the new hosted board — local files
-    under `.kanbai/` are left as-is.
+    Logs in and writes a `[server]` section (url, token, board id). With --board it connects
+    to an existing hosted board, with --create it makes a new one from this board; with
+    neither you are asked to choose. No cards are sent or fetched — that is what
+    `kanbai hosted push` / `pull` do, and they need this connection first.
     """
     try:
         kanbai_dir = storage.find_kanbai_dir()
         if kanbai_dir is None:
-            raise KanbaiError("No local kanbai board found here to publish.")
-        remote_config = hosted.publish_board(kanbai_dir, url, email, password)
+            raise KanbaiError(
+                "No local kanbai board found here. Run `kanbai init` first, "
+                "or `kanbai hosted clone` to copy a hosted board."
+            )
+        existing = load_remote_config(kanbai_dir)
+        if existing is not None:
+            raise KanbaiError(
+                f"Already connected to board {existing.board_id} on {existing.url}. "
+                "Remove the [server] section from config.toml to connect somewhere else."
+            )
+        if create and board is not None:
+            raise KanbaiError("Pass either --board or --create, not both.")
+        secret = password if password is not None else typer.prompt("Password", hide_input=True)
+        token = login(url, email, secret)
+        board_id = (
+            None
+            if create
+            else _pick_remote_board(list_remote_boards(url, token), board, allow_create=True)
+        )
+        if board_id is None:
+            remote_config = hosted.create_hosted_board(kanbai_dir, url, token)
+            action = "Created and connected to"
+        else:
+            remote_config = RemoteConfig(url=url, token=token, board_id=board_id)
+            action = "Connected to"
+        hosted.save_connection(kanbai_dir, remote_config)
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(
-        f"[green]✓[/green] Published board to [cyan]{remote_config.board_id}[/cyan] on "
-        f"[cyan]{remote_config.url}[/cyan]. This project now runs in hosted mode."
+        f"[green]✓[/green] {action} hosted board [cyan]{remote_config.board_id}[/cyan] "
+        f"on [cyan]{remote_config.url}[/cyan]. This project now runs in hosted mode."
     )
 
 
-@hosted_app.command("download")
-def hosted_download() -> None:
-    """Write the hosted board configured in `[server]` back to local `.kanbai/` files.
+@hosted_app.command("push")
+def hosted_push(
+    delete: bool = typer.Option(
+        False, "--delete", help="Remove hosted cards that no longer exist locally."
+    ),
+    archived: bool = typer.Option(
+        False, "--archived", help="Also sync archived cards (left out by default)."
+    ),
+) -> None:
+    """Local wins: send this board's cards to the hosted board.
 
-    Requires `config.toml` to already have a `[server]` section (see `kanbai hosted
-    import`). Leaves `[server]` in place afterwards — remove it by hand to fully return to
-    self-hosted mode.
+    Needs the connection from `kanbai hosted connect`. Cards only here are created with
+    their local ids; cards on both sides are updated or moved to match local. Archived cards
+    are left alone unless you pass --archived (then they are created, archived or restored
+    on the server to match local).
     """
     try:
-        kanbai_dir = storage.find_kanbai_dir()
-        remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-        if kanbai_dir is None or remote is None:
-            raise KanbaiError(
-                "No [server] section configured — nothing to download. "
-                "Run `kanbai hosted publish` first, or hand-edit config.toml."
-            )
-        count = hosted.download_board(RemoteBoard(remote), kanbai_dir)
+        kanbai_dir, remote_config = _connected_project()
+        result = hosted.push_board(
+            RemoteBoard(remote_config), kanbai_dir, delete=delete, archived=archived
+        )
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    console.print(f"[green]✓[/green] Downloaded {count} card(s) to [cyan]{kanbai_dir}[/cyan].")
+    console.print(_sync_summary("push", result))
+
+
+@hosted_app.command("pull")
+def hosted_pull(
+    delete: bool = typer.Option(
+        False, "--delete", help="Remove local cards that no longer exist on the server."
+    ),
+    archived: bool = typer.Option(
+        False, "--archived", help="Also sync archived cards (left out by default)."
+    ),
+) -> None:
+    """Server wins: update this board's files to match the hosted board.
+
+    Needs the connection from `kanbai hosted connect`. Cards on both sides take the server's
+    version (moving the file when the column differs, so nothing is duplicated); cards only
+    on the server are written locally. Archived cards are left alone unless you pass
+    --archived.
+    """
+    try:
+        kanbai_dir, remote_config = _connected_project()
+        result = hosted.pull_board(
+            RemoteBoard(remote_config), kanbai_dir, delete=delete, archived=archived
+        )
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(_sync_summary("pull", result))
+
+
+@hosted_app.command("clone")
+def hosted_clone(
+    url: str = typer.Option(..., "--url", help="Base URL of the hosted kanbai_server."),
+    email: str = typer.Option(..., "--email", help="Account email."),
+    password: str | None = typer.Option(
+        None, "--password", help="Account password (prompted for if omitted)."
+    ),
+    board: str | None = typer.Option(
+        None, "--board", help="Hosted board id or name (asked for if the account has several)."
+    ),
+    archived: bool = typer.Option(
+        False, "--archived", help="Also sync archived cards (left out by default)."
+    ),
+) -> None:
+    """Create a local board here from a hosted one, already connected.
+
+    The one command that connects by itself, since there is no project to hold the
+    connection yet: it copies the hosted board's config and its cards (--archived adds the
+    archived ones) into a new `.kanbai/` and saves the `[server]` connection. Fails if a
+    local board already exists here — use `kanbai hosted pull` to update that one.
+    """
+    try:
+        root = Path.cwd()
+        if (root / storage.KANBAI_DIRNAME).exists():
+            raise KanbaiError(
+                "A local kanbai board already exists here; use `kanbai hosted pull` to update it."
+            )
+        secret = password if password is not None else typer.prompt("Password", hide_input=True)
+        token = login(url, email, secret)
+        board_id = _pick_remote_board(list_remote_boards(url, token), board, allow_create=False)
+        if board_id is None:  # pragma: no cover - allow_create=False never yields None
+            raise KanbaiError("No hosted board selected.")
+        result = hosted.clone_board(
+            root, RemoteConfig(url=url, token=token, board_id=board_id), archived=archived
+        )
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(_sync_summary("clone", result))
 
 
 @hosted_app.command("diff")
 def hosted_diff(
     as_json: bool = typer.Option(False, "--json", help="Emit the diff as JSON."),
+    archived: bool = typer.Option(
+        False, "--archived", help="Also compare archived cards (left out by default)."
+    ),
 ) -> None:
     """Compare the local board against the hosted one configured in `[server]`.
 
@@ -764,9 +819,11 @@ def hosted_diff(
         if kanbai_dir is None or remote_config is None:
             raise KanbaiError(
                 "No [server] section configured — nothing to compare. "
-                "Run `kanbai hosted publish` first, or hand-edit config.toml."
+                "Run `kanbai hosted connect` first."
             )
-        board_diff = hosted.diff_boards(Board.load(kanbai_dir.parent), RemoteBoard(remote_config))
+        board_diff = hosted.diff_boards(
+            Board.load(kanbai_dir.parent), RemoteBoard(remote_config), archived=archived
+        )
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc

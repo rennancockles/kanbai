@@ -72,6 +72,18 @@ def create_remote_board(url: str, token: str, config: BoardConfig) -> RemoteConf
     return RemoteConfig(url=url, token=token, board_id=str(data["id"]))
 
 
+def list_remote_boards(url: str, token: str) -> list[dict[str, str]]:
+    """Boards owned by the account behind ``token`` on ``url``: ``{"id", "name", "category"}``."""
+    with httpx.Client(
+        base_url=url, headers={"Authorization": f"Bearer {token}"}, timeout=_TIMEOUT
+    ) as client:
+        data = _send(client, url, "GET", "/boards")
+    return [
+        {"id": str(b["id"]), "name": str(b["name"]), "category": str(b.get("category", ""))}
+        for b in data
+    ]
+
+
 class RemoteBoard:
     """A board served by a hosted kanbai_server, addressed by ``config.board_id``."""
 

@@ -341,15 +341,22 @@ def _merge_settings(root: Path, result: ScaffoldResult, *, force: bool = False) 
     result.created.append(rel)
 
 
-def init_board(root: Path, *, force: bool = False, name: str | None = None) -> ScaffoldResult:
+def init_board(
+    root: Path,
+    *,
+    force: bool = False,
+    name: str | None = None,
+    config: BoardConfig | None = None,
+) -> ScaffoldResult:
     """Create the `.kanbai/` board and Claude integration files under ``root``.
 
     Idempotent: running it again creates only what is missing (pass ``force`` to overwrite).
     The `.claude/` integration files are optional — if they cannot be written they are
-    recorded in the result rather than aborting the board setup.
+    recorded in the result rather than aborting the board setup. ``config`` seeds the board
+    from an existing configuration (e.g. a hosted board being cloned) instead of the defaults.
     """
     kanbai_dir = root / storage.KANBAI_DIRNAME
-    config = BoardConfig(name=name or root.resolve().name)
+    config = config or BoardConfig(name=name or root.resolve().name)
     result = ScaffoldResult(kanbai_dir=kanbai_dir)
 
     # Essential board files. A failure here is fatal (there is no usable board without them).

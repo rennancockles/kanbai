@@ -187,3 +187,38 @@ def test_load_config_reads_ntfy_topic(tmp_path: Path) -> None:
     cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
     config = load_config(tmp_path / ".kanbai")
     assert config.notifications_ntfy_topic == "my-topic"
+
+
+def test_render_config_writes_real_values_for_settings_that_are_set() -> None:
+    config = BoardConfig(
+        bypass_review=True,
+        category="Work",
+        type_colors={"bug": "#ff0000"},
+        wip={"doing": 2},
+    )
+
+    text = render_config(config)
+
+    assert "\nbypass_review = true\n" in text
+    assert '\ncategory = "Work"\n' in text
+    assert '\n[types.colors]\nbug = "#ff0000"\n' in text
+    assert "\n[wip]\ndoing = 2\n" in text
+    assert "# [wip]" not in text
+    assert "# [types.colors]" not in text
+
+
+def test_render_config_round_trips_through_load_config(tmp_path: Path) -> None:
+    config = BoardConfig(
+        name="Round trip",
+        bypass_review=True,
+        category="Work",
+        type_colors={"bug": "#ff0000"},
+        wip={"doing": 2},
+    )
+    (tmp_path / "config.toml").write_text(render_config(config), encoding="utf-8")
+
+    loaded = load_config(tmp_path)
+
+    assert (loaded.name, loaded.bypass_review, loaded.category) == ("Round trip", True, "Work")
+    assert loaded.type_colors == {"bug": "#ff0000"}
+    assert loaded.wip == {"doing": 2}
