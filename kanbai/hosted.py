@@ -1,9 +1,13 @@
-"""Onboarding between local (filesystem) and hosted (kanbai_server) boards.
+"""Onboarding and sync between local (filesystem) and hosted (kanbai_server) boards.
 
 ``import_board`` uploads a local ``.kanbai/`` board to a hosted account and switches the
 project into remote mode (see ``kanbai.remote_board``); ``export_board`` writes a hosted
 board's cards back to local files without leaving remote mode (the ``[server]`` section
 stays — removing it to fully return to self-hosted is a manual step, by design).
+
+``sync_pull`` / ``sync_push`` reconcile the two boards by card ID, avoiding the
+duplication that ``export_board`` causes when a card exists on both sides but in
+different columns.
 """
 
 from __future__ import annotations
@@ -120,6 +124,132 @@ def _remove_section(toml_text: str, name: str) -> str:
         if not skipping:
             kept.append(line)
     return "".join(kept)
+
+
+@dataclass(frozen=True)
+class SyncResult:
+    """Summary of a :func:`sync_pull` or :func:`sync_push` operation."""
+
+    upserted: int  # cards written/updated on the winning side
+    moved: int  # cards that changed column during the sync
+    created: int  # brand-new cards added to the server (push only)
+    deleted: int  # cards removed with ``--delete``
+    kept: int  # cards on the losing side preserved (no ``--delete``)
+
+
+def sync_pull(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) -> SyncResult:
+    """Server wins: update local files to match the hosted board.
+
+    Cards present on both sides are moved to the remote column when it differs, fixing
+    the duplication that ``export_board`` causes. Cards only on the server are written
+    locally; cards only local are kept (or removed with ``delete=True``).
+    """
+    board = Board.load(kanbai_dir.parent)
+    all_local = {c.id: c for col in board.columns for c in board.list_column(col)}
+    all_local.update({c.id: c for c in board.list_archive()})
+
+    remote_cards: dict[str, Card] = {}
+    for col in remote.columns:
+        for card in remote.list_column(col):
+            remote_cards[card.id] = card
+    for card in remote.list_archive():
+        remote_cards[card.id] = card
+
+    upserted = 0
+    moved = 0
+    for card in remote_cards.values():
+        local_card = all_local.get(card.id)
+        if local_card is not None and local_card.status != card.status:
+            old = storage.find_card_path(kanbai_dir, board.columns, card.id)
+            if old:
+                storage.delete_card_file(old[0])
+            moved += 1
+        storage.write_card(kanbai_dir, card)
+        upserted += 1
+
+    only_local = set(all_local) - set(remote_cards)
+    deleted = 0
+    if delete:
+        for card_id in only_local:
+            found = storage.find_card_path(kanbai_dir, board.columns, card_id)
+            if found:
+                storage.delete_card_file(found[0])
+                deleted += 1
+
+    return SyncResult(
+        upserted=upserted,
+        moved=moved,
+        created=0,
+        deleted=deleted,
+        kept=len(only_local) - deleted,
+    )
+
+
+def sync_push(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) -> SyncResult:
+    """Local wins: update the hosted board to match local files.
+
+    Cards present on both sides are edited and moved to the local column when it differs.
+    Cards only local are created on the server (the server assigns a new ID for these).
+    Cards only on the server are preserved (or removed with ``delete=True``).
+
+    Note: archived local cards are not pushed — only active-column cards are synced.
+    """
+    board = Board.load(kanbai_dir.parent)
+    local_cards = {c.id: c for col in board.columns for c in board.list_column(col)}
+
+    remote_cards: dict[str, Card] = {}
+    for col in remote.columns:
+        for card in remote.list_column(col):
+            remote_cards[card.id] = card
+
+    upserted = 0
+    moved = 0
+    created = 0
+    for card_id, local_card in local_cards.items():
+        if card_id in remote_cards:
+            remote.edit(
+                card_id,
+                title=local_card.title,
+                description=local_card.body,
+                priority=local_card.priority,
+                type=local_card.type,
+                version=local_card.version,
+                labels=local_card.labels,
+                deps=local_card.deps,
+                assignee=local_card.assignee,
+            )
+            if remote_cards[card_id].status != local_card.status:
+                remote.move(card_id, local_card.status)
+                moved += 1
+            upserted += 1
+        else:
+            remote.add(
+                local_card.title,
+                description=local_card.body,
+                priority=local_card.priority,
+                type=local_card.type,
+                version=local_card.version,
+                column=local_card.status,
+                labels=local_card.labels,
+                deps=local_card.deps,
+                assignee=local_card.assignee,
+            )
+            created += 1
+
+    only_remote = set(remote_cards) - set(local_cards)
+    deleted = 0
+    if delete:
+        for card_id in only_remote:
+            remote.remove(card_id)
+            deleted += 1
+
+    return SyncResult(
+        upserted=upserted,
+        moved=moved,
+        created=created,
+        deleted=deleted,
+        kept=len(only_remote) - deleted,
+    )
 
 
 def export_board(remote: RemoteBoard, kanbai_dir: Path) -> int:

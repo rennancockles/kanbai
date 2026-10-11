@@ -573,6 +573,122 @@ def ui(
     )
 
 
+# --------------------------------------------------------------------------- sync
+
+sync_app = typer.Typer(
+    name="sync",
+    help="Synchronise local and hosted boards by card ID (no duplication).",
+    add_completion=False,
+)
+app.add_typer(sync_app, name="sync")
+
+_NO_SERVER_MSG = (
+    "No [server] section configured. Run `kanbai hosted import` first, or hand-edit config.toml."
+)
+
+
+@sync_app.command("pull")
+def sync_pull(
+    delete: bool = typer.Option(
+        False, "--delete", help="Remove local cards that no longer exist on the server."
+    ),
+) -> None:
+    """Server wins: update local files to match the hosted board.
+
+    Cards present on both sides move to the remote column when it differs, preventing
+    duplication. Exits with an error if no [server] section is configured.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        if kanbai_dir is None or remote_cfg is None:
+            raise KanbaiError(_NO_SERVER_MSG)
+        result = hosted.sync_pull(RemoteBoard(remote_cfg), kanbai_dir, delete=delete)
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]✓[/green] sync pull: {result.upserted} upserted"
+        + (f", {result.moved} moved" if result.moved else "")
+        + (f", {result.deleted} deleted" if result.deleted else "")
+        + (f", {result.kept} local-only kept" if result.kept else "")
+        + "."
+    )
+
+
+@sync_app.command("push")
+def sync_push(
+    delete: bool = typer.Option(
+        False, "--delete", help="Remove server cards that no longer exist locally."
+    ),
+) -> None:
+    """Local wins: update the hosted board to match local files.
+
+    Cards present on both sides are updated and moved to the local column when it differs.
+    New local cards are created on the server. Exits with an error if no [server] section
+    is configured.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        if kanbai_dir is None or remote_cfg is None:
+            raise KanbaiError(_NO_SERVER_MSG)
+        result = hosted.sync_push(RemoteBoard(remote_cfg), kanbai_dir, delete=delete)
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]✓[/green] sync push: {result.upserted} upserted"
+        + (f", {result.moved} moved" if result.moved else "")
+        + (f", {result.created} created" if result.created else "")
+        + (f", {result.deleted} deleted" if result.deleted else "")
+        + (f", {result.kept} remote-only kept" if result.kept else "")
+        + "."
+    )
+
+
+@sync_app.command("status")
+def sync_status(
+    as_json: bool = typer.Option(False, "--json", help="Emit the diff as JSON."),
+) -> None:
+    """Show what differs between local and the hosted board (read-only).
+
+    Exits 0 if in sync, 1 if differences are found.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        remote_cfg = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        if kanbai_dir is None or remote_cfg is None:
+            raise KanbaiError(_NO_SERVER_MSG)
+        board_diff = hosted.diff_boards(Board.load(kanbai_dir.parent), RemoteBoard(remote_cfg))
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    if as_json:
+        _emit_json(
+            {
+                "in_sync": board_diff.in_sync,
+                "only_local": board_diff.only_local,
+                "only_remote": board_diff.only_remote,
+                "changed": [
+                    {
+                        "card_id": c.card_id,
+                        "changes": [
+                            {"field": ch.field, "local": ch.local, "remote": ch.remote}
+                            for ch in c.changes
+                        ],
+                    }
+                    for c in board_diff.changed
+                ],
+            }
+        )
+    else:
+        _print_board_diff(board_diff)
+
+    raise typer.Exit(code=0 if board_diff.in_sync else 1)
+
+
 # --------------------------------------------------------------------------- hosted (onboarding)
 
 hosted_app = typer.Typer(

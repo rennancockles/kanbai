@@ -248,3 +248,153 @@ def test_diff_boards_ignores_order_and_timestamps(local_project: Path) -> None:
     diff = hosted.diff_boards(board, remote)
 
     assert diff.in_sync
+
+
+# --------------------------------------------------------------------------- sync_pull
+
+
+def test_sync_pull_writes_remote_cards_locally(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote.add("New on server")
+
+    result = hosted.sync_pull(remote, kanbai_dir)
+
+    board = Board.load(local_project)
+    titles = [c.title for col in board.columns for c in board.list_column(col)]
+    assert "New on server" in titles
+    assert result.upserted >= 1
+
+
+def test_sync_pull_moves_local_card_when_column_differs(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Will move")
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Will move")
+    remote.move(remote_card.id, "todo")
+
+    result = hosted.sync_pull(remote, kanbai_dir)
+
+    board = Board.load(local_project)
+    todo_ids = [c.id for c in board.list_column("todo")]
+    assert card.id in todo_ids
+    assert result.moved >= 1
+
+
+def test_sync_pull_keeps_local_only_cards_without_delete(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Local only")
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    # Remove the card from the remote so it's only local.
+    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Local only")
+    remote.remove(remote_card.id)
+
+    result = hosted.sync_pull(remote, kanbai_dir, delete=False)
+
+    board = Board.load(local_project)
+    all_ids = [c.id for col in board.columns for c in board.list_column(col)]
+    assert card.id in all_ids
+    assert result.kept == 1
+    assert result.deleted == 0
+
+
+def test_sync_pull_deletes_local_only_cards_with_delete(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Local only")
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Local only")
+    remote.remove(remote_card.id)
+
+    result = hosted.sync_pull(remote, kanbai_dir, delete=True)
+
+    board = Board.load(local_project)
+    all_ids = [c.id for col in board.columns for c in board.list_column(col)]
+    assert card.id not in all_ids
+    assert result.deleted == 1
+    assert result.kept == 0
+
+
+# --------------------------------------------------------------------------- sync_push
+
+
+def test_sync_push_creates_local_only_cards_on_server(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    board = Board.load(local_project)
+    board.add("Created locally")
+
+    result = hosted.sync_push(remote, kanbai_dir)
+
+    remote_titles = [c.title for col in remote.columns for c in remote.list_column(col)]
+    assert "Created locally" in remote_titles
+    assert result.created == 1
+
+
+def test_sync_push_moves_remote_card_when_column_differs(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Will move")
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    # Move locally to todo, then push.
+    board.move(card.id, "todo")
+
+    result = hosted.sync_push(remote, kanbai_dir)
+
+    remote_card = next(
+        c for col in remote.columns for c in remote.list_column(col) if c.id == card.id
+    )
+    assert remote_card.status == "todo"
+    assert result.moved >= 1
+
+
+def test_sync_push_keeps_remote_only_cards_without_delete(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote_card = remote.add("Remote only")
+
+    result = hosted.sync_push(remote, kanbai_dir, delete=False)
+
+    remote_ids = [c.id for col in remote.columns for c in remote.list_column(col)]
+    assert remote_card.id in remote_ids
+    assert result.kept == 1
+    assert result.deleted == 0
+
+
+def test_sync_push_deletes_remote_only_cards_with_delete(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = hosted.import_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    remote_card = remote.add("Remote only")
+
+    result = hosted.sync_push(remote, kanbai_dir, delete=True)
+
+    remote_ids = [c.id for col in remote.columns for c in remote.list_column(col)]
+    assert remote_card.id not in remote_ids
+    assert result.deleted == 1
+    assert result.kept == 0
