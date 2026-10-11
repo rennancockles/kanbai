@@ -95,6 +95,45 @@ def test_publish_preserves_archived_cards_and_their_column(local_project: Path) 
     assert archived[0].archived_from == "todo"
 
 
+def test_publish_keeps_local_ids_when_there_are_gaps_and_archived_cards(
+    local_project: Path,
+) -> None:
+    board = Board.load(local_project)
+    board.add("First")
+    removed = board.add("Removed")
+    archived = board.add("Archived")
+    blocked = board.add("Blocked", deps=[archived.id])
+    board.remove(removed.id)
+    board.archive(archived.id)
+
+    remote_config = hosted.publish_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+
+    remote = RemoteBoard(remote_config)
+    remote_ids = {c.id for col in remote.columns for c in remote.list_column(col)}
+    assert remote_ids == {"001", blocked.id}
+    assert [c.id for c in remote.list_archive()] == [archived.id]
+    assert next(c for c in remote.list_column("backlog") if c.id == blocked.id).deps == [
+        archived.id
+    ]
+
+
+def test_publish_fails_clearly_when_server_ignores_explicit_card_ids(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    fake_server.ignores_card_ids = True
+    board = Board.load(local_project)
+    board.add("First")
+    board.add("Second")
+    board.remove("001")
+
+    with pytest.raises(RemoteAPIError, match="explicit card ids"):
+        hosted.publish_board(
+            local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+        )
+
+
 def test_publish_uploads_the_local_board_config(local_project: Path) -> None:
     remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
@@ -346,6 +385,30 @@ def test_sync_push_creates_local_only_cards_on_server(local_project: Path) -> No
     remote_titles = [c.title for col in remote.columns for c in remote.list_column(col)]
     assert "Created locally" in remote_titles
     assert result.created == 1
+
+
+def test_sync_push_keeps_local_ids_so_a_following_pull_creates_no_duplicates(
+    local_project: Path,
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = hosted.publish_board(
+        kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+    remote = RemoteBoard(remote_config)
+    board = Board.load(local_project)
+    first = board.add("Created locally")
+    board.add("Depends on first", deps=[first.id])
+
+    hosted.sync_push(remote, kanbai_dir)
+    hosted.sync_pull(remote, kanbai_dir)
+
+    remote_cards = {c.id: c for col in remote.columns for c in remote.list_column(col)}
+    assert remote_cards[first.id].title == "Created locally"
+    assert [c.deps for c in remote_cards.values() if c.title == "Depends on first"] == [[first.id]]
+    local = Board.load(local_project)
+    local_titles = [c.title for col in local.columns for c in local.list_column(col)]
+    assert sorted(local_titles) == ["Created locally", "Depends on first"]
+    assert hosted.diff_boards(local, remote).in_sync
 
 
 def test_sync_push_moves_remote_card_when_column_differs(local_project: Path) -> None:

@@ -42,26 +42,22 @@ def publish_board(kanbai_dir: Path, url: str, email: str, password: str) -> Remo
     """Upload the local board at ``kanbai_dir`` to a new hosted board, then switch this
     project into remote mode by writing ``[server]`` into its ``config.toml``.
 
-    Cards keep their local ids as long as they upload in ascending id order (the hosted API
-    always assigns the next sequential id) — this holds for a board that was never edited by
-    hand into a non-contiguous id sequence, which is the expectation for a filesystem board.
-    Dependency ids are rewritten if the hosted upload ever diverges from the local id.
+    Every card is created with its local id, so ids (and therefore deps, gaps and archived
+    cards) are identical on both sides and later ``sync`` runs never see duplicates.
     """
     board = Board.load(kanbai_dir.parent)
     token = login(url, email, password)
     remote_config = create_remote_board(url, token, board.config)
     remote = RemoteBoard(remote_config)
 
-    id_map: dict[str, str] = {}
     for column in board.columns:
         for card in board.list_column(column):
-            id_map[card.id] = _upload_card(remote, card, column=column).id
+            _upload_card(remote, card, column=column)
     for card in board.list_archive():
         landing_column = card.archived_from or board.config.add_column
-        uploaded = _upload_card(remote, card, column=landing_column)
-        id_map[card.id] = remote.archive(uploaded.id).id
+        remote.archive(_upload_card(remote, card, column=landing_column).id)
 
-    _rewrite_deps(remote, board, id_map)
+    _apply_deps(remote, board)
     _write_server_section(kanbai_dir, remote_config)
     return remote_config
 
@@ -69,6 +65,7 @@ def publish_board(kanbai_dir: Path, url: str, email: str, password: str) -> Remo
 def _upload_card(remote: RemoteBoard, card: Card, *, column: str) -> Card:
     return remote.add(
         card.title,
+        card_id=card.id,
         description=card.body,
         priority=card.priority,
         type=card.type,
@@ -79,18 +76,15 @@ def _upload_card(remote: RemoteBoard, card: Card, *, column: str) -> Card:
     )
 
 
-def _rewrite_deps(remote: RemoteBoard, board: Board, id_map: dict[str, str]) -> None:
-    """Set each uploaded card's ``deps``, remapped through ``id_map``.
-
-    Deps are applied only after every card is uploaded (see :func:`publish_board`), since a
-    card can depend on one that uploads after it — ``id_map`` isn't complete until then.
-    """
+def _apply_deps(remote: RemoteBoard, board: Board) -> None:
+    """Set each uploaded card's ``deps`` once every card exists on the server (a card can
+    depend on one that uploads after it)."""
     local_cards = [c for column in board.columns for c in board.list_column(column)]
     local_cards += board.list_archive()
     for card in local_cards:
         if not card.deps:
             continue
-        remote.edit(id_map[card.id], deps=[id_map.get(dep, dep) for dep in card.deps])
+        remote.edit(card.id, deps=card.deps)
 
 
 def _write_server_section(kanbai_dir: Path, remote: RemoteConfig) -> None:
@@ -189,7 +183,7 @@ def sync_push(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) ->
     """Local wins: update the hosted board to match local files.
 
     Cards present on both sides are edited and moved to the local column when it differs.
-    Cards only local are created on the server (the server assigns a new ID for these).
+    Cards only local are created on the server keeping their local ID.
     Cards only on the server are preserved (or removed with ``delete=True``).
 
     Note: archived local cards are not pushed — only active-column cards are synced.
@@ -225,6 +219,7 @@ def sync_push(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) ->
         else:
             remote.add(
                 local_card.title,
+                card_id=card_id,
                 description=local_card.body,
                 priority=local_card.priority,
                 type=local_card.type,

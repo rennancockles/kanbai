@@ -127,13 +127,20 @@ class RemoteBoard:
         labels: list[str] | None = None,
         deps: list[str] | None = None,
         assignee: str | None = None,
+        card_id: str | None = None,
     ) -> Card:
-        """Create a new card on the hosted board."""
+        """Create a new card on the hosted board.
+
+        ``card_id`` asks the server to keep that id (so a local board can be published or
+        pushed without ids diverging). Raises :class:`RemoteAPIError` if the server answers
+        with a different id — an older server that ignores the field.
+        """
         resolved_priority = priority.value if isinstance(priority, Priority) else priority
         data = self._request(
             "POST",
             self._board_path("/cards"),
             json={
+                "id": card_id,
                 "title": title,
                 "description": description,
                 "priority": resolved_priority,
@@ -145,7 +152,13 @@ class RemoteBoard:
                 "assignee": assignee,
             },
         )
-        return Card.model_validate(data)
+        card = Card.model_validate(data)
+        if card_id is not None and card.id != card_id:
+            raise RemoteAPIError(
+                f"The server assigned id '{card.id}' to card '{card_id}' instead of keeping it. "
+                "It does not support explicit card ids — upgrade kanbai_server and retry."
+            )
+        return card
 
     def move(self, card_id: str, column: str, *, position: int | None = None) -> Card:
         """Move a card to ``column`` on the hosted board."""

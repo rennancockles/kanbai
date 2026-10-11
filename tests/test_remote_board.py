@@ -51,6 +51,8 @@ class _FakeServer:
         self.cards: dict[str, dict[str, dict[str, object]]] = {BOARD_ID: {}}
         self._next_board_id = 1
         self._next_card_id: dict[str, int] = {BOARD_ID: 1}
+        # Emulates an older kanbai_server that ignores an explicit `id` on card creation.
+        self.ignores_card_ids = False
 
     def _card_dict(self, board_id: str, **overrides: object) -> dict[str, object]:
         base: dict[str, object] = {
@@ -166,8 +168,14 @@ class _FakeServer:
 
     def _create_card(self, board_id: str, body: dict[str, object]) -> httpx.Response:
         cards = self.cards[board_id]
-        card_id = f"{self._next_card_id[board_id]:03d}"
-        self._next_card_id[board_id] += 1
+        pinned = None if self.ignores_card_ids else body.get("id")
+        if isinstance(pinned, str) and pinned in cards:
+            return httpx.Response(409, json={"detail": f"Card '{pinned}' already exists."})
+        card_id = pinned if isinstance(pinned, str) else f"{self._next_card_id[board_id]:03d}"
+        if isinstance(pinned, str):
+            self._next_card_id[board_id] = max(self._next_card_id[board_id], int(pinned) + 1)
+        else:
+            self._next_card_id[board_id] += 1
         card = self._card_dict(
             board_id,
             id=card_id,
