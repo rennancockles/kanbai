@@ -1,4 +1,4 @@
-"""Tests for kanbai.hosted: import (local -> hosted) and export (hosted -> local)."""
+"""Tests for kanbai.hosted: publish (local -> hosted) and download (hosted -> local)."""
 
 from __future__ import annotations
 
@@ -31,12 +31,12 @@ def local_project(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_import_uploads_every_card_and_writes_server_section(local_project: Path) -> None:
+def test_publish_uploads_every_card_and_writes_server_section(local_project: Path) -> None:
     board = Board.load(local_project)
     board.add("First card", priority="high")
     board.add("Second card")
 
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
@@ -48,14 +48,14 @@ def test_import_uploads_every_card_and_writes_server_section(local_project: Path
     assert remote_config.token in cfg_text
 
 
-def test_reimporting_overwrites_the_server_section_instead_of_duplicating_it(
+def test_republishing_overwrites_the_server_section_instead_of_duplicating_it(
     local_project: Path,
 ) -> None:
-    hosted.import_board(
+    hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
-    second_remote_config = hosted.import_board(
+    second_remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
@@ -65,12 +65,12 @@ def test_reimporting_overwrites_the_server_section_instead_of_duplicating_it(
     assert load_remote_config(local_project / ".kanbai") == second_remote_config
 
 
-def test_import_preserves_dependency_ids(local_project: Path) -> None:
+def test_publish_preserves_dependency_ids(local_project: Path) -> None:
     board = Board.load(local_project)
     blocker = board.add("Blocker")
     board.add("Blocked", deps=[blocker.id])
 
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
@@ -80,12 +80,12 @@ def test_import_preserves_dependency_ids(local_project: Path) -> None:
     assert blocked_card.deps == [blocker_card.id]
 
 
-def test_import_preserves_archived_cards_and_their_column(local_project: Path) -> None:
+def test_publish_preserves_archived_cards_and_their_column(local_project: Path) -> None:
     board = Board.load(local_project)
     card = board.add("To archive", column="todo")
     board.archive(card.id)
 
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
@@ -95,8 +95,8 @@ def test_import_preserves_archived_cards_and_their_column(local_project: Path) -
     assert archived[0].archived_from == "todo"
 
 
-def test_import_uploads_the_local_board_config(local_project: Path) -> None:
-    remote_config = hosted.import_board(
+def test_publish_uploads_the_local_board_config(local_project: Path) -> None:
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
 
@@ -104,73 +104,73 @@ def test_import_uploads_the_local_board_config(local_project: Path) -> None:
     assert remote.config.name == "Local project"
 
 
-def test_import_raises_on_bad_credentials(local_project: Path) -> None:
+def test_publish_raises_on_bad_credentials(local_project: Path) -> None:
     with pytest.raises(RemoteAPIError):
-        hosted.import_board(
+        hosted.publish_board(
             local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, "wrong"
         )
 
 
-def test_export_writes_every_card_locally(local_project: Path) -> None:
-    remote_config = hosted.import_board(
+def test_download_writes_every_card_locally(local_project: Path) -> None:
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
     remote.add("Uploaded directly", column="todo")
 
-    export_dir = local_project / "exported"
-    count = hosted.export_board(remote, export_dir / ".kanbai")
+    download_dir = local_project / "downloaded"
+    count = hosted.download_board(remote, download_dir / ".kanbai")
 
     assert count == 1
-    exported = Board.load(export_dir)
-    assert [c.title for c in exported.list_column("todo")] == ["Uploaded directly"]
+    downloaded = Board.load(download_dir)
+    assert [c.title for c in downloaded.list_column("todo")] == ["Uploaded directly"]
 
 
-def test_export_includes_archived_cards(local_project: Path) -> None:
-    remote_config = hosted.import_board(
+def test_download_includes_archived_cards(local_project: Path) -> None:
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
     card = remote.add("Will be archived")
     remote.archive(card.id)
 
-    export_dir = local_project / "exported"
-    hosted.export_board(remote, export_dir / ".kanbai")
+    download_dir = local_project / "downloaded"
+    hosted.download_board(remote, download_dir / ".kanbai")
 
-    exported = Board.load(export_dir)
-    assert [c.title for c in exported.list_archive()] == ["Will be archived"]
+    downloaded = Board.load(download_dir)
+    assert [c.title for c in downloaded.list_archive()] == ["Will be archived"]
 
 
-def test_round_trip_import_then_export_preserves_cards_and_deps(local_project: Path) -> None:
+def test_round_trip_publish_then_download_preserves_cards_and_deps(local_project: Path) -> None:
     board = Board.load(local_project)
     blocker = board.add("Blocker", priority="high", labels=["urgent"])
     board.add("Blocked", deps=[blocker.id], column="todo")
 
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
 
-    export_dir = local_project / "exported"
-    hosted.export_board(remote, export_dir / ".kanbai")
-    exported = Board.load(export_dir)
+    download_dir = local_project / "downloaded"
+    hosted.download_board(remote, download_dir / ".kanbai")
+    downloaded = Board.load(download_dir)
 
-    exported_blocker = next(
-        c for col in exported.columns for c in exported.list_column(col) if c.title == "Blocker"
+    downloaded_blocker = next(
+        c for col in downloaded.columns for c in downloaded.list_column(col) if c.title == "Blocker"
     )
-    exported_blocked = next(
-        c for col in exported.columns for c in exported.list_column(col) if c.title == "Blocked"
+    downloaded_blocked = next(
+        c for col in downloaded.columns for c in downloaded.list_column(col) if c.title == "Blocked"
     )
-    assert exported_blocker.priority.value == "high"
-    assert exported_blocker.labels == ["urgent"]
-    assert exported_blocked.deps == [exported_blocker.id]
+    assert downloaded_blocker.priority.value == "high"
+    assert downloaded_blocker.labels == ["urgent"]
+    assert downloaded_blocked.deps == [downloaded_blocker.id]
 
 
-def test_diff_boards_reports_in_sync_right_after_import(local_project: Path) -> None:
+def test_diff_boards_reports_in_sync_right_after_publish(local_project: Path) -> None:
     board = Board.load(local_project)
     board.add("A card")
 
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -185,7 +185,7 @@ def test_diff_boards_reports_in_sync_right_after_import(local_project: Path) -> 
 
 def test_diff_boards_detects_card_only_on_remote(local_project: Path) -> None:
     board = Board.load(local_project)
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -200,7 +200,7 @@ def test_diff_boards_detects_card_only_on_remote(local_project: Path) -> None:
 
 def test_diff_boards_detects_card_only_on_local(local_project: Path) -> None:
     board = Board.load(local_project)
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -216,7 +216,7 @@ def test_diff_boards_detects_card_only_on_local(local_project: Path) -> None:
 def test_diff_boards_detects_differing_fields_on_shared_card(local_project: Path) -> None:
     board = Board.load(local_project)
     card = board.add("Original title", priority="low")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -237,7 +237,7 @@ def test_diff_boards_ignores_order_and_timestamps(local_project: Path) -> None:
     board = Board.load(local_project)
     board.add("First")
     board.add("Second")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -255,7 +255,7 @@ def test_diff_boards_ignores_order_and_timestamps(local_project: Path) -> None:
 
 def test_sync_pull_writes_remote_cards_locally(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -273,7 +273,7 @@ def test_sync_pull_moves_local_card_when_column_differs(local_project: Path) -> 
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
     card = board.add("Will move")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -292,7 +292,7 @@ def test_sync_pull_keeps_local_only_cards_without_delete(local_project: Path) ->
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
     card = board.add("Local only")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -313,7 +313,7 @@ def test_sync_pull_deletes_local_only_cards_with_delete(local_project: Path) -> 
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
     card = board.add("Local only")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -334,7 +334,7 @@ def test_sync_pull_deletes_local_only_cards_with_delete(local_project: Path) -> 
 
 def test_sync_push_creates_local_only_cards_on_server(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -352,7 +352,7 @@ def test_sync_push_moves_remote_card_when_column_differs(local_project: Path) ->
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
     card = board.add("Will move")
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -370,7 +370,7 @@ def test_sync_push_moves_remote_card_when_column_differs(local_project: Path) ->
 
 def test_sync_push_keeps_remote_only_cards_without_delete(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)
@@ -386,7 +386,7 @@ def test_sync_push_keeps_remote_only_cards_without_delete(local_project: Path) -
 
 def test_sync_push_deletes_remote_only_cards_with_delete(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
-    remote_config = hosted.import_board(
+    remote_config = hosted.publish_board(
         kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
     )
     remote = RemoteBoard(remote_config)

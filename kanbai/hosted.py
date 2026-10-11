@@ -1,12 +1,12 @@
 """Onboarding and sync between local (filesystem) and hosted (kanbai_server) boards.
 
-``import_board`` uploads a local ``.kanbai/`` board to a hosted account and switches the
-project into remote mode (see ``kanbai.remote_board``); ``export_board`` writes a hosted
+``publish_board`` uploads a local ``.kanbai/`` board to a hosted account and switches the
+project into remote mode (see ``kanbai.remote_board``); ``download_board`` writes a hosted
 board's cards back to local files without leaving remote mode (the ``[server]`` section
 stays — removing it to fully return to self-hosted is a manual step, by design).
 
 ``sync_pull`` / ``sync_push`` reconcile the two boards by card ID, avoiding the
-duplication that ``export_board`` causes when a card exists on both sides but in
+duplication that ``download_board`` causes when a card exists on both sides but in
 different columns.
 """
 
@@ -38,7 +38,7 @@ _COMPARED_FIELDS = (
 )
 
 
-def import_board(kanbai_dir: Path, url: str, email: str, password: str) -> RemoteConfig:
+def publish_board(kanbai_dir: Path, url: str, email: str, password: str) -> RemoteConfig:
     """Upload the local board at ``kanbai_dir`` to a new hosted board, then switch this
     project into remote mode by writing ``[server]`` into its ``config.toml``.
 
@@ -82,7 +82,7 @@ def _upload_card(remote: RemoteBoard, card: Card, *, column: str) -> Card:
 def _rewrite_deps(remote: RemoteBoard, board: Board, id_map: dict[str, str]) -> None:
     """Set each uploaded card's ``deps``, remapped through ``id_map``.
 
-    Deps are applied only after every card is uploaded (see :func:`import_board`), since a
+    Deps are applied only after every card is uploaded (see :func:`publish_board`), since a
     card can depend on one that uploads after it — ``id_map`` isn't complete until then.
     """
     local_cards = [c for column in board.columns for c in board.list_column(column)]
@@ -95,7 +95,7 @@ def _rewrite_deps(remote: RemoteBoard, board: Board, id_map: dict[str, str]) -> 
 
 def _write_server_section(kanbai_dir: Path, remote: RemoteConfig) -> None:
     """Write (or overwrite) ``[server]`` in ``config.toml``, replacing a prior section from
-    an earlier import rather than appending a second, conflicting one."""
+    an earlier publish rather than appending a second, conflicting one."""
     config_path = kanbai_dir / CONFIG_FILENAME
     existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     section = (
@@ -141,7 +141,7 @@ def sync_pull(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) ->
     """Server wins: update local files to match the hosted board.
 
     Cards present on both sides are moved to the remote column when it differs, fixing
-    the duplication that ``export_board`` causes. Cards only on the server are written
+    the duplication that ``download_board`` causes. Cards only on the server are written
     locally; cards only local are kept (or removed with ``delete=True``).
     """
     board = Board.load(kanbai_dir.parent)
@@ -252,7 +252,7 @@ def sync_push(remote: RemoteBoard, kanbai_dir: Path, *, delete: bool = False) ->
     )
 
 
-def export_board(remote: RemoteBoard, kanbai_dir: Path) -> int:
+def download_board(remote: RemoteBoard, kanbai_dir: Path) -> int:
     """Write every card on the hosted board ``remote`` into local files under ``kanbai_dir``.
 
     Returns the number of cards written. Leaves ``[server]`` in ``config.toml`` untouched —

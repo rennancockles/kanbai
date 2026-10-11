@@ -583,7 +583,7 @@ sync_app = typer.Typer(
 app.add_typer(sync_app, name="sync")
 
 _NO_SERVER_MSG = (
-    "No [server] section configured. Run `kanbai hosted import` first, or hand-edit config.toml."
+    "No [server] section configured. Run `kanbai hosted publish` first, or hand-edit config.toml."
 )
 
 
@@ -699,8 +699,8 @@ hosted_app = typer.Typer(
 app.add_typer(hosted_app, name="hosted")
 
 
-@hosted_app.command("import")
-def hosted_import(
+@hosted_app.command("publish")
+def hosted_publish(
     url: str = typer.Option(..., "--url", help="Base URL of the hosted kanbai_server."),
     email: str = typer.Option(..., "--email", help="Email of an existing hosted account."),
     password: str = typer.Option(..., "--password", help="Password for that account."),
@@ -715,19 +715,19 @@ def hosted_import(
     try:
         kanbai_dir = storage.find_kanbai_dir()
         if kanbai_dir is None:
-            raise KanbaiError("No local kanbai board found here to import.")
-        remote_config = hosted.import_board(kanbai_dir, url, email, password)
+            raise KanbaiError("No local kanbai board found here to publish.")
+        remote_config = hosted.publish_board(kanbai_dir, url, email, password)
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(
-        f"[green]✓[/green] Imported board to [cyan]{remote_config.board_id}[/cyan] on "
+        f"[green]✓[/green] Published board to [cyan]{remote_config.board_id}[/cyan] on "
         f"[cyan]{remote_config.url}[/cyan]. This project now runs in hosted mode."
     )
 
 
-@hosted_app.command("export")
-def hosted_export() -> None:
+@hosted_app.command("download")
+def hosted_download() -> None:
     """Write the hosted board configured in `[server]` back to local `.kanbai/` files.
 
     Requires `config.toml` to already have a `[server]` section (see `kanbai hosted
@@ -739,14 +739,14 @@ def hosted_export() -> None:
         remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
         if kanbai_dir is None or remote is None:
             raise KanbaiError(
-                "No [server] section configured — nothing to export. "
-                "Run `kanbai hosted import` first, or hand-edit config.toml."
+                "No [server] section configured — nothing to download. "
+                "Run `kanbai hosted publish` first, or hand-edit config.toml."
             )
-        count = hosted.export_board(RemoteBoard(remote), kanbai_dir)
+        count = hosted.download_board(RemoteBoard(remote), kanbai_dir)
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    console.print(f"[green]✓[/green] Exported {count} card(s) to [cyan]{kanbai_dir}[/cyan].")
+    console.print(f"[green]✓[/green] Downloaded {count} card(s) to [cyan]{kanbai_dir}[/cyan].")
 
 
 @hosted_app.command("diff")
@@ -764,7 +764,7 @@ def hosted_diff(
         if kanbai_dir is None or remote_config is None:
             raise KanbaiError(
                 "No [server] section configured — nothing to compare. "
-                "Run `kanbai hosted import` first, or hand-edit config.toml."
+                "Run `kanbai hosted publish` first, or hand-edit config.toml."
             )
         board_diff = hosted.diff_boards(Board.load(kanbai_dir.parent), RemoteBoard(remote_config))
     except (KanbaiError, RemoteAPIError) as exc:

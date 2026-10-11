@@ -23,7 +23,7 @@ BOARD_ID = "board-1"
 _NOW = datetime(2026, 1, 1, 12, 0, 0)
 
 #: Credentials the fake server accepts on POST /auth/login (mirrors an account provisioned
-#: out-of-band by an admin, as ``kanbai hosted import`` expects — see card 080).
+#: out-of-band by an admin, as ``kanbai hosted publish`` expects — see card 080).
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "s3cret"
 ADMIN_TOKEN = "fake-admin-token"
@@ -31,9 +31,9 @@ ADMIN_TOKEN = "fake-admin-token"
 
 class _FakeServer:
     """In-memory multi-board store, matching kanbai_server's request/response shapes closely
-    enough for RemoteBoard/hosted import/export tests. Not a reimplementation of the real
+    enough for RemoteBoard/hosted publish/download tests. Not a reimplementation of the real
     API's business logic beyond what these tests exercise. Starts with one pre-existing
-    board (id ``BOARD_ID``) for tests that don't care about `kanbai hosted import`."""
+    board (id ``BOARD_ID``) for tests that don't care about `kanbai hosted publish`."""
 
     def __init__(self) -> None:
         self.boards: dict[str, dict[str, object]] = {
