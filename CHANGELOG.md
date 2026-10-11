@@ -11,6 +11,36 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.9.0 (2026-10-11)
+
+### Bug Fixes
+
+- Modal de card na view multi-board fecha e ações atualizam o board (111)
+  ([`38e26e1`](https://github.com/rennancockles/kanbai/commit/38e26e132fb0b3c39d70e7511e5855417afecd59))
+
+- Preservar IDs locais em hosted publish e sync push (100)
+  ([`7abc34b`](https://github.com/rennancockles/kanbai/commit/7abc34b9c2dc95a9180b8f091ed23371d982cb6c))
+
+### Features
+
+- Add kanbai sync pull/push commands to reconcile local and hosted boards (093)
+  ([`77ac6f3`](https://github.com/rennancockles/kanbai/commit/77ac6f39729e34d4c261446d449e74b564472c62))
+
+- Botão Clear archive no modal de arquivo do hub local (113)
+  ([`75baa17`](https://github.com/rennancockles/kanbai/commit/75baa17928231f1f451e518e68443692d005194c))
+
+- Enviar categoria do board no hosted publish (108)
+  ([`d18617c`](https://github.com/rennancockles/kanbai/commit/d18617c66e052cba8296d47fad2a2b7a48afc248))
+
+### Refactoring
+
+- Renomear hosted import/export para hosted publish/download (101)
+  ([`a6aaaee`](https://github.com/rennancockles/kanbai/commit/a6aaaeec6b613bbf8e7faf0809dde532a392dacd))
+
+- Unificar hosted em connect/push/pull/clone/diff com --archived e remover sync (112)
+  ([`2aba095`](https://github.com/rennancockles/kanbai/commit/2aba09506c03eb8c6ea7a7611e27fceba9d5d05c))
+
+
 ## v0.8.0 (2026-10-10)
 
 ### Features
