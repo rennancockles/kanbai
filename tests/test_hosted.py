@@ -143,6 +143,20 @@ def test_publish_uploads_the_local_board_config(local_project: Path) -> None:
     assert remote.config.name == "Local project"
 
 
+def test_publish_sends_the_board_category(local_project: Path) -> None:
+    config_path = local_project / ".kanbai" / "config.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace("[board]", '[board]\ncategory = "Work"', 1),
+        encoding="utf-8",
+    )
+
+    remote_config = hosted.publish_board(
+        local_project / ".kanbai", "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD
+    )
+
+    assert RemoteBoard(remote_config).config.category == "Work"
+
+
 def test_publish_raises_on_bad_credentials(local_project: Path) -> None:
     with pytest.raises(RemoteAPIError):
         hosted.publish_board(

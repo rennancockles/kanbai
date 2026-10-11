@@ -108,6 +108,7 @@ class _FakeServer:
             "type_colors": body.get("type_colors") or {},
             "wip": body.get("wip") or {},
             "bypass_review": body.get("bypass_review") or False,
+            "category": body.get("category") or "",
         }
         self.boards[board_id] = board_config
         self.cards[board_id] = {}

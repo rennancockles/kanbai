@@ -66,6 +66,7 @@ def create_remote_board(url: str, token: str, config: BoardConfig) -> RemoteConf
                 "type_colors": config.type_colors,
                 "wip": config.wip,
                 "bypass_review": config.bypass_review,
+                "category": config.category,
             },
         )
     return RemoteConfig(url=url, token=token, board_id=str(data["id"]))
@@ -96,6 +97,7 @@ class RemoteBoard:
                     type_colors=entry["type_colors"],
                     wip=entry["wip"],
                     bypass_review=entry["bypass_review"],
+                    category=entry.get("category", ""),
                 )
         raise RemoteAPIError(
             f"Board '{self._remote.board_id}' was not found on {self._remote.url} "
