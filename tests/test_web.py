@@ -807,6 +807,52 @@ def test_archive_row_opens_card_detail_and_restore_button_still_works(tmp_path: 
     assert f'hx-post="/cards/{card.id}/restore"' in resp.text  # restore button unaffected
 
 
+def test_archive_modal_has_a_clear_button_with_the_real_count_when_not_empty(
+    tmp_path: Path,
+) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    for title in ("One", "Two"):
+        board.archive(board.add(title).id)
+
+    text = TestClient(create_app(board)).get("/archive").text
+
+    assert 'hx-post="/archive/clear"' in text
+    assert "Permanently delete 2 archived card(s)? This cannot be undone." in text
+    assert ">Clear archive</button>" in text
+
+
+def test_archive_modal_has_no_clear_button_when_empty(tmp_path: Path) -> None:
+    text = _client(tmp_path).get("/archive").text
+
+    assert "Clear archive" not in text
+    assert "The archive is empty." in text
+
+
+def test_clearing_the_archive_deletes_only_archived_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    keep = board.add("Active", column="todo")
+    board.archive(board.add("Old").id)
+    client = TestClient(create_app(board))
+
+    response = client.post("/archive/clear")
+
+    assert response.status_code == 200
+    assert "The archive is empty." in response.text
+    assert "Clear archive" not in response.text
+    assert Board.load(tmp_path).list_archive() == []
+    assert [c.id for c in Board.load(tmp_path).list_column("todo")] == [keep.id]
+    assert not list((tmp_path / ".kanbai" / "archive").glob("*.md"))
+
+
+def test_clearing_an_empty_archive_is_a_no_op(tmp_path: Path) -> None:
+    response = _client(tmp_path).post("/archive/clear")
+
+    assert response.status_code == 200
+    assert "The archive is empty." in response.text
+
+
 def test_board_defines_close_and_clear_detail_functions(tmp_path: Path) -> None:
     body = _client(tmp_path).get("/").text
     assert "function kanbaiCloseDetail" in body

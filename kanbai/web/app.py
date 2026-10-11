@@ -245,6 +245,12 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             },
         )
 
+    @app.post("/archive/clear", response_class=HTMLResponse)
+    def archive_clear(request: Request) -> Response:
+        """Delete every archived card, then re-render the (now empty) archive modal."""
+        resolved.clear_archive()
+        return archive_view(request)
+
     @app.post("/cards/{card_id}/restore", response_class=HTMLResponse)
     def restore_card(request: Request, card_id: str) -> Response:
         with contextlib.suppress(KanbaiError):

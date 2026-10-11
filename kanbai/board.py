@@ -286,6 +286,14 @@ class Board:
         """Return the archived cards (archive is not a board column, so read it directly)."""
         return storage.read_column(self.kanbai_dir, storage.ARCHIVE_DIRNAME)
 
+    def clear_archive(self) -> int:
+        """Permanently delete every archived card, returning how many were removed."""
+        archived = self.list_archive()
+        for card in archived:
+            _, path, _ = self._locate(card.id)
+            storage.delete_card_file(path)
+        return len(archived)
+
     def restore(self, card_id: str) -> Card:
         """Bring an archived card back to the column it came from (or the backlog)."""
         card, old_path, _ = self._locate(card_id)

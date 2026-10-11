@@ -83,6 +83,19 @@ def test_move_with_position_across_columns(board: Board) -> None:
     assert [c.id for c in board.list_column("doing")] == [x.id, a.id, y.id]
 
 
+def test_clear_archive_deletes_only_archived_cards_and_returns_the_count(board: Board) -> None:
+    keep = board.add("Active", column="todo")
+    for title in ("Old one", "Old two"):
+        board.archive(board.add(title).id)
+
+    removed = board.clear_archive()
+
+    assert removed == 2
+    assert board.list_archive() == []
+    assert [c.id for c in board.list_column("todo")] == [keep.id]
+    assert board.clear_archive() == 0
+
+
 def test_move_to_review_notifies_card_in_review(board: Board) -> None:
     notes: list[tuple[str, str]] = []
     board.on_notify = lambda title, body: notes.append((title, body))
