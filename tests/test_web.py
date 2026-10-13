@@ -188,6 +188,22 @@ def test_hub_shows_column_counts(tmp_path: Path) -> None:
     assert "0 review" in html
 
 
+def test_hub_column_counts_follow_board_changes(tmp_path: Path) -> None:
+    board_path = tmp_path / "proj"
+    scaffold.init_board(board_path)
+    board = Board.load(board_path)
+    first = board.add("card one", column="todo")
+    board.add("card two", column="todo")
+    client = TestClient(create_hub_app({"proj": str(board_path)}))
+    assert "2 todo" in client.get("/").text
+
+    board.move(first.id, "done")
+
+    html = client.get("/").text
+    assert "1 todo" in html
+    assert "1 done" in html
+
+
 def test_hub_skips_missing_boards(tmp_path: Path) -> None:
     board_a = tmp_path / "a"
     scaffold.init_board(board_a)

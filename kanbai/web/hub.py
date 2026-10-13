@@ -68,6 +68,15 @@ def _board_view_data(name: str, path: str) -> dict[str, Any] | None:
     }
 
 
+def _board_counts(path: str) -> dict[str, int]:
+    """Read the overview column counts for the board at *path* straight from disk."""
+    try:
+        all_cols = Board.load(Path(path)).board()
+    except (KanbaiError, OSError):
+        return dict.fromkeys(_OVERVIEW_COLS, 0)
+    return {col: len(all_cols.get(col, [])) for col in _OVERVIEW_COLS}
+
+
 def _mount_boards(
     hub: FastAPI, boards: dict[str, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, str | None]]]:
@@ -94,22 +103,15 @@ def _mount_boards(
             print(f"! skipping board '{name}' at {path}: {exc}", file=sys.stderr)
             continue
 
-    mounted: list[dict[str, Any]] = []
-    for name, path, board in loaded:
-        try:
-            all_cols = board.board()
-            counts = {col: len(all_cols.get(col, [])) for col in _OVERVIEW_COLS}
-        except (KanbaiError, OSError):
-            counts = dict.fromkeys(_OVERVIEW_COLS, 0)
-        mounted.append(
-            {
-                "name": name,
-                "path": path,
-                "url": f"/b/{name}/",
-                "category": board.config.category,
-                "counts": counts,
-            }
-        )
+    mounted: list[dict[str, Any]] = [
+        {
+            "name": name,
+            "path": path,
+            "url": f"/b/{name}/",
+            "category": board.config.category,
+        }
+        for name, path, board in loaded
+    ]
     switcher: list[dict[str, str | None]] = [
         {"name": str(item["name"]), "url": str(item["url"]), "category": item.get("category")}
         for item in mounted
@@ -154,7 +156,7 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
             request,
             "hub.html",
             {
-                "boards": mounted,
+                "boards": [{**b, "counts": _board_counts(b["path"])} for b in mounted],
                 "view_board_names": view_registry.load_view(),
                 "app_name": APP_NAME,
                 "app_version": __version__,
