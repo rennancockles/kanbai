@@ -11,6 +11,28 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.10.0 (2026-10-13)
+
+### Bug Fixes
+
+- Contagem de cards por coluna do hub lida do disco a cada requisição (115)
+  ([`34cfcaa`](https://github.com/rennancockles/kanbai/commit/34cfcaa977b65182025f9285477845a8fcad1c82))
+
+### Features
+
+- Hosted enable/disable/status para alternar o board local e o remoto (114)
+  ([`3f2c0b0`](https://github.com/rennancockles/kanbai/commit/3f2c0b0f9976615617ae043b5c4e96dd3f0d0f5a))
+
+- Hosted login para renovar o token e dica clara em erros 401 (119)
+  ([`929acac`](https://github.com/rennancockles/kanbai/commit/929acac9cd45dd9a0f816290417ad3c6a71e94ab))
+
+- Hosted push/pull/diff --all para sincronizar todos os boards do hub (117)
+  ([`fbb2111`](https://github.com/rennancockles/kanbai/commit/fbb2111c07f961e0d89ca29a68f7a8d56a412314))
+
+- Pular boards de host inalcançável no --all e detectar bloqueio de VPN/firewall (118)
+  ([`566502b`](https://github.com/rennancockles/kanbai/commit/566502b628f409e9788648003c5dfdc09b072dd4))
+
+
 ## v0.9.0 (2026-10-11)
 
 ### Bug Fixes
