@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-from kanbai import scaffold
+from kanbai import registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
 from typer.testing import CliRunner
@@ -683,3 +683,99 @@ def test_status_reports_each_state(local_project: Path, fake_server: _FakeServer
     assert "enabled" in runner.invoke(app, ["hosted", "status"]).output
     runner.invoke(app, ["hosted", "disable"])
     assert "disabled" in runner.invoke(app, ["hosted", "status"]).output
+
+
+# --------------------------------------------------------------------------- --all
+
+
+@pytest.fixture
+def hub_boards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_server: _FakeServer
+) -> dict[str, Path]:
+    """Three boards in the hub registry: `alpha` (connected), `beta` (never connected) and
+    `gamma` (connected to a hosted board that does not exist), with cwd outside all of them."""
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    projects = {}
+    for name in ("alpha", "beta", "gamma"):
+        project = tmp_path / name
+        scaffold.init_board(project, name=name)
+        registry.add_board(project)
+        projects[name] = project
+    Board.load(projects["alpha"]).add("Alpha card")
+    monkeypatch.chdir(projects["alpha"])
+    _connect()
+    gamma_cfg = projects["gamma"] / ".kanbai" / "config.toml"
+    gamma_cfg.write_text(
+        gamma_cfg.read_text()
+        + f'\n[server]\nurl = "{URL}"\ntoken = "tok"\nboard_id = "does-not-exist"\n'
+    )
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    return projects
+
+
+def test_push_all_syncs_connected_boards_and_reports_the_rest(
+    hub_boards: dict[str, Path], fake_server: _FakeServer
+) -> None:
+    result = runner.invoke(app, ["hosted", "push", "--all"])
+
+    assert result.exit_code == 1  # gamma failed
+    titles = [c["title"] for c in fake_server.cards[_board_id(hub_boards["alpha"])].values()]
+    assert titles == ["Alpha card"]
+    assert re.search(r"alpha\s*│\s*ok\s*│\s*1 created", result.output)
+    assert re.search(r"beta\s*│\s*skipped\s*│\s*not connected", result.output)
+    assert re.search(r"gamma\s*│\s*failed", result.output)
+
+
+def test_push_all_exits_zero_when_nothing_failed(
+    hub_boards: dict[str, Path], fake_server: _FakeServer
+) -> None:
+    registry.remove_board("gamma")
+
+    result = runner.invoke(app, ["hosted", "push", "--all"])
+
+    assert result.exit_code == 0, result.output
+
+
+def _titles(project: Path) -> set[str]:
+    return {c.title for cards in Board.load(project).board().values() for c in cards}
+
+
+def test_pull_all_asks_for_confirmation_unless_yes(
+    hub_boards: dict[str, Path], fake_server: _FakeServer
+) -> None:
+    registry.remove_board("gamma")
+    board_id = _board_id(hub_boards["alpha"])
+    _add_remote_card(fake_server, board_id, "From server")
+
+    declined = runner.invoke(app, ["hosted", "pull", "--all"], input="n\n")
+    assert declined.exit_code != 0
+    assert "From server" not in _titles(hub_boards["alpha"])
+
+    confirmed = runner.invoke(app, ["hosted", "pull", "--all", "--yes"])
+    assert confirmed.exit_code == 0, confirmed.output
+    assert "From server" in _titles(hub_boards["alpha"])
+
+
+def test_diff_all_json_lists_each_board(
+    hub_boards: dict[str, Path], fake_server: _FakeServer
+) -> None:
+    result = runner.invoke(app, ["hosted", "diff", "--all", "--json"])
+
+    assert result.exit_code == 1
+    by_board = {row["board"]: row for row in json.loads(result.output)}
+    assert by_board["alpha"]["status"] == "differs"  # local card not pushed yet
+    assert by_board["beta"]["status"] == "skipped"
+    assert by_board["gamma"]["status"] == "failed"
+
+
+def test_all_with_an_empty_registry_is_a_no_op(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_server: _FakeServer
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+
+    result = runner.invoke(app, ["hosted", "push", "--all"])
+
+    assert result.exit_code == 0
+    assert "No boards registered" in result.output

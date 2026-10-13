@@ -281,6 +281,14 @@ Options shared by `push`, `pull` and `diff` (and `clone`):
   archived on *either* side is ignored on both, so it is never created, overwritten or deleted.
 - `--delete` (`push`, `pull`) — remove cards that exist only on the receiving side. Without it
   they are kept.
+- `--all` (`push`, `pull`, `diff`) — run on every board of the [hub registry](hub.md) instead of
+  the current project, from any directory. Boards without a `[server]` connection are
+  *skipped*; a board that fails (network, expired token…) is reported without stopping the
+  others. One table lists each board as `ok` / `differs` / `failed` / `skipped`, and the exit code
+  is `1` if any board failed (for `diff`, also if any differs). `pull --all` asks for
+  confirmation since it overwrites local cards; pass `--yes` to skip that. `diff --all --json`
+  emits one `{board, status, message}` object per board. The `enabled` flag is ignored, as with
+  the single-board commands.
 
 ```bash
 # link this project to a new hosted board, then send everything
@@ -310,6 +318,7 @@ kanbai add "…" && kanbai start 12 && kanbai review 12
 # …later, when the server is reachable again
 kanbai hosted diff           # what changed meanwhile?
 kanbai hosted push           # local wins (or `pull` for server wins)
+kanbai hosted push --all     # ...or sync every board of the hub at once
 kanbai hosted enable         # optional: act on the hosted board again
 ```
 

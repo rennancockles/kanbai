@@ -587,13 +587,61 @@ app.add_typer(hosted_app, name="hosted")
 _NOT_CONNECTED_MSG = hosted.NOT_CONNECTED_MSG
 
 
-def _sync_summary(label: str, result: hosted.SyncResult) -> str:
+def _sync_counts(result: hosted.SyncResult) -> str:
     return (
-        f"[green]✓[/green] {label}: {result.created} created, {result.updated} updated"
+        f"{result.created} created, {result.updated} updated"
         + (f", {result.deleted} deleted" if result.deleted else "")
         + (f", {result.kept} kept on the other side" if result.kept else "")
-        + "."
     )
+
+
+def _sync_summary(label: str, result: hosted.SyncResult) -> str:
+    return f"[green]✓[/green] {label}: {_sync_counts(result)}."
+
+
+_OUTCOME_STYLE = {"ok": "green", "differs": "yellow", "failed": "red", "skipped": "dim"}
+
+
+def _run_all(
+    action: hosted.SyncAction,
+    *,
+    delete: bool = False,
+    archived: bool = False,
+    as_json: bool = False,
+) -> None:
+    """Run ``action`` on every board in the hub registry and print one line per board.
+
+    Exits 1 if any board failed (or, for ``diff``, differs); skipped boards never fail it.
+    """
+    boards = registry.load_boards()
+    if not boards:
+        if as_json:
+            _emit_json([])
+        else:
+            console.print("[dim]No boards registered. Add one with `kanbai hub add <path>`.[/dim]")
+        return
+    outcomes = hosted.sync_all(boards, action, delete=delete, archived=archived)
+    details = [
+        o.message or (_sync_counts(o.result) if o.result is not None else "") for o in outcomes
+    ]
+    if as_json:
+        _emit_json(
+            [
+                {"board": o.name, "status": o.status, "message": detail}
+                for o, detail in zip(outcomes, details, strict=True)
+            ]
+        )
+    else:
+        table = Table(title=f"hosted {action} --all", title_justify="left")
+        table.add_column("board", style="cyan", no_wrap=True)
+        table.add_column("status")
+        table.add_column("details")
+        for outcome, detail in zip(outcomes, details, strict=True):
+            style = _OUTCOME_STYLE[outcome.status]
+            table.add_row(outcome.name, f"[{style}]{outcome.status}[/{style}]", detail)
+        console.print(table)
+    if any(o.status in ("failed", "differs") for o in outcomes):
+        raise typer.Exit(code=1)
 
 
 def _connected_project() -> tuple[Path, RemoteConfig]:
@@ -782,6 +830,9 @@ def hosted_push(
     archived: bool = typer.Option(
         False, "--archived", help="Also sync archived cards (left out by default)."
     ),
+    all_boards: bool = typer.Option(
+        False, "--all", help="Push every board registered in the hub that is connected."
+    ),
 ) -> None:
     """Local wins: send this board's cards to the hosted board.
 
@@ -789,7 +840,13 @@ def hosted_push(
     their local ids; cards on both sides are updated or moved to match local. Archived cards
     are left alone unless you pass --archived (then they are created, archived or restored
     on the server to match local).
+
+    With --all it runs on every connected board of the hub registry (from any directory); a
+    board that fails does not stop the others, and the exit code is 1 if any failed.
     """
+    if all_boards:
+        _run_all("push", delete=delete, archived=archived)
+        return
     try:
         kanbai_dir, remote_config = _connected_project()
         result = hosted.push_board(
@@ -809,6 +866,10 @@ def hosted_pull(
     archived: bool = typer.Option(
         False, "--archived", help="Also sync archived cards (left out by default)."
     ),
+    all_boards: bool = typer.Option(
+        False, "--all", help="Pull every board registered in the hub that is connected."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="With --all, skip the confirmation."),
 ) -> None:
     """Server wins: update this board's files to match the hosted board.
 
@@ -816,7 +877,19 @@ def hosted_pull(
     version (moving the file when the column differs, so nothing is duplicated); cards only
     on the server are written locally. Archived cards are left alone unless you pass
     --archived.
+
+    With --all it runs on every connected board of the hub registry (from any directory),
+    after asking for confirmation unless --yes is given, since it overwrites local cards.
     """
+    if all_boards:
+        if not yes:
+            typer.confirm(
+                "Pull overwrites local cards with the hosted version on every connected "
+                "board of the hub. Continue?",
+                abort=True,
+            )
+        _run_all("pull", delete=delete, archived=archived)
+        return
     try:
         kanbai_dir, remote_config = _connected_project()
         result = hosted.pull_board(
@@ -875,12 +948,21 @@ def hosted_diff(
     archived: bool = typer.Option(
         False, "--archived", help="Also compare archived cards (left out by default)."
     ),
+    all_boards: bool = typer.Option(
+        False, "--all", help="Compare every board registered in the hub that is connected."
+    ),
 ) -> None:
     """Compare the local board against the hosted one configured in `[server]`.
 
     Read-only — makes no changes to either side. Exits 0 if the two boards match, 1 if any
     differences are found (cards only on one side, or shared ids with differing fields).
+
+    With --all it summarizes every connected board of the hub registry instead (from any
+    directory), exiting 1 if any board differs or failed.
     """
+    if all_boards:
+        _run_all("diff", archived=archived, as_json=as_json)
+        return
     try:
         kanbai_dir = storage.find_kanbai_dir()
         remote_config = load_remote_config(kanbai_dir) if kanbai_dir is not None else None

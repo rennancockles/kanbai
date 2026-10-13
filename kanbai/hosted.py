@@ -15,11 +15,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Literal
 
 from . import scaffold, storage
 from .board import Board
 from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
-from .errors import KanbaiError
+from .errors import KanbaiError, RemoteAPIError
 from .models import Card
 from .remote_board import RemoteBoard, create_remote_board
 
@@ -344,3 +345,66 @@ def _diff_card(local_card: Card, remote_card: Card) -> CardDiff:
         if getattr(local_card, name) != getattr(remote_card, name)
     ]
     return CardDiff(card_id=local_card.id, changes=changes)
+
+
+SyncAction = Literal["push", "pull", "diff"]
+
+
+@dataclass(frozen=True)
+class BoardOutcome:
+    """What :func:`sync_all` did for one board: ``ok`` (synced / in sync), ``differs`` (diff
+    only), ``failed`` (``message`` says why) or ``skipped`` (not connected)."""
+
+    name: str
+    status: Literal["ok", "differs", "failed", "skipped"]
+    result: SyncResult | None = None
+    message: str = ""
+
+
+def sync_all(
+    boards: dict[str, str], action: SyncAction, *, delete: bool = False, archived: bool = False
+) -> list[BoardOutcome]:
+    """Run push, pull or diff on every ``{name: project path}`` board with a ``[server]``.
+
+    A board that is not connected is skipped, and one that fails (network, auth, unreadable
+    files) is reported without stopping the others. ``delete`` only applies to push/pull.
+    """
+    outcomes: list[BoardOutcome] = []
+    for name, path in sorted(boards.items()):
+        kanbai_dir = Path(path) / storage.KANBAI_DIRNAME
+        try:
+            remote_config = load_remote_config(kanbai_dir)
+            if remote_config is None:
+                outcomes.append(BoardOutcome(name, "skipped", message="not connected"))
+                continue
+            outcomes.append(_sync_one(name, kanbai_dir, remote_config, action, delete, archived))
+        except (KanbaiError, RemoteAPIError, OSError, ValueError) as exc:
+            outcomes.append(BoardOutcome(name, "failed", message=str(exc)))
+    return outcomes
+
+
+def _sync_one(
+    name: str,
+    kanbai_dir: Path,
+    remote_config: RemoteConfig,
+    action: SyncAction,
+    delete: bool,
+    archived: bool,
+) -> BoardOutcome:
+    remote = RemoteBoard(remote_config)
+    if action == "push":
+        return BoardOutcome(
+            name, "ok", push_board(remote, kanbai_dir, delete=delete, archived=archived)
+        )
+    if action == "pull":
+        return BoardOutcome(
+            name, "ok", pull_board(remote, kanbai_dir, delete=delete, archived=archived)
+        )
+    board_diff = diff_boards(Board.load(kanbai_dir.parent), remote, archived=archived)
+    if board_diff.in_sync:
+        return BoardOutcome(name, "ok", message="in sync")
+    message = (
+        f"{len(board_diff.only_local)} only local, {len(board_diff.only_remote)} only hosted, "
+        f"{len(board_diff.changed)} changed"
+    )
+    return BoardOutcome(name, "differs", message=message)
