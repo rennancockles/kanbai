@@ -271,6 +271,9 @@ files, matching them by card id.
 | `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. |
 | `kanbai hosted clone` | Create a local board here from a hosted one (its config and cards) and connect it. The one command that connects by itself, since there is no project yet. Takes `--url`, `--email`, `--password` and `--board` like `connect`. |
 | `kanbai hosted diff` | Compare local and hosted, read-only. Exits `0` when in sync, `1` otherwise; `--json` for scripts. |
+| `kanbai hosted disable` | Switch to local mode but keep the saved connection (`enabled = false` in `[server]`). Every other `kanbai` command (`add`, `move`, `list`…) then works on the local `.kanbai/` files only and never touches the network. `push` / `pull` / `diff` are unaffected. |
+| `kanbai hosted enable` | Make `kanbai` commands act on the hosted board again. Nothing is synced automatically. |
+| `kanbai hosted status` | Show whether the project is connected and whether hosted mode is enabled. |
 
 Options shared by `push`, `pull` and `diff` (and `clone`):
 
@@ -295,6 +298,19 @@ kanbai hosted diff                       # what differs?
 # or link an existing local board to an existing hosted one
 kanbai hosted connect --url https://kanbai.example.com --email me@example.com --board "My board"
 kanbai hosted pull
+```
+
+### Working offline (e.g. behind a VPN)
+
+`disable` / `enable` only choose where day-to-day commands act (local files or the hosted board); `push`, `pull` and `diff` always talk to the server. If it is unreachable, disable hosted mode, keep working locally, and sync later:
+
+```bash
+kanbai hosted disable        # all commands now use the local files only
+kanbai add "…" && kanbai start 12 && kanbai review 12
+# …later, when the server is reachable again
+kanbai hosted diff           # what changed meanwhile?
+kanbai hosted push           # local wins (or `pull` for server wins)
+kanbai hosted enable         # optional: act on the hosted board again
 ```
 
 This replaces the earlier `hosted publish` / `hosted download` commands and the `sync` group.

@@ -23,12 +23,15 @@ class RemoteConfig:
     """Hosted-mode connection details, read from ``config.toml``'s ``[server]`` section.
 
     Presence of this section (with all three fields set) is what switches the CLI into
-    remote mode — see :func:`load_remote_config` and ``kanbai.cli._load``.
+    remote mode — see :func:`load_remote_config` and ``kanbai.cli._load``. ``enabled=False``
+    (``enabled = false`` in the section) keeps the connection saved but runs the project in
+    plain local mode until it is turned back on, e.g. while the server is unreachable.
     """
 
     url: str
     token: str
     board_id: str
+    enabled: bool = True
 
 
 def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
@@ -36,7 +39,8 @@ def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
 
     Returns ``None`` when ``config.toml`` is missing, has no ``[server]`` section, or the
     section is missing any of ``url``/``token``/``board_id`` — in every one of those cases
-    the CLI falls back to local/self-hosted mode, unchanged.
+    the CLI falls back to local/self-hosted mode, unchanged. An optional ``enabled = false``
+    keeps the connection saved but switches hosted mode off (see ``RemoteConfig.enabled``).
     """
     config_path = kanbai_dir / CONFIG_FILENAME
     if not config_path.exists():
@@ -49,7 +53,13 @@ def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
     url, token, board_id = server.get("url"), server.get("token"), server.get("board_id")
     if not (isinstance(url, str) and isinstance(token, str) and isinstance(board_id, str)):
         return None
-    return RemoteConfig(url=url, token=token, board_id=board_id)
+    enabled = server.get("enabled", True)
+    return RemoteConfig(
+        url=url,
+        token=token,
+        board_id=board_id,
+        enabled=enabled if isinstance(enabled, bool) else True,
+    )
 
 
 def _apply_notifications(config: BoardConfig, notifications: dict[str, object]) -> None:

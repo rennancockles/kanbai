@@ -13,12 +13,13 @@ left out unless ``archived=True``. ``clone_board`` creates a local board from a 
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from . import scaffold, storage
 from .board import Board
-from .config import CONFIG_FILENAME, RemoteConfig
+from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
+from .errors import KanbaiError
 from .models import Card
 from .remote_board import RemoteBoard, create_remote_board
 
@@ -49,10 +50,29 @@ def save_connection(kanbai_dir: Path, remote: RemoteConfig) -> None:
         f'url = "{remote.url}"\n'
         f'token = "{remote.token}"\n'
         f'board_id = "{remote.board_id}"\n'
-    )
+    ) + ("" if remote.enabled else "enabled = false\n")
     without_server = _remove_section(existing, "server").rstrip("\n")
     new_text = f"{without_server}\n\n{section}" if without_server else section
     config_path.write_text(new_text, encoding="utf-8")
+
+
+NOT_CONNECTED_MSG = (
+    "Not connected to a hosted board. Run `kanbai hosted connect` first "
+    "(or `kanbai hosted clone` to copy an existing hosted board here)."
+)
+
+
+def set_enabled(kanbai_dir: Path, enabled: bool) -> RemoteConfig:
+    """Switch hosted mode on or off, keeping the saved connection (url, token, board id).
+
+    Raises :class:`KanbaiError` when the project is not connected. Returns the new config.
+    """
+    remote = load_remote_config(kanbai_dir)
+    if remote is None:
+        raise KanbaiError(NOT_CONNECTED_MSG)
+    updated = replace(remote, enabled=enabled)
+    save_connection(kanbai_dir, updated)
+    return updated
 
 
 def _remove_section(toml_text: str, name: str) -> str:

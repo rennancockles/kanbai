@@ -91,11 +91,13 @@ def _notify(board: AnyBoard, title: str, body: str) -> None:
 
 
 def _load_board_at(start: Path | None) -> AnyBoard:
-    """Load the board at (or above) ``start`` — remote if its `config.toml` has a complete
-    `[server]` section, local (filesystem-backed) otherwise. Raises :class:`KanbaiError`."""
+    """Load the board at (or above) ``start`` — remote if its `config.toml` has a complete,
+    enabled `[server]` section, local (filesystem-backed) otherwise. Raises :class:`KanbaiError`."""
     kanbai_dir = storage.find_kanbai_dir(start)
     remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-    board: AnyBoard = RemoteBoard(remote) if remote is not None else Board.load(start)
+    board: AnyBoard = (
+        RemoteBoard(remote) if remote is not None and remote.enabled else Board.load(start)
+    )
     board.on_notify = lambda title, body: _notify(board, title, body)
     return board
 
@@ -582,10 +584,7 @@ hosted_app = typer.Typer(
 )
 app.add_typer(hosted_app, name="hosted")
 
-_NOT_CONNECTED_MSG = (
-    "Not connected to a hosted board. Run `kanbai hosted connect` first "
-    "(or `kanbai hosted clone` to copy an existing hosted board here)."
-)
+_NOT_CONNECTED_MSG = hosted.NOT_CONNECTED_MSG
 
 
 def _sync_summary(label: str, result: hosted.SyncResult) -> str:
@@ -704,6 +703,75 @@ def hosted_connect(
         f"[green]✓[/green] {action} hosted board [cyan]{remote_config.board_id}[/cyan] "
         f"on [cyan]{remote_config.url}[/cyan]. This project now runs in hosted mode."
     )
+
+
+@hosted_app.command("disable")
+def hosted_disable() -> None:
+    """Make `kanbai` commands work on the local files instead of the hosted board.
+
+    Keeps the `[server]` connection in `config.toml`, but `add`, `move`, `list` etc. then use
+    the local `.kanbai/` files only and never touch the network — for when the server is
+    unreachable (e.g. on a VPN). It only changes where those commands act: `hosted push` /
+    `pull` / `diff` keep working regardless, so sync whenever the server is reachable.
+    """
+    _toggle_hosted(enabled=False)
+
+
+@hosted_app.command("enable")
+def hosted_enable() -> None:
+    """Make `kanbai` commands act on the hosted board again after `hosted disable`.
+
+    Nothing is synced automatically: run `kanbai hosted diff` to see what changed while it was
+    off, then `kanbai hosted push` (local wins) or `pull` (server wins).
+    """
+    _toggle_hosted(enabled=True)
+
+
+def _toggle_hosted(*, enabled: bool) -> None:
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        if kanbai_dir is None:
+            raise KanbaiError("No local kanbai board found here.")
+        hosted.set_enabled(kanbai_dir, enabled)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if enabled:
+        console.print(
+            "[green]✓[/green] Hosted mode enabled — commands now act on the hosted board. "
+            "Run `kanbai hosted diff` to see what changed meanwhile, then "
+            "`kanbai hosted push` or `pull` to sync."
+        )
+    else:
+        console.print(
+            "[green]✓[/green] Hosted mode disabled — commands now work on the local files only. "
+            "Sync with `kanbai hosted push` / `pull` when the server is reachable; "
+            "run `kanbai hosted enable` to use the hosted board again."
+        )
+
+
+@hosted_app.command("status")
+def hosted_status() -> None:
+    """Show whether this project is connected to a hosted board and if that is enabled."""
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        if kanbai_dir is None:
+            raise KanbaiError("No local kanbai board found here.")
+        remote_config = load_remote_config(kanbai_dir)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if remote_config is None:
+        console.print("Not connected to a hosted board (local mode).")
+        return
+    target = f"board [cyan]{remote_config.board_id}[/cyan] on [cyan]{remote_config.url}[/cyan]"
+    if remote_config.enabled:
+        console.print(f"[green]Hosted mode enabled[/green] — {target}.")
+    else:
+        console.print(
+            f"[yellow]Hosted mode disabled[/yellow] — connected to {target}, but working on "
+            "the local files only. Run `kanbai hosted enable` to turn it back on."
+        )
 
 
 @hosted_app.command("push")

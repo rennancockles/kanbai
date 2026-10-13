@@ -47,3 +47,27 @@ def test_server_section_wrong_type_returns_none(tmp_path: Path) -> None:
     cfg.write_text(cfg.read_text() + "\nserver = true\n")
 
     assert load_remote_config(tmp_path / ".kanbai") is None
+
+
+def test_enabled_defaults_to_true(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[server]\nurl = "https://x"\ntoken = "t"\nboard_id = "b"\n')
+
+    remote = load_remote_config(tmp_path / ".kanbai")
+
+    assert remote is not None
+    assert remote.enabled is True
+
+
+def test_enabled_false_is_parsed_and_keeps_the_connection(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(
+        cfg.read_text()
+        + '\n[server]\nurl = "https://x"\ntoken = "t"\nboard_id = "b"\nenabled = false\n'
+    )
+
+    assert load_remote_config(tmp_path / ".kanbai") == RemoteConfig(
+        url="https://x", token="t", board_id="b", enabled=False
+    )

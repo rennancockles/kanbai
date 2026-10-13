@@ -612,3 +612,74 @@ def test_diff_ignores_archived_cards_unless_asked(
     assert plain.exit_code == 0, plain.output
     assert full.exit_code == 1
     assert json.loads(full.output)["only_remote"] == ["998"]
+
+
+# --------------------------------------------------------------------------- enable / disable
+
+
+def test_disable_keeps_the_connection_and_enable_restores_it(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    before = (local_project / ".kanbai" / "config.toml").read_text()
+
+    disabled = runner.invoke(app, ["hosted", "disable"])
+    config_while_disabled = (local_project / ".kanbai" / "config.toml").read_text()
+    enabled = runner.invoke(app, ["hosted", "enable"])
+
+    assert disabled.exit_code == 0, disabled.output
+    assert "enabled = false" in config_while_disabled
+    for line in before.splitlines():
+        if line.startswith(("url", "token", "board_id")):
+            assert line in config_while_disabled
+    assert enabled.exit_code == 0, enabled.output
+    assert "enabled" not in (local_project / ".kanbai" / "config.toml").read_text()
+
+
+def test_sync_commands_work_regardless_of_the_flag(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+    runner.invoke(app, ["hosted", "disable"])
+
+    pushed = runner.invoke(app, ["hosted", "push"])
+    pulled = runner.invoke(app, ["hosted", "pull"])
+    diffed = runner.invoke(app, ["hosted", "diff"])
+
+    assert pushed.exit_code == 0, pushed.output
+    assert pulled.exit_code == 0, pulled.output
+    assert diffed.exit_code == 0, diffed.output
+
+
+def test_offline_work_syncs_while_still_disabled(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    runner.invoke(app, ["hosted", "disable"])
+    created = runner.invoke(app, ["add", "Made offline", "--json"])
+
+    pushed = runner.invoke(app, ["hosted", "push"])
+
+    assert pushed.exit_code == 0, pushed.output
+    remote = fake_server.cards[_board_id(local_project)]
+    assert [c["title"] for c in remote.values()] == ["Made offline"]
+    assert json.loads(created.output)["id"] in remote
+
+
+def test_enable_and_disable_require_a_connection(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    for command in ("enable", "disable"):
+        result = runner.invoke(app, ["hosted", command])
+
+        assert result.exit_code == 1
+        assert "hosted connect" in result.output
+
+
+def test_status_reports_each_state(local_project: Path, fake_server: _FakeServer) -> None:
+    assert "Not connected" in runner.invoke(app, ["hosted", "status"]).output
+    _connect()
+    assert "enabled" in runner.invoke(app, ["hosted", "status"]).output
+    runner.invoke(app, ["hosted", "disable"])
+    assert "disabled" in runner.invoke(app, ["hosted", "status"]).output

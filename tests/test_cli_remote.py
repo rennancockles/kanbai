@@ -79,3 +79,35 @@ def test_local_project_is_unaffected_without_server_section(
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["title"] == "Local task"
     assert (tmp_path / ".kanbai" / "backlog").exists()
+
+
+def test_disabled_hosted_works_on_local_files_without_touching_the_server(
+    remote_project: tuple[Path, _FakeServer], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.invoke(app, ["hosted", "disable"])
+
+    def no_network(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"unexpected request to {request.url}")
+
+    patch_transport(monkeypatch, httpx.MockTransport(no_network))
+
+    added = runner.invoke(app, ["add", "Offline task", "-c", "todo", "--json"])
+    assert added.exit_code == 0, added.output
+    card_id = json.loads(added.output)["id"]
+    assert runner.invoke(app, ["move", card_id, "doing"]).exit_code == 0
+    board = json.loads(runner.invoke(app, ["list", "--json"]).output)
+    assert [c["title"] for c in board["doing"]] == ["Offline task"]
+
+
+def test_enable_restores_hosted_mode(remote_project: tuple[Path, _FakeServer]) -> None:
+    runner.invoke(app, ["hosted", "disable"])
+    runner.invoke(app, ["hosted", "enable"])
+
+    result = runner.invoke(app, ["add", "Remote again", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert any(
+        c["title"] == "Remote again"
+        for cards in remote_project[1].cards.values()
+        for c in cards.values()
+    )
