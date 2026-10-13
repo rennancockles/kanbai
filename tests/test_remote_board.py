@@ -15,7 +15,7 @@ from datetime import datetime
 import httpx2 as httpx
 import pytest
 from kanbai.config import RemoteConfig
-from kanbai.errors import RemoteAPIError
+from kanbai.errors import HostUnreachableError, RemoteAPIError
 from kanbai.models import Card, Priority
 from kanbai.remote_board import RemoteBoard
 
@@ -453,3 +453,36 @@ def test_add_returns_card_model(remote_board: RemoteBoard) -> None:
     card = remote_board.add("Card")
 
     assert isinstance(card, Card)
+
+
+def _board_with_transport(
+    monkeypatch: pytest.MonkeyPatch, handler: Callable[[httpx.Request], httpx.Response]
+) -> RemoteConfig:
+    patch_transport(monkeypatch, httpx.MockTransport(handler))
+    return RemoteConfig(url="https://kanbai.example.com", token="tok", board_id=BOARD_ID)
+
+
+def test_network_failure_raises_host_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    with pytest.raises(HostUnreachableError, match="Could not reach"):
+        RemoteBoard(_board_with_transport(monkeypatch, refuse))
+
+
+def test_non_api_error_reply_is_reported_as_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    def block_page(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text="<html>blocked</html>")
+
+    with pytest.raises(HostUnreachableError, match="VPN, firewall or proxy") as exc_info:
+        RemoteBoard(_board_with_transport(monkeypatch, block_page))
+    assert exc_info.value.status_code == 403
+
+
+def test_json_error_reply_is_a_plain_api_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"detail": "not your board"})
+
+    with pytest.raises(RemoteAPIError, match="not your board") as exc_info:
+        RemoteBoard(_board_with_transport(monkeypatch, forbidden))
+    assert not isinstance(exc_info.value, HostUnreachableError)

@@ -16,7 +16,7 @@ from typing import Any
 import httpx2 as httpx
 
 from .config import RemoteConfig
-from .errors import RemoteAPIError
+from .errors import HostUnreachableError, RemoteAPIError
 from .models import BoardConfig, Card, Priority
 
 _TIMEOUT = 10.0
@@ -31,8 +31,14 @@ def _send(client: httpx.Client, base_url: str, method: str, path: str, **kwargs:
     try:
         response = client.request(method, path, **kwargs)
     except httpx.RequestError as exc:
-        raise RemoteAPIError(f"Could not reach {base_url}: {exc}") from exc
+        raise HostUnreachableError(f"Could not reach {base_url}: {exc}") from exc
     if response.is_error:
+        if not _is_api_response(response):
+            raise HostUnreachableError(
+                f"{_error_detail(response)} — {base_url} did not answer like a kanbai server "
+                "(blocked by a VPN, firewall or proxy?)",
+                status_code=response.status_code,
+            )
         raise RemoteAPIError(_error_detail(response), status_code=response.status_code)
     if response.status_code == httpx.codes.NO_CONTENT or not response.content:
         return None
@@ -299,6 +305,14 @@ class RemoteBoard:
             json={"reset_to_backlog": reset_to_backlog, "version": version},
         )
         return {"archived": data["archived"], "reset": data["reset"]}
+
+
+def _is_api_response(response: httpx.Response) -> bool:
+    """Whether the reply is the hosted API's own JSON (as opposed to a proxy's block page)."""
+    try:
+        return isinstance(response.json(), dict)
+    except ValueError:
+        return False
 
 
 def _error_detail(response: httpx.Response) -> str:

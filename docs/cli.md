@@ -284,7 +284,9 @@ Options shared by `push`, `pull` and `diff` (and `clone`):
 - `--all` (`push`, `pull`, `diff`) — run on every board of the [hub registry](hub.md) instead of
   the current project, from any directory. Boards without a `[server]` connection are
   *skipped*; a board that fails (network, expired token…) is reported without stopping the
-  others. One table lists each board as `ok` / `differs` / `failed` / `skipped`, and the exit code
+  others. When a server is unreachable (network error, timeout, or a VPN/firewall/proxy block
+  page instead of the kanbai API), the remaining boards on that same server are *skipped*
+  rather than each waiting out the timeout. One table lists each board as `ok` / `differs` / `failed` / `skipped`, and the exit code
   is `1` if any board failed (for `diff`, also if any differs). `pull --all` asks for
   confirmation since it overwrites local cards; pass `--yes` to skip that. `diff --all --json`
   emits one `{board, status, message}` object per board. The `enabled` flag is ignored, as with

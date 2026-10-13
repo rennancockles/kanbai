@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-from kanbai import registry, scaffold
+from kanbai import hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
 from typer.testing import CliRunner
@@ -779,3 +779,40 @@ def test_all_with_an_empty_registry_is_a_no_op(
 
     assert result.exit_code == 0
     assert "No boards registered" in result.output
+
+
+def test_all_skips_remaining_boards_once_a_host_is_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    fake_server = _FakeServer()
+    down_requests: list[str] = []
+
+    def route(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "down.example.com":
+            down_requests.append(request.url.path)
+            return httpx.Response(403, text="<html>blocked by firewall</html>")
+        return fake_server.handle(request)
+
+    patch_transport(monkeypatch, httpx.MockTransport(route))
+    for name in ("a1", "a2", "b"):
+        project = tmp_path / name
+        scaffold.init_board(project, name=name)
+        registry.add_board(project)
+    for name in ("a1", "a2"):
+        cfg = tmp_path / name / ".kanbai" / "config.toml"
+        cfg.write_text(
+            cfg.read_text()
+            + '\n[server]\nurl = "https://down.example.com"\ntoken = "tok"\nboard_id = "x"\n'
+        )
+    monkeypatch.chdir(tmp_path / "b")
+    _connect()
+
+    outcomes = {o.name: o for o in hosted.sync_all(registry.load_boards(), "push")}
+
+    assert outcomes["a1"].status == "failed"
+    assert "VPN, firewall or proxy" in outcomes["a1"].message
+    assert outcomes["a2"].status == "skipped"
+    assert "unreachable" in outcomes["a2"].message
+    assert outcomes["b"].status == "ok"
+    assert len(down_requests) == 1  # only a1 touched the dead host

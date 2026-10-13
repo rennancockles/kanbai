@@ -20,7 +20,7 @@ from typing import Literal
 from . import scaffold, storage
 from .board import Board
 from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
-from .errors import KanbaiError, RemoteAPIError
+from .errors import HostUnreachableError, KanbaiError, RemoteAPIError
 from .models import Card
 from .remote_board import RemoteBoard, create_remote_board
 
@@ -367,9 +367,12 @@ def sync_all(
     """Run push, pull or diff on every ``{name: project path}`` board with a ``[server]``.
 
     A board that is not connected is skipped, and one that fails (network, auth, unreadable
-    files) is reported without stopping the others. ``delete`` only applies to push/pull.
+    files) is reported without stopping the others. Once a server proves unreachable, the
+    remaining boards on that same url are skipped instead of each waiting out the timeout.
+    ``delete`` only applies to push/pull.
     """
     outcomes: list[BoardOutcome] = []
+    unreachable: dict[str, str] = {}  # server url -> name of the board that found it down
     for name, path in sorted(boards.items()):
         kanbai_dir = Path(path) / storage.KANBAI_DIRNAME
         try:
@@ -377,7 +380,15 @@ def sync_all(
             if remote_config is None:
                 outcomes.append(BoardOutcome(name, "skipped", message="not connected"))
                 continue
+            url = remote_config.url.rstrip("/")
+            if url in unreachable:
+                message = f"server unreachable (skipped after '{unreachable[url]}' failed)"
+                outcomes.append(BoardOutcome(name, "skipped", message=message))
+                continue
             outcomes.append(_sync_one(name, kanbai_dir, remote_config, action, delete, archived))
+        except HostUnreachableError as exc:
+            unreachable[url] = name
+            outcomes.append(BoardOutcome(name, "failed", message=str(exc)))
         except (KanbaiError, RemoteAPIError, OSError, ValueError) as exc:
             outcomes.append(BoardOutcome(name, "failed", message=str(exc)))
     return outcomes

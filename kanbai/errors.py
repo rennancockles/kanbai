@@ -85,3 +85,11 @@ class RemoteAPIError(KanbaiError):
     def __init__(self, message: str, *, status_code: int | None = None) -> None:
         self.status_code = status_code
         super().__init__(message)
+
+
+class HostUnreachableError(RemoteAPIError):
+    """The hosted server could not be reached: a network failure (DNS, refused, timeout) or a
+    non-API reply (e.g. a VPN/firewall/proxy block page) instead of the API's JSON.
+
+    Every board on the same server will fail the same way, so batch operations can skip them.
+    """
