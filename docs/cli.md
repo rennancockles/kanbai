@@ -267,6 +267,7 @@ files, matching them by card id.
 | Command | What it does |
 |---------|--------------|
 | `kanbai hosted connect` | Log in and save the connection (url, token, board id) in `config.toml`. `--board <id\|name>` connects to an existing hosted board, `--create` makes a new one from the local board; with neither you pick from a list (`0` = new board). The password is prompted for unless `--password` is given. No cards move. |
+| `kanbai hosted login` | Renew the saved access token (they expire after about a day) without reconnecting: logs in again against the saved server with `--email` / `--password` and replaces only the token in `[server]`. Commands that hit an expired token fail with a 401 that points here. |
 | `kanbai hosted push` | **Local wins.** Send the local cards to the hosted board, created with their local ids. |
 | `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. |
 | `kanbai hosted clone` | Create a local board here from a hosted one (its config and cards) and connect it. The one command that connects by itself, since there is no project yet. Takes `--url`, `--email`, `--password` and `--board` like `connect`. |

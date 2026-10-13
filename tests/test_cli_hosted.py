@@ -11,11 +11,13 @@ import pytest
 from kanbai import hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
+from kanbai.config import load_remote_config
 from typer.testing import CliRunner
 
 from test_remote_board import (
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
+    ADMIN_TOKEN,
     BOARD_ID,
     _FakeServer,
     patch_transport,
@@ -816,3 +818,69 @@ def test_all_skips_remaining_boards_once_a_host_is_unreachable(
     assert "unreachable" in outcomes["a2"].message
     assert outcomes["b"].status == "ok"
     assert len(down_requests) == 1  # only a1 touched the dead host
+
+
+# --------------------------------------------------------------------------- login
+
+
+def _login_args(*extra: str, password: str = ADMIN_PASSWORD) -> list[str]:
+    return ["hosted", "login", "--email", ADMIN_EMAIL, "--password", password, *extra]
+
+
+def test_login_renews_only_the_token(local_project: Path, fake_server: _FakeServer) -> None:
+    _connect()
+    cfg_path = local_project / ".kanbai" / "config.toml"
+    cfg_path.write_text(cfg_path.read_text().replace(ADMIN_TOKEN, "stale-token"))
+    runner.invoke(app, ["hosted", "disable"])
+    before = load_remote_config(local_project / ".kanbai")
+    assert before is not None
+    assert before.token == "stale-token"
+
+    result = runner.invoke(app, _login_args())
+
+    assert result.exit_code == 0, result.output
+    after = load_remote_config(local_project / ".kanbai")
+    assert after is not None
+    assert after.token == ADMIN_TOKEN
+    assert (after.url, after.board_id) == (before.url, before.board_id)
+    assert after.enabled is False  # the enable/disable state survives
+
+
+def test_login_with_bad_credentials_keeps_the_old_token(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    before = (local_project / ".kanbai" / "config.toml").read_text()
+
+    result = runner.invoke(app, _login_args(password="wrong"))
+
+    assert result.exit_code == 1
+    assert "Invalid email or password" in result.output
+    assert (local_project / ".kanbai" / "config.toml").read_text() == before
+
+
+def test_login_requires_a_connection(local_project: Path, fake_server: _FakeServer) -> None:
+    result = runner.invoke(app, _login_args())
+
+    assert result.exit_code == 1
+    assert "hosted connect" in result.output
+
+
+def test_all_reports_an_expired_token_with_the_login_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    patch_transport(
+        monkeypatch,
+        httpx.MockTransport(lambda request: httpx.Response(401, json={"detail": "Token expired"})),
+    )
+    project = tmp_path / "old"
+    scaffold.init_board(project, name="old")
+    registry.add_board(project)
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + f'\n[server]\nurl = "{URL}"\ntoken = "old"\nboard_id = "x"\n')
+
+    (outcome,) = hosted.sync_all(registry.load_boards(), "push")
+
+    assert outcome.status == "failed"
+    assert "kanbai hosted login" in outcome.message

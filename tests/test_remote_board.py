@@ -17,7 +17,7 @@ import pytest
 from kanbai.config import RemoteConfig
 from kanbai.errors import HostUnreachableError, RemoteAPIError
 from kanbai.models import Card, Priority
-from kanbai.remote_board import RemoteBoard
+from kanbai.remote_board import RemoteBoard, login
 
 BOARD_ID = "board-1"
 _NOW = datetime(2026, 1, 1, 12, 0, 0)
@@ -486,3 +486,24 @@ def test_json_error_reply_is_a_plain_api_error(monkeypatch: pytest.MonkeyPatch) 
     with pytest.raises(RemoteAPIError, match="not your board") as exc_info:
         RemoteBoard(_board_with_transport(monkeypatch, forbidden))
     assert not isinstance(exc_info.value, HostUnreachableError)
+
+
+def test_expired_token_error_points_to_hosted_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    def expired(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"detail": "Token has expired"})
+
+    with pytest.raises(RemoteAPIError, match="Token has expired") as exc_info:
+        RemoteBoard(_board_with_transport(monkeypatch, expired))
+    assert "kanbai hosted login" in str(exc_info.value)
+    assert exc_info.value.status_code == 401
+
+
+def test_bad_login_credentials_do_not_suggest_hosted_login(
+    fake_server: _FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    patch_transport(monkeypatch, httpx.MockTransport(fake_server.handle))
+
+    with pytest.raises(RemoteAPIError) as exc_info:
+        login("https://kanbai.example.com", ADMIN_EMAIL, "wrong")
+    assert "Invalid email or password" in str(exc_info.value)
+    assert "hosted login" not in str(exc_info.value)

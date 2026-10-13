@@ -39,7 +39,13 @@ def _send(client: httpx.Client, base_url: str, method: str, path: str, **kwargs:
                 "(blocked by a VPN, firewall or proxy?)",
                 status_code=response.status_code,
             )
-        raise RemoteAPIError(_error_detail(response), status_code=response.status_code)
+        detail = _error_detail(response)
+        if response.status_code == httpx.codes.UNAUTHORIZED and "Authorization" in client.headers:
+            detail = (
+                f"{detail} — your hosted token is expired or invalid; "
+                "run `kanbai hosted login` to renew it."
+            )
+        raise RemoteAPIError(detail, status_code=response.status_code)
     if response.status_code == httpx.codes.NO_CONTENT or not response.content:
         return None
     return response.json()

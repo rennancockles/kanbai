@@ -76,6 +76,19 @@ def set_enabled(kanbai_dir: Path, enabled: bool) -> RemoteConfig:
     return updated
 
 
+def renew_token(kanbai_dir: Path, token: str) -> RemoteConfig:
+    """Replace the saved access token, keeping url, board id and the enabled flag.
+
+    Raises :class:`KanbaiError` when the project is not connected. Returns the new config.
+    """
+    remote = load_remote_config(kanbai_dir)
+    if remote is None:
+        raise KanbaiError(NOT_CONNECTED_MSG)
+    updated = replace(remote, token=token)
+    save_connection(kanbai_dir, updated)
+    return updated
+
+
 def _remove_section(toml_text: str, name: str) -> str:
     """Drop a top-level ``[name]`` table and its body (up to the next ``[...]`` or EOF)."""
     lines = toml_text.splitlines(keepends=True)

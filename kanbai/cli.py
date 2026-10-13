@@ -822,6 +822,36 @@ def hosted_status() -> None:
         )
 
 
+@hosted_app.command("login")
+def hosted_login(
+    email: str = typer.Option(..., "--email", help="Account email."),
+    password: str | None = typer.Option(
+        None, "--password", help="Account password (prompted for if omitted)."
+    ),
+) -> None:
+    """Renew the saved access token without reconnecting.
+
+    Hosted tokens expire (about a day), after which commands fail with a 401. This logs in
+    again against the saved server and replaces only the token in `[server]`; the url, board
+    id and the `hosted enable`/`disable` state are untouched. Works whether hosted mode is
+    enabled or not.
+    """
+    try:
+        kanbai_dir = storage.find_kanbai_dir()
+        if kanbai_dir is None:
+            raise KanbaiError("No local kanbai board found here.")
+        remote_config = load_remote_config(kanbai_dir)
+        if remote_config is None:
+            raise KanbaiError(_NOT_CONNECTED_MSG)
+        secret = password if password is not None else typer.prompt("Password", hide_input=True)
+        token = login(remote_config.url, email, secret)
+        hosted.renew_token(kanbai_dir, token)
+    except (KanbaiError, RemoteAPIError) as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]✓[/green] Renewed the token for [cyan]{remote_config.url}[/cyan].")
+
+
 @hosted_app.command("push")
 def hosted_push(
     delete: bool = typer.Option(
