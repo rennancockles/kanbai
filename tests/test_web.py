@@ -1496,3 +1496,25 @@ def test_hub_view_page_shows_configured_boards(
     view_html = client.get("/v/").text
     assert "board-a" in view_html
     assert "board-b" in view_html
+
+
+def test_touch_drag_needs_a_long_press_on_board_and_multi_board_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board_path = tmp_path / "a"
+    scaffold.init_board(board_path)
+    client = TestClient(create_hub_app({"a": str(board_path)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+
+    for page in (client.get("/b/a/").text, client.get("/v/").text):
+        assert "delayOnTouchOnly: true" in page
+
+
+def test_stylesheet_has_a_phone_breakpoint_for_the_topbar_and_toolbar(tmp_path: Path) -> None:
+    css = _client(tmp_path).get("/static/style.css").text
+
+    assert "@media (max-width: 720px)" in css
+    mobile = css[css.index("@media (max-width: 720px)") :]
+    assert ".topbar" in mobile
+    assert ".toolbar" in mobile

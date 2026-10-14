@@ -113,6 +113,8 @@
             animation: 150,
             draggable: '.card',
             ghostClass: 'card-ghost',
+            delay: 150,
+            delayOnTouchOnly: true,
             onEnd: function (evt) {
               var id = evt.item.getAttribute('data-id');
               var column = evt.to.getAttribute('data-column');

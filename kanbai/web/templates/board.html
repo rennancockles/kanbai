@@ -125,6 +125,8 @@
           animation: 150,
           draggable: '.card',        // ignore the "empty" placeholder in index math
           ghostClass: 'card-ghost',
+          delay: 150,                // long-press to drag on touch, so swiping still scrolls
+          delayOnTouchOnly: true,
           onEnd: function (evt) {
             var id = evt.item.getAttribute('data-id');
             var column = evt.to.getAttribute('data-column');

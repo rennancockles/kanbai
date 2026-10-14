@@ -781,3 +781,64 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 @keyframes ai-command-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Narrow screens (phones): stack the topbar, make actions icon-only with touch-sized targets,
+   and let the toolbar filters wrap. 16px inputs stop iOS Safari zooming in on focus. */
+@media (max-width: 720px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+  }
+  .topbar-left { flex-wrap: wrap; }
+  .topbar .ai-command {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+  .ai-command input { flex: 1; width: auto; min-width: 0; }
+
+  .board-actions {
+    justify-content: space-between;
+    overflow-x: auto;
+  }
+  .board-actions .icon-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem;
+  }
+  .board-actions .icon-btn .icon { width: 20px; height: 20px; }
+  /* icon-only: keep the label for screen readers */
+  .board-actions .icon-btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem 0;
+  }
+  .toolbar .search { flex: 1 1 100%; max-width: none; }
+  .toolbar .label-filter,
+  .toolbar .type-filter { flex: 1 1 0; min-width: 0; }
+
+  .toolbar .search,
+  .toolbar .label-filter,
+  .toolbar .type-filter,
+  .ai-command input,
+  .board-switcher,
+  .category-filter {
+    font-size: 16px;
+    min-height: 40px;
+  }
+  .category-filter { max-width: 40vw; }
+  .board-switcher { max-width: 100%; min-width: 0; }
+
+  .board { padding: 1rem; }
+  .hub { padding: 1rem; }
+}
