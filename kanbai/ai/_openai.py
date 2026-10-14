@@ -54,9 +54,8 @@ def call(instruction: str, schema: dict[str, object], model: str) -> dict[str, o
     return parsed if isinstance(parsed, dict) else None
 
 
-#: Default model when the user hasn't overridden it via ``KANBAI_AI_MODEL`` — cheap and
-#: fast, and supports structured outputs.
-DEFAULT_MODEL = "gpt-4o-mini"
+#: Default model when the user hasn't overridden it via ``KANBAI_AI_MODEL``
+DEFAULT_MODEL = "gpt-6-luna"
 
 #: The env var this provider's API key is read from (by the SDK itself, implicitly).
 API_KEY_ENV = "OPENAI_API_KEY"
