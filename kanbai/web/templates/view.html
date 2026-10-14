@@ -172,6 +172,12 @@
       initCollapse();
     });
 
+    // Live updates: one SSE stream for the whole view; each event names a board whose
+    // files changed on disk (e.g. Claude moved a card via the CLI), so refresh just that one.
+    if (window.EventSource && document.querySelector('[data-board-name]')) {
+      new EventSource('/v/events').onmessage = function (e) { refreshBoard(e.data); };
+    }
+
     // After a card action via HTMX (detail modal), refresh the affected board section.
     document.body.addEventListener('htmx:afterRequest', function (evt) {
       var path = (evt.detail.pathInfo || {}).requestPath || '';

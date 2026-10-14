@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -20,6 +20,7 @@ from ..ai import ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Priority
+from . import watcher
 from .app import PRIORITY_CLASS, TYPE_CLASS, create_app
 from .errors import render_http_error
 
@@ -239,6 +240,22 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
                 "app_version": __version__,
             },
         )
+
+    @hub.get("/v/events")
+    def view_events() -> StreamingResponse:
+        view_dirs = {
+            name: Path(last_boards[name]) / ".kanbai"
+            for name in view_registry.load_view()
+            if name in last_boards
+        }
+
+        async def stream() -> AsyncIterator[str]:
+            yield ": connected\n\n"
+            async for names in watcher.watch_boards(view_dirs):
+                for name in names:
+                    yield f"data: {name}\n\n"
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
 
     @hub.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException) -> Response:

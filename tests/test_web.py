@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import sys
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -20,7 +22,7 @@ from kanbai.notify_ntfy import notify_ntfy, notify_ntfy_background
 from kanbai.web import app as app_module, hub as hub_module, server
 from kanbai.web.app import create_app
 from kanbai.web.hub import create_hub_app
-from kanbai.web.watcher import watch_board
+from kanbai.web.watcher import watch_board, watch_boards
 from typer.testing import CliRunner
 
 cli_runner = CliRunner()
@@ -1399,6 +1401,39 @@ def test_watch_board_detects_change_with_polling(tmp_path: Path) -> None:
     asyncio.run(run())
 
 
+def _kanbai_subprocess(cwd: Path, *args: str) -> None:
+    """Run the real CLI in a separate process, like Claude moving a card."""
+    code = "from kanbai.cli import app; app()"
+    subprocess.run([sys.executable, "-c", code, *args], cwd=cwd, check=True, capture_output=True)
+
+
+def test_watch_boards_reports_only_the_board_changed_by_another_process(tmp_path: Path) -> None:
+    for name in ("a", "b"):
+        scaffold.init_board(tmp_path / name)
+    Board.load(tmp_path / "a").add("probe", column="todo")
+    dirs = {name: tmp_path / name / ".kanbai" for name in ("a", "b")}
+
+    async def run() -> list[str]:
+        agen = watch_boards(dirs, force_polling=True)
+        poke = asyncio.create_task(
+            asyncio.to_thread(_kanbai_subprocess, tmp_path / "a", "start", "001")
+        )
+        try:
+            return await asyncio.wait_for(agen.__anext__(), timeout=15)
+        finally:
+            await poke
+            await agen.aclose()
+
+    assert asyncio.run(run()) == ["a"]
+
+
+def test_watch_boards_ends_when_no_board_directory_exists(tmp_path: Path) -> None:
+    async def run() -> list[list[str]]:
+        return [names async for names in watch_boards({"ghost": tmp_path / "nope" / ".kanbai"})]
+
+    assert asyncio.run(run()) == []
+
+
 # ---------------------------------------------------------------------------
 # Multi-board view
 # ---------------------------------------------------------------------------
@@ -1518,3 +1553,46 @@ def test_stylesheet_has_a_phone_breakpoint_for_the_topbar_and_toolbar(tmp_path: 
     mobile = css[css.index("@media (max-width: 720px)") :]
     assert ".topbar" in mobile
     assert ".toolbar" in mobile
+
+
+def test_hub_view_events_streams_the_name_of_each_changed_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    for name in ("a", "b"):
+        scaffold.init_board(tmp_path / name)
+    seen: list[dict[str, Path]] = []
+
+    async def fake_watch(dirs: dict[str, Path]) -> AsyncIterator[list[str]]:
+        seen.append(dirs)
+        yield ["b"]  # simulate a CLI change in board b, then finish
+
+    monkeypatch.setattr("kanbai.web.watcher.watch_boards", fake_watch)
+    client = TestClient(
+        create_hub_app({"a": str(tmp_path / "a"), "b": str(tmp_path / "b")}),
+        follow_redirects=True,
+    )
+    client.post("/view", data={"boards": ["a", "b"]})
+
+    resp = client.get("/v/events")
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    assert "data: b\n\n" in resp.text
+    assert "data: a" not in resp.text
+    assert seen == [{"a": tmp_path / "a" / ".kanbai", "b": tmp_path / "b" / ".kanbai"}]
+
+
+def test_hub_view_page_subscribes_to_live_updates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "a"
+    scaffold.init_board(board)
+    client = TestClient(create_hub_app({"a": str(board)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+
+    page = client.get("/v/").text
+
+    assert "new EventSource('/v/events')" in page
+    assert "refreshBoard(e.data)" in page
