@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, __version__, daemon, hosted, registry, scaffold, storage
+from . import APP_NAME, __version__, credentials, daemon, hosted, registry, scaffold, storage
 from .board import Board
 from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
@@ -833,28 +833,44 @@ def hosted_login(
     password: str | None = typer.Option(
         None, "--password", help="Account password (prompted for if omitted)."
     ),
+    url: str | None = typer.Option(
+        None,
+        "--url",
+        help="Hosted server to log in to (default: the server of the connected project).",
+    ),
 ) -> None:
-    """Renew the saved access token without reconnecting.
+    """Log in once for every project on a hosted server (they share the token).
 
     Hosted tokens expire (about a day), after which commands fail with a 401. This logs in
-    again against the saved server and replaces only the token in `[server]`; the url, board
-    id and the `hosted enable`/`disable` state are untouched. Works whether hosted mode is
-    enabled or not.
+    and saves the token globally in `~/.kanbai/credentials.toml`, keyed by server URL; every
+    project connected to that server uses it, taking precedence over the `token` in its
+    `[server]` section, so there is no need to log in project by project. Run it from any
+    directory with --url, or inside a connected project to use that project's server. In a
+    project on the same server its saved token is renewed too; url, board id and the
+    `hosted enable`/`disable` state are untouched.
     """
     try:
         kanbai_dir = storage.find_kanbai_dir()
-        if kanbai_dir is None:
-            raise KanbaiError("No local kanbai board found here.")
-        remote_config = load_remote_config(kanbai_dir)
-        if remote_config is None:
-            raise KanbaiError(_NOT_CONNECTED_MSG)
+        remote_config = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
+        server_url = url or (remote_config.url if remote_config is not None else None)
+        if server_url is None:
+            raise KanbaiError(f"{_NOT_CONNECTED_MSG} Or pass --url to log in without a project.")
         secret = password if password is not None else typer.prompt("Password", hide_input=True)
-        token = login(remote_config.url, email, secret)
-        hosted.renew_token(kanbai_dir, token)
+        token = login(server_url, email, secret)
+        credentials.save_token(server_url, token)
+        if (
+            kanbai_dir is not None
+            and remote_config is not None
+            and remote_config.url.rstrip("/") == server_url.rstrip("/")
+        ):
+            hosted.renew_token(kanbai_dir, token)
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
-    console.print(f"[green]✓[/green] Renewed the token for [cyan]{remote_config.url}[/cyan].")
+    console.print(
+        f"[green]✓[/green] Logged in to [cyan]{server_url}[/cyan]. The token is saved globally: "
+        "every project connected to this server now uses it."
+    )
 
 
 @hosted_app.command("push")

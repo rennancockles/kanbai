@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import credentials
 from .models import BoardConfig, Priority
 
 if sys.version_info >= (3, 11):
@@ -39,7 +40,9 @@ def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
 
     Returns ``None`` when ``config.toml`` is missing, has no ``[server]`` section, or the
     section is missing any of ``url``/``token``/``board_id`` — in every one of those cases
-    the CLI falls back to local/self-hosted mode, unchanged. An optional ``enabled = false``
+    the CLI falls back to local/self-hosted mode, unchanged. A token saved globally for the
+    section's ``url`` (``kanbai hosted login``) takes precedence over the ``token`` in the
+    file, which is then only a fallback. An optional ``enabled = false``
     keeps the connection saved but switches hosted mode off (see ``RemoteConfig.enabled``).
     """
     config_path = kanbai_dir / CONFIG_FILENAME
@@ -56,7 +59,7 @@ def load_remote_config(kanbai_dir: Path) -> RemoteConfig | None:
     enabled = server.get("enabled", True)
     return RemoteConfig(
         url=url,
-        token=token,
+        token=credentials.load_token(url) or token,
         board_id=board_id,
         enabled=enabled if isinstance(enabled, bool) else True,
     )

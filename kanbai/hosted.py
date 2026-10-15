@@ -17,7 +17,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
-from . import scaffold, storage
+from . import credentials, scaffold, storage
 from .board import Board
 from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
 from .errors import HostUnreachableError, KanbaiError, RemoteAPIError
@@ -55,6 +55,7 @@ def save_connection(kanbai_dir: Path, remote: RemoteConfig) -> None:
     without_server = _remove_section(existing, "server").rstrip("\n")
     new_text = f"{without_server}\n\n{section}" if without_server else section
     config_path.write_text(new_text, encoding="utf-8")
+    credentials.refresh_token(remote.url, remote.token)
 
 
 NOT_CONNECTED_MSG = (

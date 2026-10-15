@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-from kanbai import hosted, registry, scaffold
+from kanbai import credentials, hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
 from kanbai.config import load_remote_config
@@ -864,6 +864,112 @@ def test_login_requires_a_connection(local_project: Path, fake_server: _FakeServ
 
     assert result.exit_code == 1
     assert "hosted connect" in result.output
+
+
+def test_login_inside_a_project_also_saves_the_token_globally(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+
+    result = runner.invoke(app, _login_args())
+
+    assert result.exit_code == 0, result.output
+    assert credentials.load_token(URL) == ADMIN_TOKEN
+
+
+def test_login_with_url_works_from_any_directory_and_fixes_every_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_server: _FakeServer
+) -> None:
+    projects = []
+    for name in ("one", "two"):
+        project = tmp_path / name
+        scaffold.init_board(project, name=name)
+        cfg = project / ".kanbai" / "config.toml"
+        cfg.write_text(
+            cfg.read_text() + f'\n[server]\nurl = "{URL}"\ntoken = "stale"\nboard_id = "x"\n'
+        )
+        projects.append(project)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    result = runner.invoke(app, _login_args("--url", URL))
+
+    assert result.exit_code == 0, result.output
+    for project in projects:
+        remote = load_remote_config(project / ".kanbai")
+        assert remote is not None
+        assert remote.token == ADMIN_TOKEN  # global token wins over the stale file token
+        assert 'token = "stale"' in (project / ".kanbai" / "config.toml").read_text()
+
+
+def test_global_token_takes_precedence_over_the_project_token(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    credentials.save_token(URL, "global-token")
+
+    remote = load_remote_config(local_project / ".kanbai")
+
+    assert remote is not None
+    assert remote.token == "global-token"
+
+
+def test_a_server_without_a_global_token_keeps_using_the_project_token(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    credentials.save_token("https://other.example", "other-token")
+
+    remote = load_remote_config(local_project / ".kanbai")
+
+    assert remote is not None
+    assert remote.token == ADMIN_TOKEN
+
+
+def test_login_url_for_another_server_leaves_the_project_token_alone(
+    local_project: Path, fake_server: _FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _connect()
+    before = (local_project / ".kanbai" / "config.toml").read_text()
+
+    result = runner.invoke(app, _login_args("--url", "https://other.example"))
+
+    assert result.exit_code == 0, result.output
+    assert (local_project / ".kanbai" / "config.toml").read_text() == before
+    assert credentials.load_token("https://other.example") == ADMIN_TOKEN
+
+
+def test_login_without_a_project_or_url_explains_both_ways_out(
+    empty_dir: Path, fake_server: _FakeServer
+) -> None:
+    result = runner.invoke(app, _login_args())
+
+    assert result.exit_code == 1
+    assert "hosted connect" in result.output
+    assert "--url" in result.output
+
+
+def test_login_with_bad_credentials_saves_nothing_globally(
+    empty_dir: Path, fake_server: _FakeServer
+) -> None:
+    result = runner.invoke(app, _login_args("--url", URL, password="wrong"))
+
+    assert result.exit_code == 1
+    assert credentials.load_token(URL) is None
+
+
+def test_a_fresh_connect_is_not_overridden_by_an_older_global_token(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    credentials.save_token(URL, "older-global-token")
+
+    _connect()
+
+    remote = load_remote_config(local_project / ".kanbai")
+    assert remote is not None
+    assert remote.token == ADMIN_TOKEN
+    assert credentials.load_token(URL) == ADMIN_TOKEN
 
 
 def test_all_reports_an_expired_token_with_the_login_hint(
