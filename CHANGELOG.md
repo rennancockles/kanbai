@@ -11,6 +11,27 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.11.0 (2026-10-15)
+
+### Bug Fixes
+
+- Atualizar a view multi-board ao vivo quando o CLI move cards (122)
+  ([`4c0d16c`](https://github.com/rennancockles/kanbai/commit/4c0d16c4adf846c9e7f333b93822abfe41c1e243))
+
+### Chores
+
+- Trocar o modelo padrão da OpenAI para gpt-6-luna
+  ([`5f8d561`](https://github.com/rennancockles/kanbai/commit/5f8d561f27072f4fc22c9477aafd3be3fbc0cf61))
+
+### Features
+
+- Kanbai init adiciona .kanbai/ ao .gitignore em repositórios git (123)
+  ([`1b59327`](https://github.com/rennancockles/kanbai/commit/1b593276e87d9fea8adb69b8c2f4b445ffb5d7be))
+
+- Melhorar UX e UI no mobile (120)
+  ([`805b6a1`](https://github.com/rennancockles/kanbai/commit/805b6a147469089a27cd34ce744eea4cd4d33aa4))
+
+
 ## v0.10.0 (2026-10-13)
 
 ### Bug Fixes
