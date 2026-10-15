@@ -676,7 +676,7 @@ def test_pull_leaves_archived_cards_out_by_default(local_project: Path) -> None:
     assert [c.title for c in Board.load(local_project).list_archive()] == ["Archived on the server"]
 
 
-def test_push_leaves_a_card_alone_when_it_is_archived_on_the_server_only(
+def test_push_restores_a_sprint_card_that_is_archived_on_the_server_only(
     local_project: Path,
 ) -> None:
     card = Board.load(local_project).add("Archived remotely", column="todo")
@@ -685,11 +685,22 @@ def test_push_leaves_a_card_alone_when_it_is_archived_on_the_server_only(
 
     result = hosted.push_board(remote, kanbai_dir)
 
-    assert (result.created, result.updated, result.deleted, result.kept) == (0, 0, 0, 0)
+    assert (result.created, result.updated, result.deleted) == (0, 1, 0)
+    assert _remote_cards(remote) == {card.id: "todo"}
+
+
+def test_push_archives_a_server_card_that_is_archived_locally(local_project: Path) -> None:
+    card = Board.load(local_project).add("Archived locally", column="todo")
+    kanbai_dir, remote = _connect(local_project)
+    Board.load(local_project).archive(card.id)
+
+    result = hosted.push_board(remote, kanbai_dir)
+
+    assert (result.created, result.updated, result.deleted) == (0, 1, 0)
     assert _remote_cards(remote) == {card.id: "archive"}
 
 
-def test_push_delete_does_not_remove_the_server_twin_of_a_locally_archived_card(
+def test_push_delete_never_removes_a_server_card_that_is_archived_locally(
     local_project: Path,
 ) -> None:
     card = Board.load(local_project).add("Archived locally", column="todo")
@@ -699,20 +710,48 @@ def test_push_delete_does_not_remove_the_server_twin_of_a_locally_archived_card(
     result = hosted.push_board(remote, kanbai_dir, delete=True)
 
     assert result.deleted == 0
-    assert _remote_cards(remote) == {card.id: "todo"}
+    assert _remote_cards(remote) == {card.id: "archive"}
 
 
-def test_pull_delete_does_not_remove_the_local_twin_of_a_server_archived_card(
-    local_project: Path,
-) -> None:
+def test_pull_archives_a_local_card_that_is_archived_on_the_server(local_project: Path) -> None:
     card = Board.load(local_project).add("Archived remotely", column="todo")
     kanbai_dir, remote = _connect(local_project)
     remote.archive(card.id)
 
     result = hosted.pull_board(remote, kanbai_dir, delete=True)
 
-    assert result.deleted == 0
-    assert [c.id for c in Board.load(local_project).list_column("todo")] == [card.id]
+    assert (result.updated, result.deleted) == (1, 0)
+    board = Board.load(local_project)
+    assert board.list_column("todo") == []
+    assert [c.id for c in board.list_archive()] == [card.id]
+
+
+def test_pull_restores_a_local_archived_card_that_is_active_on_the_server(
+    local_project: Path,
+) -> None:
+    card = Board.load(local_project).add("Archived locally", column="todo")
+    kanbai_dir, remote = _connect(local_project)
+    Board.load(local_project).archive(card.id)
+
+    result = hosted.pull_board(remote, kanbai_dir)
+
+    assert result.updated == 1
+    board = Board.load(local_project)
+    assert [c.id for c in board.list_column("todo")] == [card.id]
+    assert board.list_archive() == []  # moved, not duplicated
+
+
+def test_pull_does_not_create_an_archived_card_that_only_exists_on_the_server(
+    local_project: Path,
+) -> None:
+    kanbai_dir, remote = _connect(local_project)
+    shelved = remote.add("Shelved", column="done")
+    remote.archive(shelved.id)
+
+    result = hosted.pull_board(remote, kanbai_dir)
+
+    assert result.created == 0
+    assert Board.load(local_project).list_archive() == []
 
 
 def test_push_archived_overrides_the_default_and_syncs_the_archive_state(

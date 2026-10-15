@@ -138,20 +138,24 @@ class _Cards:
 def _collect(board: Board, remote: RemoteBoard, *, archived: bool) -> _Cards:
     """Both sides' cards, by id.
 
-    With ``archived`` the archives are included. Without it a card archived on *either* side
-    is left out of *both*, so it is never created, overwritten or deleted by a sync — which is
-    what keeps ``--delete`` from removing the active twin of a card archived on the other side.
+    With ``archived`` the archives are included. Without it an archived card is only synced
+    when the other side also has that id (active or archived): a card active on one side and
+    archived on the other is therefore moved to match, but an archived card that exists on one
+    side only is never created, overwritten or deleted. That also keeps ``--delete`` from
+    removing the active twin of a card archived on the other side.
     """
     local = {c.id: c for column in board.columns for c in board.list_column(column)}
     other = {c.id: c for column in remote.columns for c in remote.list_column(column)}
     local_archived = {c.id: c for c in board.list_archive()}
     remote_archived = {c.id: c for c in remote.list_archive()}
-    if archived:
-        return _Cards(local={**local, **local_archived}, remote={**other, **remote_archived})
-    skipped = local_archived.keys() | remote_archived.keys()
+    if not archived:
+        local_ids = local.keys() | local_archived.keys()
+        remote_ids = other.keys() | remote_archived.keys()
+        local_archived = {i: c for i, c in local_archived.items() if i in remote_ids}
+        remote_archived = {i: c for i, c in remote_archived.items() if i in local_ids}
     return _Cards(
-        local={i: c for i, c in local.items() if i not in skipped},
-        remote={i: c for i, c in other.items() if i not in skipped},
+        local={**local, **local_archived},
+        remote={**other, **remote_archived},
     )
 
 

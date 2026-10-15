@@ -879,7 +879,7 @@ def hosted_push(
         False, "--delete", help="Remove hosted cards that no longer exist locally."
     ),
     archived: bool = typer.Option(
-        False, "--archived", help="Also sync archived cards (left out by default)."
+        False, "--archived", help="Also sync archived cards that exist on one side only."
     ),
     all_boards: bool = typer.Option(
         False, "--all", help="Push every board registered in the hub that is connected."
@@ -888,9 +888,10 @@ def hosted_push(
     """Local wins: send this board's cards to the hosted board.
 
     Needs the connection from `kanbai hosted connect`. Cards only here are created with
-    their local ids; cards on both sides are updated or moved to match local. Archived cards
-    are left alone unless you pass --archived (then they are created, archived or restored
-    on the server to match local).
+    their local ids; cards on both sides are updated, moved, archived or restored to match
+    local (a sprint card archived locally is archived on the server too). Archived cards that
+    exist on one side only are left alone unless you pass --archived (then they are created
+    on the server).
 
     With --all it runs on every connected board of the hub registry (from any directory); a
     board that fails does not stop the others, and the exit code is 1 if any failed.
@@ -915,7 +916,7 @@ def hosted_pull(
         False, "--delete", help="Remove local cards that no longer exist on the server."
     ),
     archived: bool = typer.Option(
-        False, "--archived", help="Also sync archived cards (left out by default)."
+        False, "--archived", help="Also sync archived cards that exist on one side only."
     ),
     all_boards: bool = typer.Option(
         False, "--all", help="Pull every board registered in the hub that is connected."
@@ -925,9 +926,9 @@ def hosted_pull(
     """Server wins: update this board's files to match the hosted board.
 
     Needs the connection from `kanbai hosted connect`. Cards on both sides take the server's
-    version (moving the file when the column differs, so nothing is duplicated); cards only
-    on the server are written locally. Archived cards are left alone unless you pass
-    --archived.
+    version (moving the file when the column differs, so nothing is duplicated, and archiving
+    or restoring it to match); cards only on the server are written locally. Archived cards
+    that exist on one side only are left alone unless you pass --archived.
 
     With --all it runs on every connected board of the hub registry (from any directory),
     after asking for confirmation unless --yes is given, since it overwrites local cards.
@@ -963,7 +964,7 @@ def hosted_clone(
         None, "--board", help="Hosted board id or name (asked for if the account has several)."
     ),
     archived: bool = typer.Option(
-        False, "--archived", help="Also sync archived cards (left out by default)."
+        False, "--archived", help="Also sync archived cards that exist on one side only."
     ),
 ) -> None:
     """Create a local board here from a hosted one, already connected.
@@ -997,7 +998,7 @@ def hosted_clone(
 def hosted_diff(
     as_json: bool = typer.Option(False, "--json", help="Emit the diff as JSON."),
     archived: bool = typer.Option(
-        False, "--archived", help="Also compare archived cards (left out by default)."
+        False, "--archived", help="Also compare archived cards that exist on one side only."
     ),
     all_boards: bool = typer.Option(
         False, "--all", help="Compare every board registered in the hub that is connected."

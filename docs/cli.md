@@ -283,8 +283,10 @@ files, matching them by card id.
 
 Options shared by `push`, `pull` and `diff` (and `clone`):
 
-- `--archived` — also sync (or compare) archived cards. They are left out by default: a card
-  archived on *either* side is ignored on both, so it is never created, overwritten or deleted.
+- `--archived` — also sync (or compare) archived cards that exist on one side only. By default a
+  card is archived or restored to match when it exists on **both** sides (a sprint card you
+  archived locally is archived on the server by `push`; `pull` does the reverse), but an
+  archived card that exists on one side only is never created, overwritten or deleted.
 - `--delete` (`push`, `pull`) — remove cards that exist only on the receiving side. Without it
   they are kept.
 - `--all` (`push`, `pull`, `diff`) — run on every board of the [hub registry](hub.md) instead of
