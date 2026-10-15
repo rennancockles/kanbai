@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.12.0 (2026-10-15)
+
+### Bug Fixes
+
+- Hosted push/pull sincronizam arquivamento de cards presentes nos dois lados (127)
+  ([`57966aa`](https://github.com/rennancockles/kanbai/commit/57966aae548f89ebe813a412b8be45c6edcd3b0a))
+
+### Features
+
+- Hosted login global com credencial por servidor em ~/.kanbai (125)
+  ([`6e2d2b1`](https://github.com/rennancockles/kanbai/commit/6e2d2b1a64487f8e6c06371d6a9b57ff0e18cc04))
+
+
 ## v0.11.0 (2026-10-15)
 
 ### Bug Fixes
