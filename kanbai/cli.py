@@ -176,13 +176,18 @@ def _render_column_table(column: str, cards: list[Card]) -> Table:
 def init(
     force: bool = typer.Option(False, "--force", help="Overwrite existing files."),
     name: str | None = typer.Option(None, "--name", help="Board name for config.toml."),
+    gitignore: bool = typer.Option(
+        True,
+        "--gitignore/--no-gitignore",
+        help="Add .kanbai/ to .gitignore in a git repo (--no-gitignore to version the board).",
+    ),
 ) -> None:
     """Scaffold a `.kanbai/` board and install the Claude Code integration.
 
     Safe to re-run: it only creates what is missing (use --force to overwrite).
     """
     try:
-        result = scaffold.init_board(Path.cwd(), force=force, name=name)
+        result = scaffold.init_board(Path.cwd(), force=force, name=name, gitignore=gitignore)
     except OSError as exc:
         err_console.print(f"[red]error:[/red] could not create the board: {exc}")
         raise typer.Exit(code=1) from exc

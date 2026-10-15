@@ -8,9 +8,10 @@ commands works. See [Other AI harnesses](other-harnesses.md).
 
 ## Do I commit the `.kanbai/` folder?
 
-Usually yes — the point is that the board lives **in your repo** and travels with it, with a
-clean git history of every card and move. If you'd rather keep it local, add `.kanbai/` to
-`.gitignore`.
+By default no: inside a git repository, `kanbai init` adds `.kanbai/` to your `.gitignore` so the
+board isn't committed by accident. If you want the board to live **in your repo** and travel with
+it, with a clean git history of every card and move, run `kanbai init --no-gitignore` (or remove
+the line from `.gitignore`).
 
 ## Can I edit card files directly?
 

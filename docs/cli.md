@@ -48,10 +48,15 @@ This also merges a [`Notification` hook](claude-code.md#notified-when-claude-nee
 `.claude/settings.json` (pointed at the hidden `notify-hook` command), without touching any
 other keys or hooks already there.
 
+Inside a git repository it also adds `.kanbai/` to the project's `.gitignore` (creating the file
+if needed, never duplicating the line), so the board isn't committed by accident. Pass
+`--no-gitignore` if you want the board versioned with your code.
+
 ```bash
 kanbai init                      # scaffold in the current directory
 kanbai init --name my-project    # set the board name in config.toml
 kanbai init --force              # overwrite existing files
+kanbai init --no-gitignore       # don't touch .gitignore (version the board in git)
 ```
 
 ## add

@@ -101,7 +101,7 @@ uv add --dev 'kanbai[ui,ai]'    # or: pip install 'kanbai[ui,ai]'
 ## Quick start
 
 ```bash
-kanbai init                              # scaffold .kanbai/ + Claude integration
+kanbai init                              # scaffold .kanbai/ (git-ignored) + Claude integration
 kanbai add "Build the login screen" -p high   # lands in the backlog
 kanbai move 001 todo                     # plan it into the sprint
 kanbai list                              # show the board

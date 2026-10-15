@@ -341,12 +341,60 @@ def _merge_settings(root: Path, result: ScaffoldResult, *, force: bool = False) 
     result.created.append(rel)
 
 
+GITIGNORE_ENTRY = f"{storage.KANBAI_DIRNAME}/"
+GITIGNORE_COMMENT = "# KanbAI"
+# Every spelling that already ignores the board directory, so a re-init never adds a duplicate.
+_GITIGNORE_ALIASES = frozenset(
+    f"{prefix}{storage.KANBAI_DIRNAME}{suffix}"
+    for prefix in ("", "/", "**/")
+    for suffix in ("", "/", "/*", "/**")
+)
+
+
+def _inside_git_repo(root: Path) -> bool:
+    """Whether ``root`` is in a git work tree (``.git`` is a file for worktrees/submodules)."""
+    return any(
+        (directory / ".git").exists() for directory in (root.resolve(), *root.resolve().parents)
+    )
+
+
+def _ensure_gitignore(root: Path, result: ScaffoldResult) -> None:
+    """Add ``.kanbai/`` to ``root/.gitignore``, creating the file when missing.
+
+    Only runs inside a git repository, never duplicates an existing entry (so re-running
+    ``init`` is a no-op) and leaves the rest of the file untouched. A write failure is
+    recorded on ``result`` rather than aborting the init.
+    """
+    if not _inside_git_repo(root):
+        return
+    path = root / ".gitignore"
+    try:
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        if any(line.strip() in _GITIGNORE_ALIASES for line in existing.splitlines()):
+            result.skipped.append(path.name)
+            return
+        # Set the block off from existing content with exactly one blank line.
+        if not existing.strip() or existing.endswith("\n\n"):
+            separator = ""
+        elif existing.endswith("\n"):
+            separator = "\n"
+        else:
+            separator = "\n\n"
+        block = f"{GITIGNORE_COMMENT}\n{GITIGNORE_ENTRY}\n"
+        path.write_text(f"{existing}{separator}{block}", encoding="utf-8")
+    except OSError as exc:
+        result.failed.append((path.name, exc.strerror or str(exc)))
+        return
+    result.created.append(f"{path.name} (added {GITIGNORE_ENTRY})")
+
+
 def init_board(
     root: Path,
     *,
     force: bool = False,
     name: str | None = None,
     config: BoardConfig | None = None,
+    gitignore: bool = True,
 ) -> ScaffoldResult:
     """Create the `.kanbai/` board and Claude integration files under ``root``.
 
@@ -354,6 +402,8 @@ def init_board(
     The `.claude/` integration files are optional — if they cannot be written they are
     recorded in the result rather than aborting the board setup. ``config`` seeds the board
     from an existing configuration (e.g. a hosted board being cloned) instead of the defaults.
+    With ``gitignore`` (the default) and inside a git repository, ``.kanbai/`` is added to the
+    project's ``.gitignore`` so the board isn't committed by accident.
     """
     kanbai_dir = root / storage.KANBAI_DIRNAME
     config = config or BoardConfig(name=name or root.resolve().name)
@@ -392,5 +442,8 @@ def init_board(
         optional=True,
     )
     _merge_settings(root, result, force=force)
+
+    if gitignore:
+        _ensure_gitignore(root, result)
 
     return result

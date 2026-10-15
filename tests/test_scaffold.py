@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from kanbai import scaffold
+from kanbai.cli import app
+from typer.testing import CliRunner
 
 
 def test_init_creates_board_and_integration(tmp_path: Path) -> None:
@@ -192,3 +195,143 @@ def test_init_degrades_when_settings_json_malformed(tmp_path: Path) -> None:
     assert (tmp_path / ".kanbai" / "config.toml").exists()  # the board itself still works
     assert settings_path.read_text() == "{not json"  # left untouched, not overwritten
     assert any(".claude/settings.json" in path for path, _ in result.failed)
+
+
+def _git_repo(path: Path) -> Path:
+    (path / ".git").mkdir(parents=True)
+    return path
+
+
+def test_init_does_not_create_gitignore_outside_a_git_repo(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+
+    assert not (tmp_path / ".gitignore").exists()
+
+
+def test_init_creates_gitignore_with_the_board_entry_in_a_git_repo(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+
+    result = scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".gitignore").read_text() == "# KanbAI\n.kanbai/\n"
+    assert any(line.startswith(".gitignore") for line in result.created)
+
+
+def test_init_appends_to_an_existing_gitignore_without_touching_it(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("node_modules/\n*.pyc")  # no trailing newline
+
+    scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".gitignore").read_text() == "node_modules/\n*.pyc\n\n# KanbAI\n.kanbai/\n"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        ".kanbai",
+        ".kanbai/",
+        "/.kanbai",
+        "/.kanbai/",
+        ".kanbai/*",
+        ".kanbai/**",
+        "**/.kanbai",
+        "**/.kanbai/",
+        "  .kanbai/  ",
+    ],
+)
+def test_init_does_not_duplicate_an_entry_already_in_gitignore(tmp_path: Path, entry: str) -> None:
+    _git_repo(tmp_path)
+    original = f"dist/\n{entry}\n"
+    (tmp_path / ".gitignore").write_text(original)
+
+    result = scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".gitignore").read_text() == original
+    assert ".gitignore" in result.skipped
+
+
+def test_init_repeated_keeps_a_single_entry(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+
+    scaffold.init_board(tmp_path)
+    scaffold.init_board(tmp_path)
+    scaffold.init_board(tmp_path, force=True)
+
+    assert (tmp_path / ".gitignore").read_text().splitlines() == ["# KanbAI", ".kanbai/"]
+
+
+def test_init_in_a_subdirectory_of_a_git_repo_writes_the_gitignore_there(tmp_path: Path) -> None:
+    project = _git_repo(tmp_path) / "packages" / "app"
+    project.mkdir(parents=True)
+
+    scaffold.init_board(project)
+
+    assert (project / ".gitignore").read_text() == "# KanbAI\n.kanbai/\n"
+
+
+def test_init_recognises_a_git_worktree_where_dot_git_is_a_file(tmp_path: Path) -> None:
+    (tmp_path / ".git").write_text("gitdir: /elsewhere/.git/worktrees/x\n")
+
+    scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".gitignore").read_text() == "# KanbAI\n.kanbai/\n"
+
+
+def test_init_can_opt_out_of_touching_gitignore(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("dist/\n")
+
+    scaffold.init_board(tmp_path, gitignore=False)
+
+    assert (tmp_path / ".gitignore").read_text() == "dist/\n"
+
+
+def test_init_reports_an_unwritable_gitignore_without_aborting(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    (tmp_path / ".gitignore").mkdir()  # a directory where the file should be
+
+    result = scaffold.init_board(tmp_path)
+
+    assert (tmp_path / ".kanbai" / "config.toml").exists()
+    assert [path for path, _reason in result.failed] == [".gitignore"]
+
+
+def test_cli_init_adds_the_gitignore_entry_unless_told_not_to(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    default_dir = _git_repo(tmp_path / "default")
+    optout_dir = _git_repo(tmp_path / "optout")
+
+    monkeypatch.chdir(default_dir)
+    assert CliRunner().invoke(app, ["init"]).exit_code == 0
+    monkeypatch.chdir(optout_dir)
+    assert CliRunner().invoke(app, ["init", "--no-gitignore"]).exit_code == 0
+
+    assert (default_dir / ".gitignore").read_text() == "# KanbAI\n.kanbai/\n"
+    assert not (optout_dir / ".gitignore").exists()
+
+
+def test_init_puts_exactly_one_blank_line_before_the_block(tmp_path: Path) -> None:
+    cases = {
+        "no_newline": ("dist/", "dist/\n\n# KanbAI\n.kanbai/\n"),
+        "newline": ("dist/\n", "dist/\n\n# KanbAI\n.kanbai/\n"),
+        "blank_line": ("dist/\n\n", "dist/\n\n# KanbAI\n.kanbai/\n"),
+        "empty": ("", "# KanbAI\n.kanbai/\n"),
+    }
+    for name, (before, after) in cases.items():
+        project = _git_repo(tmp_path / name)
+        (project / ".gitignore").write_text(before)
+
+        scaffold.init_board(project)
+
+        assert (project / ".gitignore").read_text() == after, name
+
+
+def test_init_ignores_a_similarly_named_entry_and_still_adds_the_board(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text(".kanbai-backup/\n")
+
+    scaffold.init_board(tmp_path)
+
+    assert ".kanbai/" in (tmp_path / ".gitignore").read_text().splitlines()
