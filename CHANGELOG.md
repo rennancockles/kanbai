@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.14.0 (2026-10-16)
+
+### Features
+
+- Hosted com o local como fonte, replicando cada mudança no host e avisando divergências (132)
+  ([`f25f55f`](https://github.com/rennancockles/kanbai/commit/f25f55fe7b4a67be230efc82d4a1a79f2a37b455))
+
+
 ## v0.13.0 (2026-10-16)
 
 ### Features
