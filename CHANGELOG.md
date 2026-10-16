@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.13.0 (2026-10-16)
+
+### Features
+
+- Notificações nativa e ntfy também no modo hosted, disparadas pelo cliente (130)
+  ([`07c96fe`](https://github.com/rennancockles/kanbai/commit/07c96fe6c7ba018a97f0c3c741e1141905bdcb16))
+
+
 ## v0.12.0 (2026-10-15)
 
 ### Bug Fixes
