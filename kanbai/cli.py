@@ -18,9 +18,9 @@ from rich.table import Table
 
 from . import APP_NAME, __version__, credentials, daemon, hosted, registry, scaffold, storage
 from .board import Board
-from .config import RemoteConfig, load_remote_config
+from .config import RemoteConfig, load_config, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
-from .models import Card, Priority
+from .models import BoardConfig, Card, Priority
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
 
@@ -73,15 +73,24 @@ _PRIORITY_STYLE = {
 _WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
-def _notify(board: AnyBoard, title: str, body: str) -> None:
+def _notification_settings(board: AnyBoard, kanbai_dir: Path | None) -> BoardConfig:
+    """Where the notification channels come from: the project's local ``config.toml`` for a
+    hosted board (the server's board config carries no notification settings), otherwise the
+    board's own config."""
+    if isinstance(board, RemoteBoard) and kanbai_dir is not None:
+        return load_config(kanbai_dir)
+    return board.config
+
+
+def _notify(config: BoardConfig, title: str, body: str) -> None:
     """``Board.on_notify`` for the CLI: ntfy always, native desktop if the extra is installed.
 
     Native notifications need the optional ``ui`` extra (``desktop-notifier``); a plain CLI
     install silently skips that channel rather than failing the command that triggered it.
     """
-    if board.config.notifications_ntfy_topic:
-        notify_ntfy(board.config.notifications_ntfy_topic, title, body)
-    if not board.config.notifications_native:
+    if config.notifications_ntfy_topic:
+        notify_ntfy(config.notifications_ntfy_topic, title, body)
+    if not config.notifications_native:
         return
     try:
         from .web.notify import notify_native  # noqa: PLC0415 - optional extra, on demand
@@ -98,7 +107,8 @@ def _load_board_at(start: Path | None) -> AnyBoard:
     board: AnyBoard = (
         RemoteBoard(remote) if remote is not None and remote.enabled else Board.load(start)
     )
-    board.on_notify = lambda title, body: _notify(board, title, body)
+    settings = _notification_settings(board, kanbai_dir)
+    board.on_notify = lambda title, body: _notify(settings, title, body)
     return board
 
 
@@ -1297,7 +1307,8 @@ def notify_hook() -> None:
 
     title = f"{board.config.name}: Claude needs input"
     with contextlib.suppress(Exception):  # must never surface as a Claude Code hook error
-        _notify(board, title, "Claude Code is waiting for you.")
+        settings = _notification_settings(board, storage.find_kanbai_dir(start))
+        _notify(settings, title, "Claude Code is waiting for you.")
 
 
 if __name__ == "__main__":  # pragma: no cover

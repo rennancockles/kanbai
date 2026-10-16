@@ -111,3 +111,97 @@ def test_enable_restores_hosted_mode(remote_project: tuple[Path, _FakeServer]) -
         for cards in remote_project[1].cards.values()
         for c in cards.values()
     )
+
+
+# --------------------------------------------------------------------------- notifications
+
+
+def _configure_notifications(project: Path, body: str) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + f"\n[notifications]\n{body}\n")
+
+
+@pytest.fixture
+def ntfy_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, str]]:
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+    return calls
+
+
+@pytest.fixture
+def native_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr("kanbai.web.notify.notify_native", lambda t, b: calls.append((t, b)))
+    return calls
+
+
+def _remote_card_in_todo() -> str:
+    return str(json.loads(runner.invoke(app, ["add", "Task", "-c", "todo", "--json"]).output)["id"])
+
+
+def test_review_pushes_ntfy_in_hosted_mode_using_the_local_config(
+    remote_project: tuple[Path, _FakeServer], ntfy_calls: list[tuple[str, str, str]]
+) -> None:
+    project, _server = remote_project
+    _configure_notifications(project, 'ntfy_topic = "my-topic"')
+    card_id = _remote_card_in_todo()
+
+    result = runner.invoke(app, ["review", card_id])
+
+    assert result.exit_code == 0, result.output
+    assert ntfy_calls
+    assert all(topic == "my-topic" for topic, _, _ in ntfy_calls)
+    assert any("in review" in title for _, title, _ in ntfy_calls)
+
+
+def test_review_in_hosted_mode_skips_ntfy_without_a_topic(
+    remote_project: tuple[Path, _FakeServer], ntfy_calls: list[tuple[str, str, str]]
+) -> None:
+    card_id = _remote_card_in_todo()
+
+    assert runner.invoke(app, ["review", card_id]).exit_code == 0
+
+    assert ntfy_calls == []
+
+
+def test_hosted_mode_does_not_notify_for_moves_that_are_not_review_or_done(
+    remote_project: tuple[Path, _FakeServer], ntfy_calls: list[tuple[str, str, str]]
+) -> None:
+    project, _server = remote_project
+    _configure_notifications(project, 'ntfy_topic = "my-topic"')
+    card_id = _remote_card_in_todo()
+
+    assert runner.invoke(app, ["start", card_id]).exit_code == 0
+
+    assert ntfy_calls == []
+
+
+def test_hosted_native_notification_follows_the_local_native_setting(
+    remote_project: tuple[Path, _FakeServer], native_calls: list[tuple[str, str]]
+) -> None:
+    project, _server = remote_project
+    first = _remote_card_in_todo()
+    assert runner.invoke(app, ["review", first]).exit_code == 0
+    assert native_calls  # on by default
+
+    native_calls.clear()
+    _configure_notifications(project, "native = false")
+    second = _remote_card_in_todo()
+    assert runner.invoke(app, ["review", second]).exit_code == 0
+
+    assert native_calls == []
+
+
+def test_notify_hook_in_a_hosted_project_uses_the_local_notification_config(
+    remote_project: tuple[Path, _FakeServer], ntfy_calls: list[tuple[str, str, str]]
+) -> None:
+    project, _server = remote_project
+    _configure_notifications(project, 'ntfy_topic = "my-topic"')
+    payload = json.dumps({"notification_type": "agent_needs_input", "cwd": str(project)})
+
+    result = runner.invoke(app, ["notify-hook"], input=payload)
+
+    assert result.exit_code == 0
+    assert [topic for topic, _, _ in ntfy_calls] == ["my-topic"]

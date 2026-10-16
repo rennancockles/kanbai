@@ -112,6 +112,10 @@ native = false
 ntfy_topic = "my-kanbai-topic"
 ```
 
+For a project connected to a [hosted board](cli.md#hosted) these settings are read from the
+project's local `config.toml` (the server does not carry them) and the notification is sent by
+the machine running the CLI.
+
 !!! warning "The ntfy topic is your only secret"
     ntfy.sh is a public server with no signup or authentication — anyone who knows (or
     guesses) your topic name receives your notifications. Pick something unguessable, not

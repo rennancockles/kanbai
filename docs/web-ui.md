@@ -81,6 +81,11 @@ Two channels, checked independently on every qualifying move:
   machine. ntfy.sh needs no signup or token — the topic name itself is the only thing gating
   who receives it, so pick something that isn't easily guessable.
 
+These channels also work with a [hosted board](cli.md#hosted) (`[server]` in `config.toml`): the
+notification fires on the machine that runs the CLI — so you hear about the moves Claude makes
+with `kanbai review`/`done` — and its settings come from the project's own `[notifications]`
+section, never from the server. Moving a card in the hosted web page does not notify.
+
 A flaky or offline ntfy.sh never blocks the move that triggered it — a failed push is
 silently skipped rather than raised. Every notification title is prefixed with the board's
 name, so running several boards side by side doesn't mix up which one needs your attention.
