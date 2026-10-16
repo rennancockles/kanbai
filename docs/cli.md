@@ -265,9 +265,18 @@ kanbai hub stop                      # stop it
 
 Keep a board in step with a hosted `kanbai_server`. A project is *connected* once `config.toml`
 has a `[server]` section; `connect` writes it, and every other `hosted` command needs it (without
-one they tell you to run `kanbai hosted connect`). Once connected, the other `kanbai` commands
-operate on the hosted board, and `push` / `pull` copy cards between it and your local `.kanbai/`
-files, matching them by card id.
+one they tell you to run `kanbai hosted connect`). Once connected, the **local `.kanbai/` files
+stay the source of truth**: `list`, `show`, `next` and the like read them (so they work offline),
+and every command that changes a card (`add`, `move`/`start`/`review`/`done`, `edit`, `archive`,
+`restore`, `rm`, `close-sprint`, `sort`) is applied locally and then mirrored to the hosted board
+card by card, keeping the same ids. Mirroring never makes a command fail: if the server is
+unreachable, rejects the change, or its copy of a card is not what the local board expected (edited
+in the browser, deleted…), the local change stands, you get a warning, and the project is marked
+**out of sync** until you run `kanbai hosted push` (local wins) or `kanbai hosted pull` (server
+wins). `hosted status` shows the pending drift. Only the fields a command changed are sent, so
+other edits made on the host are not overwritten; a card id that is new locally but already used
+on the host is never overwritten either. Notifications fire once, from this machine. `push` /
+`pull` copy whole boards between the two, matching cards by id.
 
 | Command | What it does |
 |---------|--------------|
@@ -277,9 +286,9 @@ files, matching them by card id.
 | `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. |
 | `kanbai hosted clone` | Create a local board here from a hosted one (its config and cards) and connect it. The one command that connects by itself, since there is no project yet. Takes `--url`, `--email`, `--password` and `--board` like `connect`. |
 | `kanbai hosted diff` | Compare local and hosted, read-only. Exits `0` when in sync, `1` otherwise; `--json` for scripts. |
-| `kanbai hosted disable` | Switch to local mode but keep the saved connection (`enabled = false` in `[server]`). Every other `kanbai` command (`add`, `move`, `list`…) then works on the local `.kanbai/` files only and never touches the network. `push` / `pull` / `diff` are unaffected. |
-| `kanbai hosted enable` | Make `kanbai` commands act on the hosted board again. Nothing is synced automatically. |
-| `kanbai hosted status` | Show whether the project is connected and whether hosted mode is enabled. |
+| `kanbai hosted disable` | Stop mirroring but keep the saved connection (`enabled = false` in `[server]`). Every other `kanbai` command (`add`, `move`, `list`…) then works on the local `.kanbai/` files only and never touches the network. `push` / `pull` / `diff` are unaffected. |
+| `kanbai hosted enable` | Mirror changes to the hosted board again. Nothing is synced automatically. |
+| `kanbai hosted status` | Show whether the project is connected, whether mirroring is enabled and whether it is out of sync (with the reasons). |
 
 Options shared by `push`, `pull` and `diff` (and `clone`):
 
@@ -323,13 +332,13 @@ kanbai hosted pull
 `disable` / `enable` only choose where day-to-day commands act (local files or the hosted board); `push`, `pull` and `diff` always talk to the server. If it is unreachable, disable hosted mode, keep working locally, and sync later:
 
 ```bash
-kanbai hosted disable        # all commands now use the local files only
+kanbai hosted disable        # changes now stay local (no mirroring)
 kanbai add "…" && kanbai start 12 && kanbai review 12
 # …later, when the server is reachable again
 kanbai hosted diff           # what changed meanwhile?
 kanbai hosted push           # local wins (or `pull` for server wins)
 kanbai hosted push --all     # ...or sync every board of the hub at once
-kanbai hosted enable         # optional: act on the hosted board again
+kanbai hosted enable         # mirror changes to the hosted board again
 ```
 
 This replaces the earlier `hosted publish` / `hosted download` commands and the `sync` group.

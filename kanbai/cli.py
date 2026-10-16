@@ -16,10 +16,21 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import APP_NAME, __version__, credentials, daemon, hosted, registry, scaffold, storage
+from . import (
+    APP_NAME,
+    __version__,
+    credentials,
+    daemon,
+    hosted,
+    registry,
+    scaffold,
+    storage,
+    sync_state,
+)
 from .board import Board
-from .config import RemoteConfig, load_config, load_remote_config
+from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
+from .mirror import MirrorBoard
 from .models import BoardConfig, Card, Priority
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
@@ -27,7 +38,7 @@ from .remote_board import RemoteBoard, list_remote_boards, login
 #: Either a local, filesystem-backed board or a hosted one talking to a kanbai_server API —
 #: every command function below only calls verbs both implement, so callers never branch on
 #: which one `_load()` returned.
-AnyBoard = Board | RemoteBoard
+AnyBoard = Board | MirrorBoard
 
 app = typer.Typer(
     name="kanbai",
@@ -73,15 +84,6 @@ _PRIORITY_STYLE = {
 _WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
-def _notification_settings(board: AnyBoard, kanbai_dir: Path | None) -> BoardConfig:
-    """Where the notification channels come from: the project's local ``config.toml`` for a
-    hosted board (the server's board config carries no notification settings), otherwise the
-    board's own config."""
-    if isinstance(board, RemoteBoard) and kanbai_dir is not None:
-        return load_config(kanbai_dir)
-    return board.config
-
-
 def _notify(config: BoardConfig, title: str, body: str) -> None:
     """``Board.on_notify`` for the CLI: ntfy always, native desktop if the extra is installed.
 
@@ -99,26 +101,39 @@ def _notify(config: BoardConfig, title: str, body: str) -> None:
     notify_native(title, body)
 
 
+def _warn_out_of_sync(message: str) -> None:
+    err_console.print(f"[yellow]![/yellow] {message}")
+
+
 def _load_board_at(start: Path | None) -> AnyBoard:
-    """Load the board at (or above) ``start`` — remote if its `config.toml` has a complete,
-    enabled `[server]` section, local (filesystem-backed) otherwise. Raises :class:`KanbaiError`."""
+    """Load the board at (or above) ``start``: the local files, which also replicate to the
+    hosted board when its `config.toml` has a complete, enabled `[server]` section (see
+    :class:`kanbai.mirror.MirrorBoard`). Raises :class:`KanbaiError`."""
     kanbai_dir = storage.find_kanbai_dir(start)
     remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
     board: AnyBoard = (
-        RemoteBoard(remote) if remote is not None and remote.enabled else Board.load(start)
+        MirrorBoard(Board.load(start), remote, _warn_out_of_sync)
+        if remote is not None and remote.enabled
+        else Board.load(start)
     )
-    settings = _notification_settings(board, kanbai_dir)
-    board.on_notify = lambda title, body: _notify(settings, title, body)
+    board.on_notify = lambda title, body: _notify(board.config, title, body)
     return board
 
 
 def _load() -> AnyBoard:
     """Load the board from the current directory, or exit with a friendly message."""
     try:
-        return _load_board_at(None)
+        board = _load_board_at(None)
     except KanbaiError as exc:  # pragma: no cover - exercised via CLI tests
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
+    if isinstance(board, MirrorBoard):
+        reasons = sync_state.load_out_of_sync(board.local.kanbai_dir)
+        if reasons:
+            _warn_out_of_sync(
+                f"Hosted board is out of sync ({'; '.join(reasons)}). {sync_state.SYNC_HINT}"
+            )
+    return board
 
 
 def _card_dict(card: Card) -> dict[str, object]:
@@ -560,7 +575,7 @@ def ui(
 ) -> None:
     """Serve the board in a local web UI and open it in your browser."""
     board = _load()
-    if isinstance(board, RemoteBoard):
+    if isinstance(board, MirrorBoard):
         err_console.print(
             "[red]error:[/red] `kanbai ui` serves a local filesystem board and does not "
             "support hosted (remote) boards yet."
@@ -770,19 +785,19 @@ def hosted_connect(
 
 @hosted_app.command("disable")
 def hosted_disable() -> None:
-    """Make `kanbai` commands work on the local files instead of the hosted board.
+    """Stop mirroring changes to the hosted board: work on the local files only.
 
     Keeps the `[server]` connection in `config.toml`, but `add`, `move`, `list` etc. then use
     the local `.kanbai/` files only and never touch the network — for when the server is
-    unreachable (e.g. on a VPN). It only changes where those commands act: `hosted push` /
-    `pull` / `diff` keep working regardless, so sync whenever the server is reachable.
+    unreachable (e.g. on a VPN) and you don't want each change to wait for a timeout. `hosted
+    push` / `pull` / `diff` keep working regardless, so sync whenever the server is reachable.
     """
     _toggle_hosted(enabled=False)
 
 
 @hosted_app.command("enable")
 def hosted_enable() -> None:
-    """Make `kanbai` commands act on the hosted board again after `hosted disable`.
+    """Mirror changes to the hosted board again after `hosted disable`.
 
     Nothing is synced automatically: run `kanbai hosted diff` to see what changed while it was
     off, then `kanbai hosted push` (local wins) or `pull` (server wins).
@@ -801,13 +816,13 @@ def _toggle_hosted(*, enabled: bool) -> None:
         raise typer.Exit(code=1) from exc
     if enabled:
         console.print(
-            "[green]✓[/green] Hosted mode enabled — commands now act on the hosted board. "
-            "Run `kanbai hosted diff` to see what changed meanwhile, then "
+            "[green]✓[/green] Hosted mode enabled — changes are mirrored to the hosted board "
+            "again. Run `kanbai hosted diff` to see what changed meanwhile, then "
             "`kanbai hosted push` or `pull` to sync."
         )
     else:
         console.print(
-            "[green]✓[/green] Hosted mode disabled — commands now work on the local files only. "
+            "[green]✓[/green] Hosted mode disabled — changes now stay on the local files only. "
             "Sync with `kanbai hosted push` / `pull` when the server is reachable; "
             "run `kanbai hosted enable` to use the hosted board again."
         )
@@ -829,7 +844,17 @@ def hosted_status() -> None:
         return
     target = f"board [cyan]{remote_config.board_id}[/cyan] on [cyan]{remote_config.url}[/cyan]"
     if remote_config.enabled:
-        console.print(f"[green]Hosted mode enabled[/green] — {target}.")
+        console.print(
+            f"[green]Hosted mode enabled[/green] — {target}. Commands read the local files and "
+            "mirror every change to the hosted board."
+        )
+        reasons = sync_state.load_out_of_sync(kanbai_dir)
+        if reasons:
+            console.print(
+                f"[yellow]Out of sync:[/yellow] {'; '.join(reasons)}. {sync_state.SYNC_HINT}"
+            )
+        else:
+            console.print("In sync as far as this project knows.")
     else:
         console.print(
             f"[yellow]Hosted mode disabled[/yellow] — connected to {target}, but working on "
@@ -1307,8 +1332,7 @@ def notify_hook() -> None:
 
     title = f"{board.config.name}: Claude needs input"
     with contextlib.suppress(Exception):  # must never surface as a Claude Code hook error
-        settings = _notification_settings(board, storage.find_kanbai_dir(start))
-        _notify(settings, title, "Claude Code is waiting for you.")
+        _notify(board.config, title, "Claude Code is waiting for you.")
 
 
 if __name__ == "__main__":  # pragma: no cover

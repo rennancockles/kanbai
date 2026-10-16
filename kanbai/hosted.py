@@ -17,7 +17,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
-from . import credentials, scaffold, storage
+from . import credentials, scaffold, storage, sync_state
 from .board import Board
 from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
 from .errors import HostUnreachableError, KanbaiError, RemoteAPIError
@@ -194,6 +194,7 @@ def push_board(
     if delete:
         for card_id in only_remote:
             remote.remove(card_id)
+    sync_state.clear_out_of_sync(kanbai_dir)
     return SyncResult(
         created=created,
         updated=updated,
@@ -278,6 +279,7 @@ def pull_board(
             if found:
                 storage.delete_card_file(found[0])
                 deleted += 1
+    sync_state.clear_out_of_sync(kanbai_dir)
     return SyncResult(
         created=created, updated=updated, deleted=deleted, kept=len(only_local) - deleted
     )
