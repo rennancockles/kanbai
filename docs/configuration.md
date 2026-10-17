@@ -8,6 +8,7 @@ TOML you can edit by hand.
 name = "my-project"
 columns = ["backlog", "todo", "doing", "review", "done"]
 # bypass_review = true
+# category = "Work"
 
 [defaults]
 priority = "medium"
@@ -32,6 +33,7 @@ doing = 3
 | `name` | The board's display name (shown in the CLI and the web UI). |
 | `columns` | The ordered list of columns. The folders under `.kanbai/` follow this list. |
 | `bypass_review` | Skip the review stage. Default `false` — see [below](#skipping-review). |
+| `category` | Optional grouping label: the [hub](hub.md#categories-and-card-counts) lists boards that share a category together. Default empty (no grouping). |
 
 ### Skipping review
 
@@ -112,11 +114,27 @@ native = false
 ntfy_topic = "my-kanbai-topic"
 ```
 
-For a project connected to a [hosted board](cli.md#hosted) these settings are read from the
-project's local `config.toml` (the server does not carry them) and the notification is sent by
-the machine running the CLI.
+For a project connected to a [hosted board](hosted.md) these settings are always read from the
+project's local `config.toml` (even though `push --settings` can copy them to the server), and the
+notification is sent by the machine running the CLI.
 
 !!! warning "The ntfy topic is your only secret"
     ntfy.sh is a public server with no signup or authentication — anyone who knows (or
     guesses) your topic name receives your notifications. Pick something unguessable, not
     e.g. `my-project`.
+
+## `[server]`
+
+Written by [`kanbai hosted connect`](cli.md#hosted) (or `clone`); its presence is what connects
+the project to a [hosted board](hosted.md). You normally never edit it by hand.
+
+| Key | Description |
+|-----|-------------|
+| `url` | Base URL of the hosted `kanbai_server`. |
+| `token` | Access token. A token saved by [`kanbai hosted login`](cli.md#hosted) for the same server takes precedence over this one. |
+| `board_id` | Id of the hosted board this project follows. |
+| `enabled` | `false` keeps the connection but runs the project locally only (`kanbai hosted disable`). Default `true`. |
+
+The `[board]`, `[defaults]`, `[types]`, `[wip]` and `[notifications]` settings can be kept in step
+with the hosted board with `kanbai hosted push --settings` / `pull --settings` (the columns are
+never synced).

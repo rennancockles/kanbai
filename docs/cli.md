@@ -28,7 +28,7 @@ Every board operation is a `kanbai` subcommand. Run `kanbai --help` for the full
 | [`close-sprint`](#close-sprint) | Archive done cards, close out the current sprint. |
 | [`ui`](#ui) | Serve the local web UI. |
 | [`hub`](#hub) | Serve or manage the multi-board hub. |
-| [`hosted`](#hosted) | Connect a board to a hosted kanbai_server: `push`, `pull`, `clone`, `diff`. |
+| [`hosted`](#hosted) | Connect a board to a hosted [kanbai_server](hosted.md): `connect`, `login`, `push`, `pull`, `clone`, `diff`, `enable`/`disable`, `status`. |
 
 ---
 

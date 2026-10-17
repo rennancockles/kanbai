@@ -71,6 +71,7 @@ Then open a Claude Code session and ask it to *“work through the KanbAI board�
 - :material-robot: **[Working with Claude Code](claude-code.md)** — the one-card-at-a-time loop.
 - :material-monitor-dashboard: **[Web UI](web-ui.md)** — the local board with live updates.
 - :material-view-grid-plus: **[Multi-board hub](hub.md)** — all your projects on one port.
+- :material-cloud-sync: **[Hosted boards](hosted.md)** — keep a board online and in step with your files.
 
 </div>
 

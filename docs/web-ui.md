@@ -21,7 +21,8 @@ kanbai ui --poll             # for sandboxes/containers without OS file events
   sprint** (archive done cards, optionally reset the active columns, optionally stamp a
   release version).
 - **Search** cards and **filter by label or [type](concepts.md#card-type)**.
-- Browse archived cards, click one to see its full detail, and **restore** it.
+- Browse archived cards, click one to see its full detail, and **restore** it — or **clear the
+  archive** to delete every archived card for good (it asks first; this can't be undone).
 - See **WIP-limit** and **blocked-by-dependency** indicators.
 
 ## Creating a card
@@ -119,6 +120,26 @@ columns back to the backlog — with an optional release **version** stamped on 
 card, so the archive later shows which release shipped it. It refuses to run (and shows an
 alert in the modal) while any card is still in `review`, so unapproved work is never silently
 archived or moved.
+
+![The Close sprint modal, with the review warning](assets/close_sprint_modal.png)
+
+## The archive
+
+The **Archive** button lists every archived card, with the column it came from and the release
+version it was stamped with, and a filter box to find one. **Restore** puts a card back where it
+was; click a card to read its full detail first. **Clear archive** deletes every archived card for
+good, after asking for confirmation.
+
+![The Archive modal listing archived cards with Restore and Clear archive](assets/archive_modal.png)
+
+## On your phone
+
+The UI is responsive. On a narrow screen the top bar stacks, the board actions shrink to
+touch-sized icon buttons (keeping their labels for screen readers), the search and filters wrap
+onto their own rows, and inputs are large enough that iOS Safari doesn't zoom in when you focus
+them. Open the [hub](hub.md) from your phone through your machine's address on the network
+(`kanbai hub --host 0.0.0.0`) to check the board away from your desk. The hub has no
+authentication, so only expose it on a network you trust.
 
 ## Hiding the backlog
 

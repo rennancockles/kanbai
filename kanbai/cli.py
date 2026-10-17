@@ -317,7 +317,7 @@ def list_cards(
 def next(  # noqa: A001 - "next" mirrors the user-facing verb
     as_json: bool = typer.Option(False, "--json", help="Emit the next card as JSON."),
 ) -> None:
-    """Print the next actionable card in the backlog."""
+    """Print the next actionable card in the sprint (the `todo` column)."""
     board = _load()
     card = board.next()
     if card is None:

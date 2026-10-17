@@ -145,8 +145,9 @@ The UI (FastAPI + HTMX, assets vendored so it works offline) lets you:
 - **Drag-and-drop** between columns (with persisted reordering) or move from a card's modal.
 - **Plan a sprint** (move several backlog cards to `todo` at once) and **start a new sprint**
   (archive done cards, optionally reset the active columns).
-- **Search** cards and **filter by label**.
-- Browse and **restore** archived cards.
+- **Search** cards and **filter by label or type**.
+- Browse and **restore** archived cards (or clear the archive).
+- Use it from your **phone** — the layout is responsive.
 - See **WIP-limit** and **blocked-by-dependency** indicators, and **live updates** as Claude
   moves cards from the CLI (via Server-Sent Events).
 
@@ -196,6 +197,8 @@ kanbai hub                           # serve them all; opens a landing to pick a
 ```
 
 Each board is served at `/b/<name>/` and the registry lives in `~/.kanbai/boards.toml`.
+The landing page shows each board's card counts per column and groups boards by the `category`
+set in their `config.toml`; a **multi-board view** (`/v/`) puts several boards on one live page.
 Remove one with `kanbai hub remove <name>`. Hitting an unregistered or misspelled board
 URL shows a themed 404 page (with the registered boards as suggestions) instead of a bare
 JSON error.
@@ -215,6 +218,23 @@ kanbai hub stop                # stop it
 The daemon's PID and log file live under `~/.kanbai/` (`hub.pid` / `hub.log`), alongside
 the registry.
 
+## Hosted boards
+
+Keep a board online on a `kanbai_server` — open it from any browser, share it across machines,
+or feed it ideas from ChatGPT — while your local `.kanbai/` files stay the source of truth:
+
+```bash
+kanbai hosted connect --url https://kanbai.example.com --email me@example.com --create
+kanbai hosted push                  # local wins (or `pull` for server wins)
+kanbai hosted push --settings       # also sync category, types, WIP limits, ...
+kanbai hosted status                # connected? mirroring? out of sync?
+```
+
+Once connected, every card change is mirrored to the host and a failed mirror only warns —
+`push`/`pull` bring the two sides back in step. See
+[Hosted boards](https://www.r3ck.com.br/kanbai/hosted/) and the
+[CLI reference](https://www.r3ck.com.br/kanbai/cli/#hosted).
+
 ## Configuration
 
 `.kanbai/config.toml` is created by `init` and can be edited:
@@ -228,13 +248,26 @@ columns = ["backlog", "todo", "doing", "review", "done"]
 # review column (if present) is hidden from the UI and the workflow skills.
 # bypass_review = true
 
+# Optional category: the hub groups boards that share one.
+# category = "Work"
+
 [defaults]
 priority = "medium"
+
+[types]
+available = ["feature", "bug", "refactor", "chore", "docs", "spike"]
 
 # Optional work-in-progress limits per column (the CLI and UI warn when exceeded).
 [wip]
 doing = 3
+
+# Native desktop notifications are on by default; set ntfy_topic to also push to ntfy.sh.
+# [notifications]
+# native = false
+# ntfy_topic = "my-kanbai-topic"
 ```
+
+See the [configuration reference](https://www.r3ck.com.br/kanbai/configuration/) for every key.
 
 With `bypass_review = true`, there's no approval step — `kanbai review <id>` (and the
 Claude workflow skills) send a card straight to `done`, and the `review` column disappears
@@ -262,6 +295,9 @@ from the web UI even if it's still present in `columns`.
 | `kanbai hub` | Serve all registered boards on one port (needs the `ui` extra). |
 | `kanbai hub start/stop/status` | Run the hub as a background daemon instead. |
 | `kanbai hub logs [-f]` | Show (or follow) the hub daemon's log. |
+| `kanbai hosted connect/login/clone` | Connect a project to a hosted board, renew the token, or copy a hosted board here. |
+| `kanbai hosted push/pull/diff` | Local wins / server wins / compare (`--all`, `--archived`, `--delete`, `--settings`). |
+| `kanbai hosted enable/disable/status` | Turn mirroring on or off, and see whether the project is out of sync. |
 
 Add `--json` to read-only commands for machine-readable output.
 
