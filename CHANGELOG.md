@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.15.0 (2026-10-17)
+
+### Documentation
+
+- Atualizar a documentação e os screenshots para o estado atual do produto (139)
+  ([`afa279d`](https://github.com/rennancockles/kanbai/commit/afa279d1d8fd27ced985b33247fc82c9aab72ea7))
+
+### Features
+
+- Hosted push/pull --settings para sincronizar os settings do board com o host (137)
+  ([`690e4fa`](https://github.com/rennancockles/kanbai/commit/690e4faa4ed5b7d1f14f566d5fc540f697d27b77))
+
+
 ## v0.14.0 (2026-10-16)
 
 ### Features
