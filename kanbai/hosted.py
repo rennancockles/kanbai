@@ -19,10 +19,10 @@ from typing import Literal
 
 from . import credentials, scaffold, storage, sync_state
 from .board import Board
-from .config import CONFIG_FILENAME, RemoteConfig, load_remote_config
+from .config import CONFIG_FILENAME, RemoteConfig, load_config, load_remote_config, render_config
 from .errors import HostUnreachableError, KanbaiError, RemoteAPIError
-from .models import Card
-from .remote_board import RemoteBoard, create_remote_board
+from .models import BoardConfig, Card
+from .remote_board import SETTINGS, RemoteBoard, create_remote_board
 
 #: Card fields compared by :func:`diff_boards`. Excludes ``id`` (the comparison key),
 #: ``order`` (position noise, not meaningful content), and ``created``/``updated``
@@ -105,6 +105,67 @@ def _remove_section(toml_text: str, name: str) -> str:
         if not skipping:
             kept.append(line)
     return "".join(kept)
+
+
+def _extract_section(toml_text: str, name: str) -> str:
+    """The top-level ``[name]`` table with its body (up to the next ``[...]``), or ``""``."""
+    kept: list[str] = []
+    inside = False
+    for line in toml_text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped == f"[{name}]":
+            inside = True
+        elif inside and stripped.startswith("[") and stripped.endswith("]"):
+            break
+        if inside:
+            kept.append(line)
+    return "".join(kept)
+
+
+def _settings_view(config: BoardConfig, columns: list[str]) -> dict[str, object]:
+    """The syncable settings of ``config``; WIP limits only count for columns that exist on
+    the other side (``columns``), since the server drops the rest."""
+    view = {name: getattr(config, name) for name in SETTINGS}
+    view["wip"] = {col: limit for col, limit in config.wip.items() if col in columns}
+    return view
+
+
+def _differing_settings(source: BoardConfig, target: BoardConfig) -> list[str]:
+    """Names of the settings whose value in ``source`` is not what ``target`` has."""
+    wanted = _settings_view(source, target.columns)
+    current = _settings_view(target, target.columns)
+    return [name for name in SETTINGS if wanted[name] != current[name]]
+
+
+def push_settings(remote: RemoteBoard, kanbai_dir: Path) -> list[str]:
+    """Local wins: make the hosted board's settings (not its columns) match ``config.toml``.
+
+    Returns the names of the settings that changed on the server (empty when already in sync).
+    """
+    local = load_config(kanbai_dir)
+    changed = _differing_settings(local, remote.config)
+    if changed:
+        remote.update_settings(local)
+    return changed
+
+
+def pull_settings(remote: RemoteBoard, kanbai_dir: Path) -> list[str]:
+    """Server wins: make ``config.toml``'s settings (not its columns) match the hosted board.
+
+    Rewrites the config from the settings, so comments in the file are not kept; the
+    ``[server]`` connection is. Returns the names of the settings that changed locally.
+    """
+    local = load_config(kanbai_dir)
+    changed = _differing_settings(remote.config, local)
+    if not changed:
+        return []
+    merged = local.model_copy(update=_settings_view(remote.config, local.columns))
+    config_path = kanbai_dir / CONFIG_FILENAME
+    existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    server = _extract_section(existing, "server").strip("\n")
+    text = render_config(merged).rstrip("\n") + "\n"
+    config_path.write_text(f"{text}\n{server}\n" if server else text, encoding="utf-8")
+    return changed
 
 
 def create_hosted_board(kanbai_dir: Path, url: str, token: str) -> RemoteConfig:
@@ -379,17 +440,23 @@ class BoardOutcome:
     status: Literal["ok", "differs", "failed", "skipped"]
     result: SyncResult | None = None
     message: str = ""
+    settings: list[str] | None = None  # settings that changed, when settings were synced
 
 
 def sync_all(
-    boards: dict[str, str], action: SyncAction, *, delete: bool = False, archived: bool = False
+    boards: dict[str, str],
+    action: SyncAction,
+    *,
+    delete: bool = False,
+    archived: bool = False,
+    settings: bool = False,
 ) -> list[BoardOutcome]:
     """Run push, pull or diff on every ``{name: project path}`` board with a ``[server]``.
 
     A board that is not connected is skipped, and one that fails (network, auth, unreadable
     files) is reported without stopping the others. Once a server proves unreachable, the
     remaining boards on that same url are skipped instead of each waiting out the timeout.
-    ``delete`` only applies to push/pull.
+    ``delete`` and ``settings`` (also sync the board settings) only apply to push/pull.
     """
     outcomes: list[BoardOutcome] = []
     unreachable: dict[str, str] = {}  # server url -> name of the board that found it down
@@ -405,7 +472,9 @@ def sync_all(
                 message = f"server unreachable (skipped after '{unreachable[url]}' failed)"
                 outcomes.append(BoardOutcome(name, "skipped", message=message))
                 continue
-            outcomes.append(_sync_one(name, kanbai_dir, remote_config, action, delete, archived))
+            outcomes.append(
+                _sync_one(name, kanbai_dir, remote_config, action, delete, archived, settings)
+            )
         except HostUnreachableError as exc:
             unreachable[url] = name
             outcomes.append(BoardOutcome(name, "failed", message=str(exc)))
@@ -421,16 +490,17 @@ def _sync_one(
     action: SyncAction,
     delete: bool,
     archived: bool,
+    settings: bool,
 ) -> BoardOutcome:
     remote = RemoteBoard(remote_config)
     if action == "push":
-        return BoardOutcome(
-            name, "ok", push_board(remote, kanbai_dir, delete=delete, archived=archived)
-        )
+        result = push_board(remote, kanbai_dir, delete=delete, archived=archived)
+        changed = push_settings(remote, kanbai_dir) if settings else None
+        return BoardOutcome(name, "ok", result, settings=changed)
     if action == "pull":
-        return BoardOutcome(
-            name, "ok", pull_board(remote, kanbai_dir, delete=delete, archived=archived)
-        )
+        result = pull_board(remote, kanbai_dir, delete=delete, archived=archived)
+        changed = pull_settings(remote, kanbai_dir) if settings else None
+        return BoardOutcome(name, "ok", result, settings=changed)
     board_diff = diff_boards(Board.load(kanbai_dir.parent), remote, archived=archived)
     if board_diff.in_sync:
         return BoardOutcome(name, "ok", message="in sync")

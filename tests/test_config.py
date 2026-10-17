@@ -222,3 +222,20 @@ def test_render_config_round_trips_through_load_config(tmp_path: Path) -> None:
     assert (loaded.name, loaded.bypass_review, loaded.category) == ("Round trip", True, "Work")
     assert loaded.type_colors == {"bug": "#ff0000"}
     assert loaded.wip == {"doing": 2}
+
+
+def test_render_config_writes_notification_settings_that_are_set(tmp_path: Path) -> None:
+    config = BoardConfig(notifications_native=False, notifications_ntfy_topic="my-topic")
+
+    text = render_config(config)
+
+    assert '\n[notifications]\nnative = false\nntfy_topic = "my-topic"\n' in text
+    assert "# [notifications]" not in text
+    (tmp_path / ".kanbai").mkdir()
+    (tmp_path / ".kanbai" / "config.toml").write_text(text)
+    loaded = load_config(tmp_path / ".kanbai")
+    assert (loaded.notifications_native, loaded.notifications_ntfy_topic) == (False, "my-topic")
+
+
+def test_render_config_keeps_default_notifications_commented_out() -> None:
+    assert "\n[notifications]" not in render_config(BoardConfig())

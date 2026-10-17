@@ -113,20 +113,27 @@ class RemoteBoard:
         data = self._request("GET", "/boards")
         for entry in data:
             if entry["id"] == self._remote.board_id:
-                return BoardConfig(
-                    name=entry["name"],
-                    columns=entry["columns"],
-                    default_priority=Priority(entry["default_priority"]),
-                    types=entry["types"],
-                    type_colors=entry["type_colors"],
-                    wip=entry["wip"],
-                    bypass_review=entry["bypass_review"],
-                    category=entry.get("category", ""),
-                )
+                return _config_from_entry(entry)
         raise RemoteAPIError(
             f"Board '{self._remote.board_id}' was not found on {self._remote.url} "
             "(check config.toml's [server] board_id)."
         )
+
+    def update_settings(self, config: BoardConfig) -> BoardConfig:
+        """Make the hosted board's settings match ``config`` (everything but the columns)."""
+        try:
+            data = self._request(
+                "PATCH", self._board_path(), json={f: _setting_value(config, f) for f in SETTINGS}
+            )
+        except RemoteAPIError as exc:
+            if exc.status_code == httpx.codes.METHOD_NOT_ALLOWED:
+                raise RemoteAPIError(
+                    "This server cannot update board settings yet; update kanbai_server first.",
+                    status_code=exc.status_code,
+                ) from exc
+            raise
+        self.config = _config_from_entry(data)
+        return self.config
 
     @property
     def columns(self) -> list[str]:
@@ -311,6 +318,41 @@ class RemoteBoard:
             json={"reset_to_backlog": reset_to_backlog, "version": version},
         )
         return {"archived": data["archived"], "reset": data["reset"]}
+
+
+#: Board settings that can be synced with the hosted board (the columns cannot: renaming or
+#: removing one would strand its cards).
+SETTINGS = (
+    "name",
+    "category",
+    "default_priority",
+    "types",
+    "type_colors",
+    "wip",
+    "bypass_review",
+    "notifications_native",
+    "notifications_ntfy_topic",
+)
+
+
+def _setting_value(config: BoardConfig, name: str) -> object:
+    value = getattr(config, name)
+    return value.value if isinstance(value, Priority) else value
+
+
+def _config_from_entry(entry: dict[str, Any]) -> BoardConfig:
+    return BoardConfig(
+        name=entry["name"],
+        columns=entry["columns"],
+        default_priority=Priority(entry["default_priority"]),
+        types=entry["types"],
+        type_colors=entry["type_colors"],
+        wip=entry["wip"],
+        bypass_review=entry["bypass_review"],
+        category=entry.get("category", ""),
+        notifications_native=entry.get("notifications_native", True),
+        notifications_ntfy_topic=entry.get("notifications_ntfy_topic", ""),
+    )
 
 
 def _is_api_response(response: httpx.Response) -> bool:

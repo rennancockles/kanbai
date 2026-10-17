@@ -173,4 +173,15 @@ def render_config(config: BoardConfig) -> str:
     if config.wip:
         limits = "".join(f"{col} = {limit}\n" for col, limit in config.wip.items())
         text = text.replace("# [wip]\n# doing = 3\n", f"[wip]\n{limits}", 1)
+    if not config.notifications_native or config.notifications_ntfy_topic:
+        lines = ["[notifications]\n"]
+        if not config.notifications_native:
+            lines.append("native = false\n")
+        if config.notifications_ntfy_topic:
+            lines.append(f'ntfy_topic = "{config.notifications_ntfy_topic}"\n')
+        text = text.replace(
+            '# [notifications]\n# native = false\n# ntfy_topic = "my-kanbai-topic"\n',
+            "".join(lines),
+            1,
+        )
     return text

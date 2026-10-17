@@ -53,6 +53,8 @@ class _FakeServer:
         self._next_card_id: dict[str, int] = {BOARD_ID: 1}
         # Emulates an older kanbai_server that ignores an explicit `id` on card creation.
         self.ignores_card_ids = False
+        # Emulates an older kanbai_server without `PATCH /boards/{id}` (board settings).
+        self.supports_settings = True
 
     def _card_dict(self, board_id: str, **overrides: object) -> dict[str, object]:
         base: dict[str, object] = {
@@ -82,6 +84,9 @@ class _FakeServer:
             return self._login(body)
         if path == "/boards":
             return self._create_board(body) if method == "POST" else self._list_boards()
+
+        if method == "PATCH" and re.match(r"^/boards/[\w-]+$", path):
+            return self._update_board(path.rsplit("/", 1)[1], body)
 
         board_match = re.match(r"^/boards/([\w-]+)/(.*)$", path)
         if board_match:
@@ -114,6 +119,23 @@ class _FakeServer:
         self.cards[board_id] = {}
         self._next_card_id[board_id] = 1
         return httpx.Response(200, json=board_config)
+
+    def _update_board(self, board_id: str, body: dict[str, object]) -> httpx.Response:
+        if not self.supports_settings:
+            return httpx.Response(405, json={"detail": "Method Not Allowed"})
+        board = self.boards.get(board_id)
+        if board is None:
+            return httpx.Response(404, json={"detail": f"No board found with id '{board_id}'."})
+        columns = board["columns"]
+        for key, value in body.items():
+            if value is None:
+                continue
+            board[key] = (
+                {c: n for c, n in value.items() if c in columns}  # type: ignore[attr-defined]
+                if key == "wip"
+                else value
+            )
+        return httpx.Response(200, json=board)
 
     def _list_boards(self) -> httpx.Response:
         return httpx.Response(200, json=list(self.boards.values()))

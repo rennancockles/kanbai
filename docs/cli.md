@@ -298,6 +298,15 @@ Options shared by `push`, `pull` and `diff` (and `clone`):
   archived card that exists on one side only is never created, overwritten or deleted.
 - `--delete` (`push`, `pull`) — remove cards that exist only on the receiving side. Without it
   they are kept.
+- `--settings` (`push`, `pull`) — also sync the board settings in `config.toml`: name, category,
+  default priority, card types and their colors, WIP limits, `bypass_review` and the
+  notification settings. The columns are never synced (renaming or removing one would strand
+  its cards). `push --settings` overwrites the hosted settings with the local ones (the hub
+  groups boards by category, so this is how a category change reaches it); `pull --settings`
+  does the reverse and rewrites `config.toml` from the hosted values, keeping the `[server]`
+  connection but not comments in the file. Settings can also be edited on the hosted board
+  itself, from the hub's **Settings** button. The server needs to be recent enough to accept
+  settings updates.
 - `--all` (`push`, `pull`, `diff`) — run on every board of the [hub registry](hub.md) instead of
   the current project, from any directory. Boards without a `[server]` connection are
   *skipped*; a board that fails (network, expired token…) is reported without stopping the
@@ -315,6 +324,7 @@ kanbai hosted connect --url https://kanbai.example.com --email me@example.com --
 kanbai hosted push
 kanbai hosted push --archived            # include archived cards
 kanbai hosted push --delete              # also remove hosted cards that no longer exist locally
+kanbai hosted push --settings            # also send the board settings (category, types, WIP...)
 
 # on another machine
 mkdir myproject && cd myproject

@@ -629,7 +629,22 @@ def _sync_summary(label: str, result: hosted.SyncResult) -> str:
     return f"[green]✓[/green] {label}: {_sync_counts(result)}."
 
 
+def _settings_summary(changed: list[str]) -> str:
+    return "settings updated: " + ", ".join(changed) if changed else "settings already in sync"
+
+
 _OUTCOME_STYLE = {"ok": "green", "differs": "yellow", "failed": "red", "skipped": "dim"}
+
+
+def _outcome_detail(outcome: hosted.BoardOutcome) -> str:
+    base = outcome.message or (_sync_counts(outcome.result) if outcome.result is not None else "")
+    if outcome.settings is None:
+        return base
+    return (
+        f"{base}; {_settings_summary(outcome.settings)}"
+        if base
+        else _settings_summary(outcome.settings)
+    )
 
 
 def _run_all(
@@ -637,6 +652,7 @@ def _run_all(
     *,
     delete: bool = False,
     archived: bool = False,
+    settings: bool = False,
     as_json: bool = False,
 ) -> None:
     """Run ``action`` on every board in the hub registry and print one line per board.
@@ -650,10 +666,8 @@ def _run_all(
         else:
             console.print("[dim]No boards registered. Add one with `kanbai hub add <path>`.[/dim]")
         return
-    outcomes = hosted.sync_all(boards, action, delete=delete, archived=archived)
-    details = [
-        o.message or (_sync_counts(o.result) if o.result is not None else "") for o in outcomes
-    ]
+    outcomes = hosted.sync_all(boards, action, delete=delete, archived=archived, settings=settings)
+    details = [_outcome_detail(o) for o in outcomes]
     if as_json:
         _emit_json(
             [
@@ -919,6 +933,11 @@ def hosted_push(
     all_boards: bool = typer.Option(
         False, "--all", help="Push every board registered in the hub that is connected."
     ),
+    settings: bool = typer.Option(
+        False,
+        "--settings",
+        help="Also send the board settings (name, category, types, WIP, ...) to the hosted board.",
+    ),
 ) -> None:
     """Local wins: send this board's cards to the hosted board.
 
@@ -928,21 +947,26 @@ def hosted_push(
     exist on one side only are left alone unless you pass --archived (then they are created
     on the server).
 
+    With --settings the board settings in `config.toml` (everything but the columns) are sent
+    too, overwriting the hosted ones; without it only cards are synced.
+
     With --all it runs on every connected board of the hub registry (from any directory); a
     board that fails does not stop the others, and the exit code is 1 if any failed.
     """
     if all_boards:
-        _run_all("push", delete=delete, archived=archived)
+        _run_all("push", delete=delete, archived=archived, settings=settings)
         return
     try:
         kanbai_dir, remote_config = _connected_project()
-        result = hosted.push_board(
-            RemoteBoard(remote_config), kanbai_dir, delete=delete, archived=archived
-        )
+        remote = RemoteBoard(remote_config)
+        result = hosted.push_board(remote, kanbai_dir, delete=delete, archived=archived)
+        changed = hosted.push_settings(remote, kanbai_dir) if settings else None
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(_sync_summary("push", result))
+    if changed is not None:
+        console.print(f"[green]✓[/green] push: {_settings_summary(changed)}.")
 
 
 @hosted_app.command("pull")
@@ -957,6 +981,11 @@ def hosted_pull(
         False, "--all", help="Pull every board registered in the hub that is connected."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="With --all, skip the confirmation."),
+    settings: bool = typer.Option(
+        False,
+        "--settings",
+        help="Also update config.toml's board settings (name, category, types, WIP, ...).",
+    ),
 ) -> None:
     """Server wins: update this board's files to match the hosted board.
 
@@ -967,6 +996,9 @@ def hosted_pull(
 
     With --all it runs on every connected board of the hub registry (from any directory),
     after asking for confirmation unless --yes is given, since it overwrites local cards.
+
+    With --settings the board settings in `config.toml` (everything but the columns) take the
+    hosted values too; the file is rewritten, so comments in it are not kept.
     """
     if all_boards:
         if not yes:
@@ -975,17 +1007,19 @@ def hosted_pull(
                 "board of the hub. Continue?",
                 abort=True,
             )
-        _run_all("pull", delete=delete, archived=archived)
+        _run_all("pull", delete=delete, archived=archived, settings=settings)
         return
     try:
         kanbai_dir, remote_config = _connected_project()
-        result = hosted.pull_board(
-            RemoteBoard(remote_config), kanbai_dir, delete=delete, archived=archived
-        )
+        remote = RemoteBoard(remote_config)
+        result = hosted.pull_board(remote, kanbai_dir, delete=delete, archived=archived)
+        changed = hosted.pull_settings(remote, kanbai_dir) if settings else None
     except (KanbaiError, RemoteAPIError) as exc:
         err_console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print(_sync_summary("pull", result))
+    if changed is not None:
+        console.print(f"[green]✓[/green] pull: {_settings_summary(changed)}.")
 
 
 @hosted_app.command("clone")

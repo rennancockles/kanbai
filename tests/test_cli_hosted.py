@@ -990,3 +990,58 @@ def test_all_reports_an_expired_token_with_the_login_hint(
 
     assert outcome.status == "failed"
     assert "kanbai hosted login" in outcome.message
+
+
+def test_push_with_settings_sends_the_board_settings(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    config_path = local_project / ".kanbai" / "config.toml"
+    config_path.write_text(
+        config_path.read_text().replace('# category = "Work"\n', 'category = "Work"\n', 1)
+    )
+
+    plain = runner.invoke(app, ["hosted", "push"])
+    with_settings = runner.invoke(app, ["hosted", "push", "--settings"])
+    again = runner.invoke(app, ["hosted", "push", "--settings"])
+
+    assert plain.exit_code == 0 and "settings" not in plain.output
+    assert with_settings.exit_code == 0, with_settings.output
+    assert "settings updated: category" in with_settings.output
+    assert "settings already in sync" in again.output
+    boards = [b for b in fake_server.boards.values() if b.get("category") == "Work"]
+    assert len(boards) == 1
+
+
+def test_pull_with_settings_updates_config_toml(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    remote_id = load_remote_config(local_project / ".kanbai").board_id  # type: ignore[union-attr]
+    fake_server.boards[remote_id]["category"] = "Home"
+
+    plain = runner.invoke(app, ["hosted", "pull"])
+    with_settings = runner.invoke(app, ["hosted", "pull", "--settings"])
+
+    assert plain.exit_code == 0 and "settings" not in plain.output
+    assert with_settings.exit_code == 0, with_settings.output
+    assert "settings updated: category" in with_settings.output
+    config_text = (local_project / ".kanbai" / "config.toml").read_text()
+    assert 'category = "Home"' in config_text
+    assert load_remote_config(local_project / ".kanbai") is not None
+
+
+def test_push_settings_to_an_old_server_fails_with_a_clear_message(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    config_path = local_project / ".kanbai" / "config.toml"
+    config_path.write_text(
+        config_path.read_text().replace('# category = "Work"\n', 'category = "Work"\n', 1)
+    )
+    fake_server.supports_settings = False
+
+    result = runner.invoke(app, ["hosted", "push", "--settings"])
+
+    assert result.exit_code == 1
+    assert "update kanbai_server" in result.output

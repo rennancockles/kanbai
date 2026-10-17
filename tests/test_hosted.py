@@ -8,7 +8,7 @@ import httpx2 as httpx
 import pytest
 from kanbai import hosted, scaffold
 from kanbai.board import Board
-from kanbai.config import RemoteConfig, load_remote_config
+from kanbai.config import RemoteConfig, load_config, load_remote_config
 from kanbai.errors import KanbaiError, RemoteAPIError
 from kanbai.remote_board import RemoteBoard, login
 
@@ -798,3 +798,143 @@ def test_clone_leaves_archived_cards_out_by_default(tmp_path: Path) -> None:
 
     assert Board.load(plain).list_archive() == []
     assert [c.title for c in Board.load(full).list_archive()] == ["Shelved"]
+
+
+def _publish_and_edit_local_config(
+    local_project: Path, *replacements: tuple[str, str]
+) -> tuple[RemoteConfig, Path]:
+    """Publish the board, then change local settings by filling in the config's placeholders."""
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    config_path = kanbai_dir / "config.toml"
+    text = config_path.read_text()
+    for old, new in replacements:
+        assert old in text, old
+        text = text.replace(old, new, 1)
+    config_path.write_text(text)
+    return remote_config, kanbai_dir
+
+
+_CATEGORY = ('# category = "Work"\n', 'category = "Work"\n')
+_WIP = ("# [wip]\n# doing = 3\n", "[wip]\ndoing = 2\nnowhere = 4\n")
+_BYPASS = ("# bypass_review = true\n", "bypass_review = true\n")
+_NTFY = (
+    '# [notifications]\n# native = false\n# ntfy_topic = "my-kanbai-topic"\n',
+    '[notifications]\nnative = false\nntfy_topic = "my-topic"\n',
+)
+
+
+def test_push_settings_sends_the_changed_local_settings_to_the_server(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    remote_config, kanbai_dir = _publish_and_edit_local_config(
+        local_project, _CATEGORY, _WIP, _BYPASS, _NTFY
+    )
+    remote = RemoteBoard(remote_config)
+
+    changed = hosted.push_settings(remote, kanbai_dir)
+
+    assert changed == [
+        "category",
+        "wip",
+        "bypass_review",
+        "notifications_native",
+        "notifications_ntfy_topic",
+    ]
+    board = fake_server.boards[remote_config.board_id]
+    assert board["category"] == "Work"
+    assert board["wip"] == {"doing": 2}
+    assert board["bypass_review"] is True
+    assert (board["notifications_native"], board["notifications_ntfy_topic"]) == (False, "my-topic")
+    assert board["columns"] == ["backlog", "todo", "doing", "review", "done"]
+
+
+def test_push_settings_changes_nothing_when_already_in_sync(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    remote_config, kanbai_dir = _publish_and_edit_local_config(local_project, _CATEGORY, _WIP)
+    remote = RemoteBoard(remote_config)
+    hosted.push_settings(remote, kanbai_dir)
+
+    assert hosted.push_settings(RemoteBoard(remote_config), kanbai_dir) == []
+
+
+def test_push_settings_explains_when_the_server_is_too_old(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    remote_config, kanbai_dir = _publish_and_edit_local_config(local_project, _CATEGORY)
+    fake_server.supports_settings = False
+
+    with pytest.raises(RemoteAPIError, match="update kanbai_server"):
+        hosted.push_settings(RemoteBoard(remote_config), kanbai_dir)
+
+
+def test_pull_settings_rewrites_the_local_settings_and_keeps_the_connection_and_columns(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    board = fake_server.boards[remote_config.board_id]
+    board.update(
+        {
+            "name": "Renamed on the host",
+            "category": "Home",
+            "types": ["idea", "bug"],
+            "type_colors": {"idea": "#00ff00"},
+            "wip": {"doing": 3},
+            "bypass_review": True,
+            "default_priority": "high",
+            "notifications_native": False,
+            "notifications_ntfy_topic": "from-host",
+        }
+    )
+
+    changed = hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir)
+
+    assert set(changed) == {
+        "name",
+        "category",
+        "types",
+        "type_colors",
+        "wip",
+        "bypass_review",
+        "default_priority",
+        "notifications_native",
+        "notifications_ntfy_topic",
+    }
+    config = load_config(kanbai_dir)
+    assert (config.name, config.category, config.types) == (
+        "Renamed on the host",
+        "Home",
+        ["idea", "bug"],
+    )
+    assert (config.type_colors, config.wip) == ({"idea": "#00ff00"}, {"doing": 3})
+    assert (config.bypass_review, config.default_priority.value) == (True, "high")
+    assert (config.notifications_native, config.notifications_ntfy_topic) == (False, "from-host")
+    assert config.columns == ["backlog", "todo", "doing", "review", "done"]
+    assert load_remote_config(kanbai_dir) == remote_config
+    assert hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir) == []
+
+
+def test_pull_settings_leaves_the_file_alone_when_nothing_differs(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    before = (kanbai_dir / "config.toml").read_text()
+
+    assert hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir) == []
+
+    assert (kanbai_dir / "config.toml").read_text() == before
+
+
+def test_sync_all_with_settings_reports_what_changed(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _publish_and_edit_local_config(local_project, _CATEGORY)
+
+    outcomes = hosted.sync_all({"proj": str(local_project)}, "push", settings=True)
+    without = hosted.sync_all({"proj": str(local_project)}, "push")
+
+    assert outcomes[0].settings == ["category"]
+    assert without[0].settings is None
