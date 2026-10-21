@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-from kanbai import credentials, hosted, registry, scaffold
+from kanbai import cli, credentials, hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
 from kanbai.config import load_remote_config
@@ -32,6 +32,12 @@ def fake_server(monkeypatch: pytest.MonkeyPatch) -> _FakeServer:
     server = _FakeServer()
     patch_transport(monkeypatch, httpx.MockTransport(server.handle))
     return server
+
+
+@pytest.fixture
+def tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the confirmation prompt believe a person is at the keyboard."""
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
 
 
 @pytest.fixture
@@ -229,14 +235,14 @@ def test_connect_refuses_to_replace_an_existing_connection(
 def test_push_requires_the_connection_and_points_to_connect(
     local_project: Path, fake_server: _FakeServer
 ) -> None:
-    result = runner.invoke(app, ["hosted", "push"])
+    result = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert result.exit_code == 1
     assert "hosted connect" in result.output
 
 
 def test_push_no_longer_takes_credentials(local_project: Path, fake_server: _FakeServer) -> None:
-    result = runner.invoke(app, ["hosted", "push", "--url", URL])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--url", URL])
 
     assert result.exit_code == 2
 
@@ -245,7 +251,7 @@ def test_push_sends_the_local_cards(local_project: Path, fake_server: _FakeServe
     Board.load(local_project).add("Local card")
     _connect()
 
-    result = runner.invoke(app, ["hosted", "push"])
+    result = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert result.exit_code == 0, result.output
     titles = [c["title"] for c in fake_server.cards[_board_id(local_project)].values()]
@@ -256,10 +262,10 @@ def test_push_sends_the_local_cards(local_project: Path, fake_server: _FakeServe
 def test_later_pushes_send_only_what_is_new(local_project: Path, fake_server: _FakeServer) -> None:
     Board.load(local_project).add("First")
     _connect()
-    runner.invoke(app, ["hosted", "push"])
+    runner.invoke(app, ["hosted", "push", "-y"])
     Board.load(local_project).add("Second")
 
-    result = runner.invoke(app, ["hosted", "push"])
+    result = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert result.exit_code == 0, result.output
     assert "1 created" in result.output
@@ -271,7 +277,7 @@ def test_push_fails_without_a_local_board(
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
-    result = runner.invoke(app, ["hosted", "push"])
+    result = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert result.exit_code == 1
 
@@ -283,11 +289,11 @@ def test_push_delete_removes_hosted_cards_missing_locally(
     board_id = _board_id(local_project)
     _add_remote_card(fake_server, board_id, "Only on server")
 
-    kept = runner.invoke(app, ["hosted", "push"])
+    kept = runner.invoke(app, ["hosted", "push", "-y"])
     assert "1 kept on the other side" in kept.output
     assert "999" in fake_server.cards[board_id]
 
-    result = runner.invoke(app, ["hosted", "push", "--delete"])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--delete"])
 
     assert result.exit_code == 0, result.output
     assert "999" not in fake_server.cards[board_id]
@@ -304,11 +310,11 @@ def test_push_skips_archived_cards_unless_asked(
     _connect()
     board_id = _board_id(local_project)
 
-    plain = runner.invoke(app, ["hosted", "push"])
+    plain = runner.invoke(app, ["hosted", "push", "-y"])
     assert plain.exit_code == 0, plain.output
     assert set(fake_server.cards[board_id]) == {"001"}
 
-    full = runner.invoke(app, ["hosted", "push", "--archived"])
+    full = runner.invoke(app, ["hosted", "push", "-y", "--archived"])
 
     assert full.exit_code == 0, full.output
     assert fake_server.cards[board_id]["002"]["status"] == "archive"
@@ -318,7 +324,7 @@ def test_push_skips_archived_cards_unless_asked(
 
 
 def test_pull_requires_server_section(local_project: Path) -> None:
-    result = runner.invoke(app, ["hosted", "pull"])
+    result = runner.invoke(app, ["hosted", "pull", "-y"])
 
     assert result.exit_code == 1
     assert "error" in result.output.lower()
@@ -328,10 +334,10 @@ def test_pull_requires_server_section(local_project: Path) -> None:
 def test_pull_writes_remote_cards_locally(local_project: Path, fake_server: _FakeServer) -> None:
     Board.load(local_project).add("Local card")
     _connect()
-    runner.invoke(app, ["hosted", "push"])
+    runner.invoke(app, ["hosted", "push", "-y"])
     _add_remote_card(fake_server, _board_id(local_project), "Added remotely")
 
-    result = runner.invoke(app, ["hosted", "pull"])
+    result = runner.invoke(app, ["hosted", "pull", "-y"])
 
     assert result.exit_code == 0, result.output
     titles = {c.title for c in Board.load(local_project).list_column("backlog")}
@@ -345,10 +351,10 @@ def test_pull_delete_removes_local_cards_missing_on_the_server(
     _connect()
     Board.load(local_project).add("Local only")
 
-    kept = runner.invoke(app, ["hosted", "pull"])
+    kept = runner.invoke(app, ["hosted", "pull", "-y"])
     assert "1 kept on the other side" in kept.output
 
-    result = runner.invoke(app, ["hosted", "pull", "--delete"])
+    result = runner.invoke(app, ["hosted", "pull", "-y", "--delete"])
 
     assert result.exit_code == 0, result.output
     assert not Board.load(local_project).list_column("backlog")
@@ -484,8 +490,8 @@ def test_a_cloned_project_stays_connected_for_pull_and_push(
     _clone()
     Board.load(empty_dir).add("Made after cloning")
 
-    push = runner.invoke(app, ["hosted", "push"])
-    pull = runner.invoke(app, ["hosted", "pull"])
+    push = runner.invoke(app, ["hosted", "push", "-y"])
+    pull = runner.invoke(app, ["hosted", "pull", "-y"])
 
     assert push.exit_code == 0, push.output
     assert pull.exit_code == 0, pull.output
@@ -525,7 +531,7 @@ def test_hosted_diff_requires_server_section(local_project: Path) -> None:
 def test_hosted_diff_exits_zero_when_in_sync(local_project: Path, fake_server: _FakeServer) -> None:
     Board.load(local_project).add("Local card")
     _connect()
-    runner.invoke(app, ["hosted", "push"])
+    runner.invoke(app, ["hosted", "push", "-y"])
 
     result = runner.invoke(app, ["hosted", "diff"])
 
@@ -574,11 +580,11 @@ def test_pull_skips_archived_cards_unless_asked(
     _connect()
     _archived_on_server(fake_server, _board_id(local_project))
 
-    plain = runner.invoke(app, ["hosted", "pull"])
+    plain = runner.invoke(app, ["hosted", "pull", "-y"])
     assert plain.exit_code == 0, plain.output
     assert Board.load(local_project).list_archive() == []
 
-    full = runner.invoke(app, ["hosted", "pull", "--archived"])
+    full = runner.invoke(app, ["hosted", "pull", "-y", "--archived"])
 
     assert full.exit_code == 0, full.output
     assert [c.title for c in Board.load(local_project).list_archive()] == ["Shelved on server"]
@@ -645,8 +651,8 @@ def test_sync_commands_work_regardless_of_the_flag(
     _connect()
     runner.invoke(app, ["hosted", "disable"])
 
-    pushed = runner.invoke(app, ["hosted", "push"])
-    pulled = runner.invoke(app, ["hosted", "pull"])
+    pushed = runner.invoke(app, ["hosted", "push", "-y"])
+    pulled = runner.invoke(app, ["hosted", "pull", "-y"])
     diffed = runner.invoke(app, ["hosted", "diff"])
 
     assert pushed.exit_code == 0, pushed.output
@@ -661,7 +667,7 @@ def test_offline_work_syncs_while_still_disabled(
     runner.invoke(app, ["hosted", "disable"])
     created = runner.invoke(app, ["add", "Made offline", "--json"])
 
-    pushed = runner.invoke(app, ["hosted", "push"])
+    pushed = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert pushed.exit_code == 0, pushed.output
     remote = fake_server.cards[_board_id(local_project)]
@@ -720,7 +726,7 @@ def hub_boards(
 def test_push_all_syncs_connected_boards_and_reports_the_rest(
     hub_boards: dict[str, Path], fake_server: _FakeServer
 ) -> None:
-    result = runner.invoke(app, ["hosted", "push", "--all"])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--all"])
 
     assert result.exit_code == 1  # gamma failed
     titles = [c["title"] for c in fake_server.cards[_board_id(hub_boards["alpha"])].values()]
@@ -735,7 +741,7 @@ def test_push_all_exits_zero_when_nothing_failed(
 ) -> None:
     registry.remove_board("gamma")
 
-    result = runner.invoke(app, ["hosted", "push", "--all"])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--all"])
 
     assert result.exit_code == 0, result.output
 
@@ -744,20 +750,65 @@ def _titles(project: Path) -> set[str]:
     return {c.title for cards in Board.load(project).board().values() for c in cards}
 
 
-def test_pull_all_asks_for_confirmation_unless_yes(
+def test_pull_all_previews_every_board_and_confirms_once(
+    hub_boards: dict[str, Path], fake_server: _FakeServer, tty: None
+) -> None:
+    registry.remove_board("gamma")
+    _add_remote_card(fake_server, _board_id(hub_boards["alpha"]), "From server")
+
+    declined = runner.invoke(app, ["hosted", "pull", "--all"], input="n\n")
+    assert declined.exit_code == 0, declined.output
+    assert "alpha:" in declined.output and "create 1 card: 999" in declined.output
+    assert "Aborted" in declined.output
+    assert "From server" not in _titles(hub_boards["alpha"])
+
+    confirmed = runner.invoke(app, ["hosted", "pull", "--all"], input="y\n")
+    assert confirmed.exit_code == 0, confirmed.output
+    assert "From server" in _titles(hub_boards["alpha"])
+
+
+def test_pull_all_with_yes_applies_without_asking(
     hub_boards: dict[str, Path], fake_server: _FakeServer
 ) -> None:
     registry.remove_board("gamma")
-    board_id = _board_id(hub_boards["alpha"])
-    _add_remote_card(fake_server, board_id, "From server")
+    _add_remote_card(fake_server, _board_id(hub_boards["alpha"]), "From server")
 
-    declined = runner.invoke(app, ["hosted", "pull", "--all"], input="n\n")
-    assert declined.exit_code != 0
-    assert "From server" not in _titles(hub_boards["alpha"])
+    result = runner.invoke(app, ["hosted", "pull", "--all", "-y"])
 
-    confirmed = runner.invoke(app, ["hosted", "pull", "--all", "--yes"])
-    assert confirmed.exit_code == 0, confirmed.output
+    assert result.exit_code == 0, result.output
+    assert "will change" not in result.output
     assert "From server" in _titles(hub_boards["alpha"])
+
+
+def test_push_all_previews_and_needs_a_terminal_or_yes(
+    hub_boards: dict[str, Path], fake_server: _FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry.remove_board("gamma")
+    board_id = _board_id(hub_boards["alpha"])
+
+    refused = runner.invoke(app, ["hosted", "push", "--all"])
+    assert refused.exit_code == 1
+    assert "create 1 card: 001" in refused.output and "--yes" in refused.output
+    assert not fake_server.cards.get(board_id)
+
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    declined = runner.invoke(app, ["hosted", "push", "--all"], input="n\n")
+    assert declined.exit_code == 0 and not fake_server.cards.get(board_id)
+    accepted = runner.invoke(app, ["hosted", "push", "--all"], input="y\n")
+    assert accepted.exit_code == 0, accepted.output
+    assert [c["title"] for c in fake_server.cards[board_id].values()] == ["Alpha card"]
+
+
+def test_all_without_yes_does_not_ask_when_no_board_has_changes(
+    hub_boards: dict[str, Path], fake_server: _FakeServer
+) -> None:
+    registry.remove_board("gamma")
+    assert runner.invoke(app, ["hosted", "push", "--all", "-y"]).exit_code == 0
+
+    result = runner.invoke(app, ["hosted", "push", "--all"])
+
+    assert result.exit_code == 0, result.output
+    assert "will change" not in result.output
 
 
 def test_diff_all_json_lists_each_board(
@@ -777,7 +828,7 @@ def test_all_with_an_empty_registry_is_a_no_op(
 ) -> None:
     monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
 
-    result = runner.invoke(app, ["hosted", "push", "--all"])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--all"])
 
     assert result.exit_code == 0
     assert "No boards registered" in result.output
@@ -1001,9 +1052,9 @@ def test_push_with_settings_sends_the_board_settings(
         config_path.read_text().replace('# category = "Work"\n', 'category = "Work"\n', 1)
     )
 
-    plain = runner.invoke(app, ["hosted", "push"])
-    with_settings = runner.invoke(app, ["hosted", "push", "--settings"])
-    again = runner.invoke(app, ["hosted", "push", "--settings"])
+    plain = runner.invoke(app, ["hosted", "push", "-y"])
+    with_settings = runner.invoke(app, ["hosted", "push", "-y", "--settings"])
+    again = runner.invoke(app, ["hosted", "push", "-y", "--settings"])
 
     assert plain.exit_code == 0 and "settings" not in plain.output
     assert with_settings.exit_code == 0, with_settings.output
@@ -1020,8 +1071,8 @@ def test_pull_with_settings_updates_config_toml(
     remote_id = load_remote_config(local_project / ".kanbai").board_id  # type: ignore[union-attr]
     fake_server.boards[remote_id]["category"] = "Home"
 
-    plain = runner.invoke(app, ["hosted", "pull"])
-    with_settings = runner.invoke(app, ["hosted", "pull", "--settings"])
+    plain = runner.invoke(app, ["hosted", "pull", "-y"])
+    with_settings = runner.invoke(app, ["hosted", "pull", "-y", "--settings"])
 
     assert plain.exit_code == 0 and "settings" not in plain.output
     assert with_settings.exit_code == 0, with_settings.output
@@ -1041,7 +1092,174 @@ def test_push_settings_to_an_old_server_fails_with_a_clear_message(
     )
     fake_server.supports_settings = False
 
-    result = runner.invoke(app, ["hosted", "push", "--settings"])
+    result = runner.invoke(app, ["hosted", "push", "-y", "--settings"])
 
     assert result.exit_code == 1
     assert "update kanbai_server" in result.output
+
+
+# --------------------------------------------------------------------------- confirmation
+
+
+def test_push_without_yes_shows_the_changes_and_refuses_without_a_terminal(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+
+    result = runner.invoke(app, ["hosted", "push"])
+
+    assert result.exit_code == 1
+    assert "will change the hosted board" in result.output
+    assert "create 1 card: 001" in result.output
+    assert "--yes" in result.output
+    assert not fake_server.cards.get(_board_id(local_project))
+
+
+def test_push_applies_after_confirmation(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+
+    result = runner.invoke(app, ["hosted", "push"], input="y\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Apply these changes?" in result.output and "1 created" in result.output
+    titles = [c["title"] for c in fake_server.cards[_board_id(local_project)].values()]
+    assert titles == ["Local card"]
+
+
+def test_push_declined_changes_nothing_and_exits_cleanly(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+
+    result = runner.invoke(app, ["hosted", "push"], input="n\n")
+
+    assert result.exit_code == 0, result.output
+    assert "Aborted; nothing was changed." in result.output and "created" not in result.output
+    assert not fake_server.cards.get(_board_id(local_project))
+
+
+def test_push_with_yes_applies_at_once_without_previewing(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+
+    result = runner.invoke(app, ["hosted", "push", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert "will change" not in result.output and "Apply" not in result.output
+    assert "1 created" in result.output
+
+
+def test_push_with_nothing_to_change_does_not_ask(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    Board.load(local_project).add("Local card")
+    _connect()
+    runner.invoke(app, ["hosted", "push", "-y"])
+
+    result = runner.invoke(app, ["hosted", "push"])
+
+    assert result.exit_code == 0, result.output
+    assert "will change" not in result.output and "0 created, 0 updated" in result.output
+
+
+def test_push_preview_shows_hosted_value_then_the_local_one(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    card = Board.load(local_project).add("Old title")
+    _connect()
+    runner.invoke(app, ["hosted", "push", "-y"])
+    Board.load(local_project).edit(card.id, title="New title")
+
+    result = runner.invoke(app, ["hosted", "push"], input="n\n")
+
+    assert "update 1 card" in result.output
+    assert f"{card.id} title: 'Old title' -> 'New title'" in result.output
+
+
+def test_push_delete_preview_lists_the_cards_to_remove(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    _connect()
+    board_id = _board_id(local_project)
+    _add_remote_card(fake_server, board_id, "Only on server")
+
+    kept = runner.invoke(app, ["hosted", "push"])
+    deleting = runner.invoke(app, ["hosted", "push", "--delete"], input="y\n")
+
+    assert kept.exit_code == 0 and "will change" not in kept.output
+    assert "delete 1 card: 999" in deleting.output
+    assert "999" not in fake_server.cards[board_id]
+
+
+def test_push_settings_preview_lists_the_setting_changes(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    _connect()
+    config_path = local_project / ".kanbai" / "config.toml"
+    config_path.write_text(
+        config_path.read_text().replace('# category = "Work"\n', 'category = "Work"\n', 1)
+    )
+
+    declined = runner.invoke(app, ["hosted", "push", "--settings"], input="n\n")
+
+    assert "update settings:" in declined.output and "category:" in declined.output
+    assert "'Work'" in declined.output
+    assert not [b for b in fake_server.boards.values() if b.get("category") == "Work"]
+
+    applied = runner.invoke(app, ["hosted", "push", "--settings"], input="y\n")
+    assert "settings updated: category" in applied.output
+
+
+def test_pull_preview_shows_local_value_then_the_hosted_one(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    card = Board.load(local_project).add("Local title")
+    _connect()
+    runner.invoke(app, ["hosted", "push", "-y"])
+    board_id = _board_id(local_project)
+    fake_server.cards[board_id][card.id]["title"] = "Hosted title"
+    _add_remote_card(fake_server, board_id, "Added remotely")
+
+    declined = runner.invoke(app, ["hosted", "pull"], input="n\n")
+
+    assert declined.exit_code == 0, declined.output
+    assert "will change your local board" in declined.output
+    assert "create 1 card: 999" in declined.output
+    assert f"{card.id} title: 'Local title' -> 'Hosted title'" in declined.output
+    assert Board.load(local_project).show(card.id).title == "Local title"
+
+    confirmed = runner.invoke(app, ["hosted", "pull"], input="y\n")
+    assert confirmed.exit_code == 0, confirmed.output
+    assert Board.load(local_project).show(card.id).title == "Hosted title"
+
+
+def test_pull_without_yes_refuses_without_a_terminal(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    _connect()
+    _add_remote_card(fake_server, _board_id(local_project), "Added remotely")
+
+    result = runner.invoke(app, ["hosted", "pull"])
+
+    assert result.exit_code == 1 and "--yes" in result.output
+    assert not Board.load(local_project).list_column("backlog")
+
+
+def test_pull_settings_preview_lists_the_hosted_values(
+    local_project: Path, fake_server: _FakeServer, tty: None
+) -> None:
+    _connect()
+    remote_id = load_remote_config(local_project / ".kanbai").board_id  # type: ignore[union-attr]
+    fake_server.boards[remote_id]["category"] = "Home"
+
+    declined = runner.invoke(app, ["hosted", "pull", "--settings"], input="n\n")
+
+    assert "update settings:" in declined.output and "'Home'" in declined.output
+    assert 'category = "Home"' not in (local_project / ".kanbai" / "config.toml").read_text()

@@ -11,7 +11,7 @@ From a project that already has a `.kanbai/` board:
 
 ```bash
 kanbai hosted connect --url https://kanbai.example.com --email me@example.com --create
-kanbai hosted push                      # send the existing cards
+kanbai hosted push                      # shows what it will send, then asks (-y: just do it)
 ```
 
 `connect` logs in and saves a [`[server]`](configuration.md#server) section in `config.toml`;
@@ -40,6 +40,10 @@ Then pick a side:
 | `kanbai hosted pull` | **Server wins** — make your files match the hosted board. |
 | `kanbai hosted diff` | Compare the two without changing anything. |
 | `kanbai hosted status` | Show whether you are connected, mirroring, and out of sync. |
+
+`push` and `pull` change a whole board, so they first show what will change and ask you to
+confirm; `--yes` (`-y`) applies it at once, which is also what scripts and CI need (without a
+terminal they refuse and ask for it).
 
 `push`, `pull` and `diff` also take `--all` to run on every connected board of the
 [hub](hub.md). The full reference, including `--archived`, `--delete`, `enable`/`disable` for

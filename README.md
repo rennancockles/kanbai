@@ -225,7 +225,7 @@ or feed it ideas from ChatGPT — while your local `.kanbai/` files stay the sou
 
 ```bash
 kanbai hosted connect --url https://kanbai.example.com --email me@example.com --create
-kanbai hosted push                  # local wins (or `pull` for server wins)
+kanbai hosted push                  # local wins (or `pull`); previews and asks, `-y` applies at once
 kanbai hosted push --settings       # also sync category, types, WIP limits, ...
 kanbai hosted status                # connected? mirroring? out of sync?
 ```
@@ -296,7 +296,7 @@ from the web UI even if it's still present in `columns`.
 | `kanbai hub start/stop/status` | Run the hub as a background daemon instead. |
 | `kanbai hub logs [-f]` | Show (or follow) the hub daemon's log. |
 | `kanbai hosted connect/login/clone` | Connect a project to a hosted board, renew the token, or copy a hosted board here. |
-| `kanbai hosted push/pull/diff` | Local wins / server wins / compare (`--all`, `--archived`, `--delete`, `--settings`). |
+| `kanbai hosted push/pull/diff` | Local wins / server wins / compare (`--all`, `--archived`, `--delete`, `--settings`; `push`/`pull` preview and ask unless `--yes`). |
 | `kanbai hosted enable/disable/status` | Turn mirroring on or off, and see whether the project is out of sync. |
 
 Add `--json` to read-only commands for machine-readable output.

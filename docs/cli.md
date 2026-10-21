@@ -282,8 +282,8 @@ on the host is never overwritten either. Notifications fire once, from this mach
 |---------|--------------|
 | `kanbai hosted connect` | Log in and save the connection (url, token, board id) in `config.toml`. `--board <id\|name>` connects to an existing hosted board, `--create` makes a new one from the local board; with neither you pick from a list (`0` = new board). The password is prompted for unless `--password` is given. No cards move. |
 | `kanbai hosted login` | Log in **once for every project** on a hosted server (tokens expire after about a day). Saves the token globally in `~/.kanbai/credentials.toml`, keyed by server URL; all projects connected to that server use it, taking precedence over the `token` in their `[server]` section. Run it from any directory with `--url`, or inside a connected project to use its server (that project's saved token is renewed too; url, board id and the enable/disable state are untouched). Takes `--email` / `--password`. Commands that hit an expired token fail with a 401 that points here. |
-| `kanbai hosted push` | **Local wins.** Send the local cards to the hosted board, created with their local ids. |
-| `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. |
+| `kanbai hosted push` | **Local wins.** Send the local cards to the hosted board, created with their local ids. Shows what will change and asks to confirm first (`--yes` skips both). |
+| `kanbai hosted pull` | **Server wins.** Make the local files match the hosted board. Shows what will change and asks to confirm first (`--yes` skips both). |
 | `kanbai hosted clone` | Create a local board here from a hosted one (its config and cards) and connect it. The one command that connects by itself, since there is no project yet. Takes `--url`, `--email`, `--password` and `--board` like `connect`. |
 | `kanbai hosted diff` | Compare local and hosted, read-only. Exits `0` when in sync, `1` otherwise; `--json` for scripts. |
 | `kanbai hosted disable` | Stop mirroring but keep the saved connection (`enabled = false` in `[server]`). Every other `kanbai` command (`add`, `move`, `list`…) then works on the local `.kanbai/` files only and never touches the network. `push` / `pull` / `diff` are unaffected. |
@@ -298,6 +298,12 @@ Options shared by `push`, `pull` and `diff` (and `clone`):
   archived card that exists on one side only is never created, overwritten or deleted.
 - `--delete` (`push`, `pull`) — remove cards that exist only on the receiving side. Without it
   they are kept.
+- `--yes` / `-y` (`push`, `pull`) — apply right away. Without it, `push` and `pull` first show
+  what is about to change on the receiving side — cards to create, update (field by field, as
+  `old -> new`) and delete, plus the settings with `--settings` — and ask `Apply these changes?`
+  (default no). Declining changes nothing and exits `0`. When nothing would change there is no
+  question. Without a terminal (a pipe, CI) there is nobody to ask, so it prints the preview and
+  exits `1` asking for `--yes`.
 - `--settings` (`push`, `pull`) — also sync the board settings in `config.toml`: name, category,
   default priority, card types and their colors, WIP limits, `bypass_review` and the
   notification settings. The columns are never synced (renaming or removing one would strand
@@ -313,15 +319,16 @@ Options shared by `push`, `pull` and `diff` (and `clone`):
   others. When a server is unreachable (network error, timeout, or a VPN/firewall/proxy block
   page instead of the kanbai API), the remaining boards on that same server are *skipped*
   rather than each waiting out the timeout. One table lists each board as `ok` / `differs` / `failed` / `skipped`, and the exit code
-  is `1` if any board failed (for `diff`, also if any differs). `pull --all` asks for
-  confirmation since it overwrites local cards; pass `--yes` to skip that. `diff --all --json`
+  is `1` if any board failed (for `diff`, also if any differs). Without `--yes`,
+  `push --all` and `pull --all` preview every board that would change and ask once. `diff --all --json`
   emits one `{board, status, message}` object per board. The `enabled` flag is ignored, as with
   the single-board commands.
 
 ```bash
 # link this project to a new hosted board, then send everything
 kanbai hosted connect --url https://kanbai.example.com --email me@example.com --create
-kanbai hosted push
+kanbai hosted push                       # shows what will change, asks to confirm
+kanbai hosted push --yes                 # ...or applies at once (scripts, CI)
 kanbai hosted push --archived            # include archived cards
 kanbai hosted push --delete              # also remove hosted cards that no longer exist locally
 kanbai hosted push --settings            # also send the board settings (category, types, WIP...)

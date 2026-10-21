@@ -13,6 +13,7 @@ left out unless ``archived=True``. ``clone_board`` creates a local board from a 
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
@@ -186,6 +187,26 @@ class SyncResult:
     updated: int  # cards that existed but differed (fields, column or archived state)
     deleted: int  # cards only on the receiving side, removed with ``delete=True``
     kept: int  # cards only on the receiving side, left alone
+
+
+@dataclass(frozen=True)
+class SyncPlan:
+    """What a push or pull is about to change on the receiving side, computed read-only.
+
+    ``create`` and ``delete`` are card ids, ``update`` holds the field-level changes of the
+    cards present on both sides, ``kept`` the ids only on the receiving side that are left
+    alone. ``settings`` is ``None`` when the board settings are not part of the sync.
+    """
+
+    create: list[str]
+    update: list[CardDiff]
+    delete: list[str]
+    kept: list[str]
+    settings: list[FieldChange] | None = None
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.create or self.update or self.delete or self.settings)
 
 
 @dataclass(frozen=True)
@@ -419,6 +440,60 @@ def diff_boards(local: Board, remote: RemoteBoard, *, archived: bool = False) ->
     return BoardDiff(only_local=only_local, only_remote=only_remote, changed=changed)
 
 
+def plan_board(
+    remote: RemoteBoard,
+    kanbai_dir: Path,
+    action: Literal["push", "pull"],
+    *,
+    delete: bool = False,
+    archived: bool = False,
+    settings: bool = False,
+) -> SyncPlan:
+    """What :func:`push_board` / :func:`pull_board` (and the settings sync, with ``settings``)
+    would change right now, without changing anything on either side.
+
+    The FieldChange of a card or setting keeps its local/hosted orientation; the receiving
+    side is the hosted one for a push and the local one for a pull.
+    """
+    board = Board.load(kanbai_dir.parent)
+    board_diff = diff_boards(board, remote, archived=archived)
+    pushing = action == "push"
+    create, only_receiving = (
+        (board_diff.only_local, board_diff.only_remote)
+        if pushing
+        else (board_diff.only_remote, board_diff.only_local)
+    )
+    if delete and not pushing:
+        # pull_board only removes what it finds among the local columns' files.
+        only_receiving = [
+            card_id
+            for card_id in only_receiving
+            if storage.find_card_path(kanbai_dir, board.columns, card_id)
+        ]
+    return SyncPlan(
+        create=create,
+        update=board_diff.changed,
+        delete=only_receiving if delete else [],
+        kept=[] if delete else only_receiving,
+        settings=_plan_settings(remote, kanbai_dir, pushing=pushing) if settings else None,
+    )
+
+
+def _plan_settings(remote: RemoteBoard, kanbai_dir: Path, *, pushing: bool) -> list[FieldChange]:
+    local = load_config(kanbai_dir)
+    source, target = (local, remote.config) if pushing else (remote.config, local)
+    wanted = _settings_view(source, target.columns)
+    current = _settings_view(target, target.columns)
+    return [
+        FieldChange(
+            field=name,
+            local=wanted[name] if pushing else current[name],
+            remote=current[name] if pushing else wanted[name],
+        )
+        for name in _differing_settings(source, target)
+    ]
+
+
 def _diff_card(local_card: Card, remote_card: Card) -> CardDiff:
     changes = [
         FieldChange(field=name, local=getattr(local_card, name), remote=getattr(remote_card, name))
@@ -441,6 +516,7 @@ class BoardOutcome:
     result: SyncResult | None = None
     message: str = ""
     settings: list[str] | None = None  # settings that changed, when settings were synced
+    plan: SyncPlan | None = None  # set by :func:`plan_all`
 
 
 def sync_all(
@@ -458,6 +534,43 @@ def sync_all(
     remaining boards on that same url are skipped instead of each waiting out the timeout.
     ``delete`` and ``settings`` (also sync the board settings) only apply to push/pull.
     """
+    return _for_each_board(
+        boards,
+        lambda name, kanbai_dir, remote_config: _sync_one(
+            name, kanbai_dir, remote_config, action, delete, archived, settings
+        ),
+    )
+
+
+def plan_all(
+    boards: dict[str, str],
+    action: Literal["push", "pull"],
+    *,
+    delete: bool = False,
+    archived: bool = False,
+    settings: bool = False,
+) -> list[BoardOutcome]:
+    """Like :func:`sync_all` for push/pull, but read-only: each ``ok`` outcome carries the
+    :class:`SyncPlan` of what the sync would change on that board."""
+
+    def plan(name: str, kanbai_dir: Path, remote_config: RemoteConfig) -> BoardOutcome:
+        found = plan_board(
+            RemoteBoard(remote_config),
+            kanbai_dir,
+            action,
+            delete=delete,
+            archived=archived,
+            settings=settings,
+        )
+        return BoardOutcome(name, "ok", plan=found)
+
+    return _for_each_board(boards, plan)
+
+
+def _for_each_board(
+    boards: dict[str, str],
+    work: Callable[[str, Path, RemoteConfig], BoardOutcome],
+) -> list[BoardOutcome]:
     outcomes: list[BoardOutcome] = []
     unreachable: dict[str, str] = {}  # server url -> name of the board that found it down
     for name, path in sorted(boards.items()):
@@ -472,9 +585,7 @@ def sync_all(
                 message = f"server unreachable (skipped after '{unreachable[url]}' failed)"
                 outcomes.append(BoardOutcome(name, "skipped", message=message))
                 continue
-            outcomes.append(
-                _sync_one(name, kanbai_dir, remote_config, action, delete, archived, settings)
-            )
+            outcomes.append(work(name, kanbai_dir, remote_config))
         except HostUnreachableError as exc:
             unreachable[url] = name
             outcomes.append(BoardOutcome(name, "failed", message=str(exc)))

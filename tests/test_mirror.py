@@ -183,7 +183,7 @@ def test_later_commands_keep_warning_until_a_push_or_pull_syncs(
 
     assert "out of sync" in runner.invoke(app, ["list"]).output
 
-    pushed = runner.invoke(app, ["hosted", "push"])
+    pushed = runner.invoke(app, ["hosted", "push", "-y"])
 
     assert pushed.exit_code == 0, pushed.output
     assert sync_state.load_out_of_sync(_kanbai_dir(project_dir)) is None
@@ -195,7 +195,7 @@ def test_pull_also_clears_the_warning(project: tuple[Path, _FakeServer]) -> None
     project_dir, _server = project
     sync_state.mark_out_of_sync(_kanbai_dir(project_dir), ["something drifted"])
 
-    assert runner.invoke(app, ["hosted", "pull"]).exit_code == 0
+    assert runner.invoke(app, ["hosted", "pull", "-y"]).exit_code == 0
 
     assert sync_state.load_out_of_sync(_kanbai_dir(project_dir)) is None
 

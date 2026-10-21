@@ -8,11 +8,13 @@ import socket
 import sys
 import time
 import webbrowser
+from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -633,6 +635,93 @@ def _settings_summary(changed: list[str]) -> str:
     return "settings updated: " + ", ".join(changed) if changed else "settings already in sync"
 
 
+_PREVIEW_IDS = 10
+_PREVIEW_VALUE = 60
+
+
+def _interactive() -> bool:
+    return sys.stdin.isatty()
+
+
+def _plural(count: int, noun: str = "card") -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def _preview_ids(ids: list[str]) -> str:
+    shown = ", ".join(ids[:_PREVIEW_IDS])
+    return shown + (f" (+{len(ids) - _PREVIEW_IDS} more)" if len(ids) > _PREVIEW_IDS else "")
+
+
+def _preview_value(value: object) -> str:
+    text = repr(value)
+    return escape(text if len(text) <= _PREVIEW_VALUE else text[: _PREVIEW_VALUE - 1] + "…")
+
+
+def _preview_change(action: str, change: hosted.FieldChange) -> str:
+    before, after = (
+        (change.remote, change.local) if action == "push" else (change.local, change.remote)
+    )
+    return f"{change.field}: {_preview_value(before)} -> {_preview_value(after)}"
+
+
+def _print_plan(action: str, plan: hosted.SyncPlan, *, indent: str = "  ") -> None:
+    if plan.create:
+        console.print(f"{indent}create {_plural(len(plan.create))}: {_preview_ids(plan.create)}")
+    if plan.update:
+        console.print(f"{indent}update {_plural(len(plan.update))}:")
+        for card_diff in plan.update:
+            for change in card_diff.changes:
+                console.print(
+                    f"{indent}  [cyan]{card_diff.card_id}[/cyan] {_preview_change(action, change)}"
+                )
+    if plan.delete:
+        console.print(f"{indent}delete {_plural(len(plan.delete))}: {_preview_ids(plan.delete)}")
+    if plan.settings:
+        console.print(f"{indent}update settings:")
+        for change in plan.settings:
+            console.print(f"{indent}  {_preview_change(action, change)}")
+    if plan.kept:
+        console.print(f"{indent}[dim]left alone: {_plural(len(plan.kept))} only on this side[/dim]")
+
+
+def _approved(action: str, previews: Sequence[tuple[str | None, hosted.SyncPlan]]) -> bool:
+    """Show what ``action`` is about to change and ask for the go-ahead.
+
+    ``previews`` pairs a board name (``None`` for the current project) with its plan; only
+    plans with changes are shown. Without a terminal there is nobody to ask, so it exits 1
+    pointing at ``--yes`` rather than waiting on input. Returns ``False`` when declined.
+    """
+    receiver = "the hosted board" if action == "push" else "your local board"
+    console.print(f"[bold]{action}[/bold] will change {receiver}:")
+    for name, plan in previews:
+        if name is not None:
+            console.print(f"[cyan]{name}[/cyan]:")
+        _print_plan(action, plan)
+    if not _interactive():
+        err_console.print(
+            "[red]error:[/red] not an interactive terminal; re-run with --yes to apply."
+        )
+        raise typer.Exit(code=1)
+    if typer.confirm("Apply these changes?", default=False):
+        return True
+    console.print("Aborted; nothing was changed.")
+    return False
+
+
+def _approved_all(action: hosted.SyncAction, plan_outcomes: list[hosted.BoardOutcome]) -> bool:
+    """:func:`_approved` for ``--all``: the boards with changes are previewed together and
+    confirmed once; with nothing to change anywhere there is nothing to ask."""
+    previews = [
+        (o.name, o.plan) for o in plan_outcomes if o.plan is not None and o.plan.has_changes
+    ]
+    if not previews:
+        return True
+    problems = [o for o in plan_outcomes if o.status == "failed"]
+    for outcome in problems:
+        err_console.print(f"[yellow]![/yellow] {outcome.name}: {outcome.message}")
+    return _approved(action, previews)
+
+
 _OUTCOME_STYLE = {"ok": "green", "differs": "yellow", "failed": "red", "skipped": "dim"}
 
 
@@ -938,6 +1027,9 @@ def hosted_push(
         "--settings",
         help="Also send the board settings (name, category, types, WIP, ...) to the hosted board.",
     ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Apply right away, without previewing or asking to confirm."
+    ),
 ) -> None:
     """Local wins: send this board's cards to the hosted board.
 
@@ -947,6 +1039,10 @@ def hosted_push(
     exist on one side only are left alone unless you pass --archived (then they are created
     on the server).
 
+    Without --yes it first shows what will change on the hosted board and asks to confirm
+    (declining changes nothing; without a terminal it refuses and asks for --yes). With
+    --yes it applies everything at once.
+
     With --settings the board settings in `config.toml` (everything but the columns) are sent
     too, overwriting the hosted ones; without it only cards are synced.
 
@@ -954,11 +1050,23 @@ def hosted_push(
     board that fails does not stop the others, and the exit code is 1 if any failed.
     """
     if all_boards:
+        if not yes:
+            plans = hosted.plan_all(
+                registry.load_boards(), "push", delete=delete, archived=archived, settings=settings
+            )
+            if not _approved_all("push", plans):
+                return
         _run_all("push", delete=delete, archived=archived, settings=settings)
         return
     try:
         kanbai_dir, remote_config = _connected_project()
         remote = RemoteBoard(remote_config)
+        if not yes:
+            plan = hosted.plan_board(
+                remote, kanbai_dir, "push", delete=delete, archived=archived, settings=settings
+            )
+            if plan.has_changes and not _approved("push", [(None, plan)]):
+                return
         result = hosted.push_board(remote, kanbai_dir, delete=delete, archived=archived)
         changed = hosted.push_settings(remote, kanbai_dir) if settings else None
     except (KanbaiError, RemoteAPIError) as exc:
@@ -980,7 +1088,9 @@ def hosted_pull(
     all_boards: bool = typer.Option(
         False, "--all", help="Pull every board registered in the hub that is connected."
     ),
-    yes: bool = typer.Option(False, "--yes", "-y", help="With --all, skip the confirmation."),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Apply right away, without previewing or asking to confirm."
+    ),
     settings: bool = typer.Option(
         False,
         "--settings",
@@ -994,24 +1104,34 @@ def hosted_pull(
     or restoring it to match); cards only on the server are written locally. Archived cards
     that exist on one side only are left alone unless you pass --archived.
 
+    Since it overwrites local files, without --yes it first shows what will change locally
+    and asks to confirm (declining changes nothing; without a terminal it refuses and asks
+    for --yes). With --yes it applies everything at once.
+
     With --all it runs on every connected board of the hub registry (from any directory),
-    after asking for confirmation unless --yes is given, since it overwrites local cards.
+    previewing all of them and confirming once.
 
     With --settings the board settings in `config.toml` (everything but the columns) take the
     hosted values too; the file is rewritten, so comments in it are not kept.
     """
     if all_boards:
         if not yes:
-            typer.confirm(
-                "Pull overwrites local cards with the hosted version on every connected "
-                "board of the hub. Continue?",
-                abort=True,
+            plans = hosted.plan_all(
+                registry.load_boards(), "pull", delete=delete, archived=archived, settings=settings
             )
+            if not _approved_all("pull", plans):
+                return
         _run_all("pull", delete=delete, archived=archived, settings=settings)
         return
     try:
         kanbai_dir, remote_config = _connected_project()
         remote = RemoteBoard(remote_config)
+        if not yes:
+            plan = hosted.plan_board(
+                remote, kanbai_dir, "pull", delete=delete, archived=archived, settings=settings
+            )
+            if plan.has_changes and not _approved("pull", [(None, plan)]):
+                return
         result = hosted.pull_board(remote, kanbai_dir, delete=delete, archived=archived)
         changed = hosted.pull_settings(remote, kanbai_dir) if settings else None
     except (KanbaiError, RemoteAPIError) as exc:

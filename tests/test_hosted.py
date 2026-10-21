@@ -938,3 +938,137 @@ def test_sync_all_with_settings_reports_what_changed(
 
     assert outcomes[0].settings == ["category"]
     assert without[0].settings is None
+
+
+# --------------------------------------------------------------------------- plan_board / plan_all
+
+
+def _remote_titles(remote: RemoteBoard) -> list[str]:
+    return sorted(c.title for col in remote.columns for c in remote.list_column(col))
+
+
+def test_plan_push_predicts_what_push_does_without_changing_anything(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    shared = board.add("Shared")
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+    board.edit(shared.id, title="Renamed locally")
+    new = board.add("Only local")
+    only_remote = remote.add("Only hosted", card_id="900")
+    before = _remote_titles(remote)
+
+    plan = hosted.plan_board(remote, kanbai_dir, "push")
+
+    assert plan.create == [new.id]
+    assert [d.card_id for d in plan.update] == [shared.id]
+    assert [(c.field, c.local, c.remote) for c in plan.update[0].changes] == [
+        ("title", "Renamed locally", "Shared")
+    ]
+    assert (plan.delete, plan.kept, plan.settings) == ([], [only_remote.id], None)
+    assert _remote_titles(remote) == before
+    result = hosted.push_board(remote, kanbai_dir)
+    assert (result.created, result.updated, result.kept) == (1, 1, 1)
+
+
+def test_plan_pull_predicts_what_pull_does_without_changing_anything(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    shared = board.add("Shared")
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+    remote.edit(shared.id, title="Renamed on server")
+    new = remote.add("Only hosted", card_id="900")
+    only_local = board.add("Only local")
+
+    plan = hosted.plan_board(remote, kanbai_dir, "pull", delete=True)
+
+    assert plan.create == [new.id]
+    assert [d.card_id for d in plan.update] == [shared.id]
+    assert (plan.delete, plan.kept) == ([only_local.id], [])
+    assert Board.load(local_project).show(shared.id).title == "Shared"
+    result = hosted.pull_board(remote, kanbai_dir, delete=True)
+    assert (result.created, result.updated, result.deleted) == (1, 1, 1)
+
+
+def test_plan_without_delete_lists_the_other_sides_extras_as_kept(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+    extra = remote.add("Only hosted", card_id="900")
+
+    pushing = hosted.plan_board(remote, kanbai_dir, "push", delete=True)
+    pulling = hosted.plan_board(remote, kanbai_dir, "pull")
+
+    assert pushing.delete == [extra.id] and pushing.has_changes
+    assert pulling.create == [extra.id] and pulling.kept == []
+
+
+def test_plan_of_boards_in_sync_has_no_changes(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    Board.load(local_project).add("Card")
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+
+    for action in ("push", "pull"):
+        plan = hosted.plan_board(remote, kanbai_dir, action, settings=True)  # type: ignore[arg-type]
+        assert not plan.has_changes
+        assert plan.settings == []
+
+
+def test_plan_settings_keeps_the_local_hosted_orientation(local_project: Path) -> None:
+    remote_config, kanbai_dir = _publish_and_edit_local_config(local_project, _CATEGORY)
+    remote = RemoteBoard(remote_config)
+
+    pushing = hosted.plan_board(remote, kanbai_dir, "push", settings=True)
+    pulling = hosted.plan_board(remote, kanbai_dir, "pull", settings=True)
+
+    for plan in (pushing, pulling):
+        assert plan.settings is not None
+        (change,) = plan.settings
+        assert (change.field, change.local) == ("category", "Work")
+        assert change.remote != "Work"
+    assert hosted.plan_board(remote, kanbai_dir, "push").settings is None
+
+
+def test_plan_pull_delete_ignores_local_cards_pull_cannot_remove(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    shelved = board.add("Shelved")
+    board.archive(shelved.id)
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+
+    plan = hosted.plan_board(remote, kanbai_dir, "pull", delete=True, archived=True)
+    result = hosted.pull_board(remote, kanbai_dir, delete=True, archived=True)
+
+    assert len(plan.delete) == result.deleted
+
+
+def test_plan_all_reports_each_board_and_never_changes_one(
+    local_project: Path, tmp_path: Path
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    Board.load(local_project).add("Card")
+    remote = RemoteBoard(
+        _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    )
+    Board.load(local_project).add("Not pushed yet")
+    loose = tmp_path / "loose"
+    loose.mkdir()
+    scaffold.init_board(loose)
+    before = _remote_titles(remote)
+
+    outcomes = hosted.plan_all({"proj": str(local_project), "loose": str(loose)}, "push")
+
+    by_name = {o.name: o for o in outcomes}
+    assert by_name["loose"].status == "skipped"
+    plan = by_name["proj"].plan
+    assert by_name["proj"].status == "ok" and plan is not None
+    assert len(plan.create) == 1
+    assert _remote_titles(remote) == before
