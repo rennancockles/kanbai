@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.16.0 (2026-10-22)
+
+### Features
+
+- Hosted push/pull mostram o que vai mudar e pedem confirmação, com -y para aplicar direto (149)
+  ([`2b03952`](https://github.com/rennancockles/kanbai/commit/2b039521c762f10896a3555e8189531ff5ba765d))
+
+
 ## v0.15.0 (2026-10-17)
 
 ### Documentation
