@@ -243,6 +243,18 @@ details.hub-category:not([open]) .hub-category-name::before { transform: rotate(
   gap: 0.4rem;
   padding: 0.6rem 1.25rem 0;
 }
+.view-drag-handle {
+  flex: none;
+  display: inline-flex;
+  padding: 0.1rem;
+  color: var(--muted);
+  cursor: grab;
+  line-height: 0;
+  border-radius: 4px;
+  touch-action: none;
+}
+.view-drag-handle:hover { color: var(--text); background: var(--surface-2); }
+.view-drag-handle:active { cursor: grabbing; }
 .view-board-title {
   margin: 0;
   font-size: 0.9rem;

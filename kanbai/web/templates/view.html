@@ -48,6 +48,9 @@
     {% set board_name = bd.name %}
     <section class="view-board-section">
       <header class="view-board-header">
+        <span class="view-drag-handle" title="Drag to reorder" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></svg>
+        </span>
         <button class="view-collapse-btn" type="button" aria-label="Collapse board" title="Collapse">
           <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
@@ -142,6 +145,24 @@
       });
     }
 
+    function initReorder() {
+      var container = document.querySelector('.multi-view');
+      if (!container || !container.querySelector('.view-board-section')) return;
+      Sortable.create(container, {
+        draggable: '.view-board-section',
+        handle: '.view-drag-handle',
+        animation: 150,
+        ghostClass: 'card-ghost',
+        onEnd: function () {
+          var body = new URLSearchParams();
+          container.querySelectorAll('.view-board-section [data-board-name]').forEach(function (el) {
+            body.append('boards', el.getAttribute('data-board-name'));
+          });
+          fetch('/view/order', { method: 'POST', body: body });
+        }
+      });
+    }
+
     (function () {
       var btn = document.getElementById('toggle-backlog');
       if (!btn) return;
@@ -170,6 +191,7 @@
       });
       initSortables();
       initCollapse();
+      initReorder();
     });
 
     // Live updates: one SSE stream for the whole view; each event names a board whose

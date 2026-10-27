@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx2 as httpx
 import pytest
 from fastapi.testclient import TestClient
-from kanbai import __version__, scaffold
+from kanbai import __version__, scaffold, view_registry
 from kanbai.ai.schema import ExtractedCard
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
@@ -1473,6 +1473,30 @@ def test_hub_save_view_and_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     r = client.post("/view", data={"boards": ["a", "b"]})
     assert r.status_code == 200
     assert "board-a" in r.text or "/b/a/" in r.text
+
+
+def test_hub_reorder_view_saves_the_new_order_and_keeps_unmentioned_boards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    paths = {}
+    for name in ("a", "b", "c"):
+        paths[name] = str(tmp_path / name)
+        scaffold.init_board(tmp_path / name)
+    client = TestClient(create_hub_app(paths), follow_redirects=True)
+    client.post("/view", data={"boards": ["a", "b", "c"]})
+
+    r = client.post("/view/order", data={"boards": ["c", "x", "a"]})
+
+    assert r.status_code == 204
+    assert view_registry.load_view() == ["c", "a", "b"]
+    page = client.get("/v/").text
+    assert "initReorder()" in page
+    assert 'class="view-drag-handle"' in page
+    assert "\\!" not in page
+    assert page.index('id="board-c"') < page.index('id="board-a"') < page.index('id="board-b"')
+    edit = client.get("/view/edit").text
+    assert edit.index('value="c"') < edit.index('value="a"') < edit.index('value="b"')
 
 
 def test_hub_delete_view_removes_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

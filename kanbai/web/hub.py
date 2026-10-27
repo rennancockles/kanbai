@@ -199,11 +199,12 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
     @hub.get("/view/edit", response_class=HTMLResponse)
     def edit_view_form(request: Request) -> Response:
         current = view_registry.load_view()
+        ordered = view_registry.view_first(mounted)
         return _TEMPLATES.TemplateResponse(
             request,
             "_edit_view.html",
             {
-                "all_boards": [{"name": b["name"], "category": b.get("category")} for b in mounted],
+                "all_boards": [{"name": b["name"], "category": b.get("category")} for b in ordered],
                 "current_boards": current,
             },
         )
@@ -214,6 +215,11 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
         valid = {str(b["name"]) for b in mounted}
         view_registry.save_view([b for b in boards if b in valid])
         return Response(status_code=303, headers={"Location": "/v/"})
+
+    @hub.post("/view/order")
+    def reorder_view(boards: list[str] = Form(default=[])) -> Response:
+        view_registry.reorder_view(boards)
+        return Response(status_code=204)
 
     @hub.post("/view/delete", response_class=HTMLResponse)
     def delete_view(request: Request) -> Response:

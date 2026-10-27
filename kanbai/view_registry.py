@@ -32,3 +32,18 @@ def save_view(boards: list[str]) -> None:
     """Persist the view's board list, replacing the previous configuration."""
     boards_str = ", ".join(f'"{b}"' for b in boards)
     storage.atomic_write(_view_path(), f"boards = [{boards_str}]\n")
+
+
+def reorder_view(boards: list[str]) -> None:
+    """Put the view's boards in the order of ``boards``; unknown names are ignored and boards
+    it does not mention keep their place at the end."""
+    current = load_view()
+    ordered = [b for b in dict.fromkeys(boards) if b in current]
+    save_view(ordered + [b for b in current if b not in ordered])
+
+
+def view_first(entries: list[dict[str, object]]) -> list[dict[str, object]]:
+    """``entries`` (dicts with a ``name``) with the boards already in the view first, in view
+    order, followed by the others in their given order."""
+    position = {name: i for i, name in enumerate(load_view())}
+    return sorted(entries, key=lambda e: position.get(str(e["name"]), len(position)))
