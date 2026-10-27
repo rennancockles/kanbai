@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.16.1 (2026-10-27)
+
+### Bug Fixes
+
+- Hosted push corrige a coluna de origem de cards arquivados dos dois lados
+  ([`17b6d14`](https://github.com/rennancockles/kanbai/commit/17b6d148aa14df6a822beb0bca386b01ad514a00))
+
+
 ## v0.16.0 (2026-10-22)
 
 ### Features
