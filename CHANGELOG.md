@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.17.0 (2026-10-27)
+
+### Features
+
+- Reordenar os boards da multi view arrastando pelo ícone do cabeçalho (151)
+  ([`47fefd6`](https://github.com/rennancockles/kanbai/commit/47fefd66fb630bd64c2c3a255f5e2d9e4c41b107))
+
+
 ## v0.16.1 (2026-10-27)
 
 ### Bug Fixes
