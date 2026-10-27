@@ -689,6 +689,23 @@ def test_push_restores_a_sprint_card_that_is_archived_on_the_server_only(
     assert _remote_cards(remote) == {card.id: "todo"}
 
 
+def test_push_fixes_the_origin_column_of_a_card_archived_on_both_sides(
+    local_project: Path,
+) -> None:
+    card = Board.load(local_project).add("Shipped", column="done")
+    Board.load(local_project).archive(card.id)
+    kanbai_dir, remote = _connect(local_project)
+    remote.add("Shipped", card_id=card.id, column="backlog")
+    remote.archive(card.id)
+
+    result = hosted.push_board(remote, kanbai_dir)
+
+    assert result.updated == 1
+    assert [(c.id, c.archived_from) for c in remote.list_archive()] == [(card.id, "done")]
+    assert hosted.diff_boards(Board.load(local_project), remote).in_sync
+    assert hosted.push_board(remote, kanbai_dir).updated == 0
+
+
 def test_push_archives_a_server_card_that_is_archived_locally(local_project: Path) -> None:
     card = Board.load(local_project).add("Archived locally", column="todo")
     kanbai_dir, remote = _connect(local_project)

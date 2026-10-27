@@ -314,6 +314,8 @@ def _update_remote(remote: RemoteBoard, card: Card, current: Card) -> None:
         assignee=card.assignee,
     )
     if card.status == current.status:
+        if card.status == storage.ARCHIVE_DIRNAME:
+            _sync_archived_from(remote, card, current)
         return
     if card.status == storage.ARCHIVE_DIRNAME:
         remote.archive(card.id)
@@ -323,6 +325,18 @@ def _update_remote(remote: RemoteBoard, card: Card, current: Card) -> None:
         status = remote.restore(card.id).status
     if status != card.status:
         remote.move(card.id, card.status)
+
+
+def _sync_archived_from(remote: RemoteBoard, card: Card, current: Card) -> None:
+    """The API cannot set ``archived_from`` directly, so an archived card whose origin column
+    differs is restored, moved to the wanted column and archived again."""
+    wanted = card.archived_from
+    if wanted is None or wanted == current.archived_from or wanted not in remote.columns:
+        return
+    restored = remote.restore(card.id)
+    if restored.status != wanted:
+        remote.move(card.id, wanted)
+    remote.archive(card.id)
 
 
 def pull_board(
