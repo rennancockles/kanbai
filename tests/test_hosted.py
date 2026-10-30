@@ -355,6 +355,37 @@ def test_pull_moves_local_card_when_column_differs(local_project: Path) -> None:
     assert result.updated == 1
 
 
+def test_pull_renamed_card_replaces_the_old_file_instead_of_duplicating_it(
+    local_project: Path,
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Old title")
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    remote = RemoteBoard(remote_config)
+    remote.edit(card.id, title="New title")
+
+    hosted.pull_board(remote, kanbai_dir)
+
+    assert sorted(p.name for p in (kanbai_dir / "backlog").glob("*.md")) == ["001-new-title.md"]
+    assert Board.load(local_project).show(card.id).title == "New title"
+
+
+def test_pull_card_renamed_and_moved_leaves_a_single_file(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Old title")
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    remote = RemoteBoard(remote_config)
+    remote.edit(card.id, title="New title")
+    remote.move(card.id, "todo")
+
+    hosted.pull_board(remote, kanbai_dir)
+
+    assert list((kanbai_dir / "backlog").glob("*.md")) == []
+    assert [p.name for p in (kanbai_dir / "todo").glob("*.md")] == ["001-new-title.md"]
+
+
 def test_push_and_pull_carry_the_notice(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)

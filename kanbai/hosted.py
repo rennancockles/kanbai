@@ -368,10 +368,11 @@ def pull_board(
         else:
             if _diff_card(current, card).changes:
                 updated += 1
-            if current.status != card.status:
-                old = storage.find_card_path(kanbai_dir, board.columns, card.id)
-                if old:
-                    storage.delete_card_file(old[0])
+            # The file name carries the title slug, so a renamed card must not leave the old
+            # file behind next to the new one, whether or not it also changed column.
+            old = storage.find_card_path(kanbai_dir, board.columns, card.id)
+            if old:
+                storage.delete_card_file(old[0])
         storage.write_card(kanbai_dir, card)
 
     only_local = set(local) - set(incoming)
