@@ -19,6 +19,7 @@ from .errors import (
     ColumnNotFoundError,
 )
 from .models import BoardConfig, Card, Priority
+from .notifications import Notification, move_notifications
 
 
 class Board:
@@ -27,10 +28,10 @@ class Board:
     def __init__(self, kanbai_dir: Path, config: BoardConfig) -> None:
         self.kanbai_dir = kanbai_dir
         self.config = config
-        # Optional (title, body) -> None callback, fired by move() when a card reaches
+        # Optional Notification -> None callback, fired by move() when a card reaches
         # review/done. Left unset by default so Board itself never depends on a
         # notification backend — callers (CLI, web) plug one in after loading the board.
-        self.on_notify: Callable[[str, str], None] | None = None
+        self.on_notify: Callable[[Notification], None] | None = None
 
     @classmethod
     def load(cls, start: Path | None = None) -> Board:
@@ -128,29 +129,14 @@ class Board:
             self._notify_on_move(notify, card, column)
         return card
 
-    def _notify_on_move(self, notify: Callable[[str, str], None], card: Card, column: str) -> None:
-        """Fire ``notify`` when a move needs the user's attention.
-
-        Independent checks, any of which may fire:
-        - The card reached ``done`` carrying a notice that has not been passed on yet.
-        - The card itself reached ``review`` (or ``done``, on boards with no ``review``
-          column — there the terminal move is the one that needs approval).
-        - The sprint (``todo``) has no actionable card left to pick up next, regardless of
-          which of the two columns above the card just landed in.
-        """
-        review = self.config.review_column
-        done = self.config.done_column
-        if column == done and card.notice and not card.notice_sent:
-            notify(f"{self.config.name}: card {card.id} done, pass on the notice", card.notice)
-        review_or_done_target = review if review is not None else done
-        if column == review_or_done_target:
-            label = "review" if review is not None else "done"
-            notify(f"{self.config.name}: card {card.id} in {label}", card.title)
-        if column in (review, done) and self.next() is None:
-            notify(
-                f"{self.config.name}: sprint empty",
-                "No actionable cards in the sprint — plan work into todo.",
-            )
+    def _notify_on_move(
+        self, notify: Callable[[Notification], None], card: Card, column: str
+    ) -> None:
+        """Fire ``notify`` for each notification the move needs (see ``move_notifications``)."""
+        for notification in move_notifications(
+            self.config, card, column, lambda: self.next() is None
+        ):
+            notify(notification)
 
     def _place_at(self, column: str, card_id: str, position: int) -> None:
         """Insert ``card_id`` at ``position`` within ``column`` and reflow order values."""

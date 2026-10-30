@@ -18,6 +18,7 @@ import httpx2 as httpx
 from .config import RemoteConfig
 from .errors import HostUnreachableError, RemoteAPIError
 from .models import BoardConfig, Card, Priority
+from .notifications import Notification, move_notifications
 
 _TIMEOUT = 10.0
 
@@ -106,7 +107,7 @@ class RemoteBoard:
             headers={"Authorization": f"Bearer {config.token}"},
             timeout=_TIMEOUT,
         )
-        self.on_notify: Callable[[str, str], None] | None = None
+        self.on_notify: Callable[[Notification], None] | None = None
         self.config = self._fetch_config()
 
     def _fetch_config(self) -> BoardConfig:
@@ -208,21 +209,14 @@ class RemoteBoard:
             self._notify_on_move(notify, card, column)
         return card
 
-    def _notify_on_move(self, notify: Callable[[str, str], None], card: Card, column: str) -> None:
+    def _notify_on_move(
+        self, notify: Callable[[Notification], None], card: Card, column: str
+    ) -> None:
         """Mirrors ``kanbai.board.Board._notify_on_move`` — same triggers, remote data."""
-        review = self.config.review_column
-        done = self.config.done_column
-        if column == done and card.notice and not card.notice_sent:
-            notify(f"{self.config.name}: card {card.id} done, pass on the notice", card.notice)
-        review_or_done_target = review if review is not None else done
-        if column == review_or_done_target:
-            label = "review" if review is not None else "done"
-            notify(f"{self.config.name}: card {card.id} in {label}", card.title)
-        if column in (review, done) and self.next() is None:
-            notify(
-                f"{self.config.name}: sprint empty",
-                "No actionable cards in the sprint — plan work into todo.",
-            )
+        for notification in move_notifications(
+            self.config, card, column, lambda: self.next() is None
+        ):
+            notify(notification)
 
     def board(self) -> dict[str, list[Card]]:
         """Return every column and its cards."""

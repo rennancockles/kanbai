@@ -82,6 +82,19 @@ Two channels, checked independently on every qualifying move:
   machine. ntfy.sh needs no signup or token — the topic name itself is the only thing gating
   who receives it, so pick something that isn't easily guessable.
 
+  The push is tailored to the event, with no extra configuration:
+
+  | Event | Emoji | ntfy priority |
+  |-------|-------|---------------|
+  | Card in `review` | 👀 | default (high when the card is high priority) |
+  | Card in `done` (boards without `review`) | ✅ | same as `review` |
+  | [Notice](concepts.md#card-notice) to pass on | 🔔 | high |
+  | Sprint empty | 💤 | low |
+  | Claude waiting for input | 🤖 | high |
+
+  The message is formatted in Markdown: the card title in bold, then its id, type and
+  priority, and the board name. For a notice, the notice text comes first.
+
 These channels also work with a [hosted board](cli.md#hosted) (`[server]` in `config.toml`): the
 notification fires on the machine that runs the CLI — so you hear about the moves Claude makes
 with `kanbai review`/`done` — and its settings come from the project's own `[notifications]`

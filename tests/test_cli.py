@@ -151,7 +151,7 @@ def test_review_pushes_ntfy_notification_when_topic_configured(
 
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     result = runner.invoke(app, ["review", "001"])
     assert result.exit_code == 0
@@ -167,7 +167,7 @@ def test_review_skips_ntfy_when_topic_not_configured(
 
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     result = runner.invoke(app, ["review", "001"])
     assert result.exit_code == 0
@@ -186,7 +186,7 @@ def test_notify_hook_fires_on_agent_needs_input(
 
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     payload = json.dumps({"notification_type": "agent_needs_input", "cwd": str(project)})
     result = runner.invoke(app, ["notify-hook"], input=payload)
@@ -203,7 +203,7 @@ def test_notify_hook_ignores_unrelated_notification_type(
 
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     payload = json.dumps({"notification_type": "agent_completed", "cwd": str(project)})
     result = runner.invoke(app, ["notify-hook"], input=payload)
@@ -232,7 +232,7 @@ def test_notify_hook_uses_cwd_from_payload_not_process_cwd(
 
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     cfg = project / ".kanbai" / "config.toml"
     cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
@@ -503,7 +503,7 @@ def test_done_prints_a_pending_notice_and_pushes_it_via_ntfy(
     runner.invoke(app, ["review", "001"])
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
 
     result = runner.invoke(app, ["done", "001"])

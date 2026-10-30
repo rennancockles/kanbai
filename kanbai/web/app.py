@@ -18,6 +18,7 @@ from ..ai import ExtractedCard, ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
 from ..models import Card, Priority
+from ..notifications import Notification
 from ..notify_ntfy import notify_ntfy_background
 from . import watcher
 from .errors import render_http_error
@@ -46,7 +47,7 @@ def _type_badge_style(hex_color: str) -> str:
     return f"color: {hex_color}; background: rgba({r}, {g}, {b}, 0.14);"
 
 
-def _make_notify_hook(board: Board) -> Callable[[str, str], None]:
+def _make_notify_hook(board: Board) -> Callable[[Notification], None]:
     """Build the ``Board.on_notify`` callback: native desktop + ntfy, best-effort.
 
     ``kanbai/web`` always has the ``ui`` extra installed (it's what pulls this module in),
@@ -55,11 +56,11 @@ def _make_notify_hook(board: Board) -> Callable[[str, str], None]:
     requests), so ntfy runs in the background rather than blocking the HTTP response on it.
     """
 
-    def notify(title: str, body: str) -> None:
+    def notify(notification: Notification) -> None:
         if board.config.notifications_native:
-            notify_native(title, body)
+            notify_native(notification.title, notification.body)
         if board.config.notifications_ntfy_topic:
-            notify_ntfy_background(board.config.notifications_ntfy_topic, title, body)
+            notify_ntfy_background(board.config.notifications_ntfy_topic, notification)
 
     return notify
 

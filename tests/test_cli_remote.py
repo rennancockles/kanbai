@@ -125,7 +125,7 @@ def _configure_notifications(project: Path, body: str) -> None:
 def ntfy_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, str]]:
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     return calls
 

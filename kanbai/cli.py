@@ -34,6 +34,7 @@ from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
 from .mirror import MirrorBoard
 from .models import BoardConfig, Card, Priority
+from .notifications import Kind, Notification
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
 
@@ -86,21 +87,21 @@ _PRIORITY_STYLE = {
 _WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
-def _notify(config: BoardConfig, title: str, body: str) -> None:
+def _notify(config: BoardConfig, notification: Notification) -> None:
     """``Board.on_notify`` for the CLI: ntfy always, native desktop if the extra is installed.
 
     Native notifications need the optional ``ui`` extra (``desktop-notifier``); a plain CLI
     install silently skips that channel rather than failing the command that triggered it.
     """
     if config.notifications_ntfy_topic:
-        notify_ntfy(config.notifications_ntfy_topic, title, body)
+        notify_ntfy(config.notifications_ntfy_topic, notification)
     if not config.notifications_native:
         return
     try:
         from .web.notify import notify_native  # noqa: PLC0415 - optional extra, on demand
     except ImportError:
         return
-    notify_native(title, body)
+    notify_native(notification.title, notification.body)
 
 
 def _warn_out_of_sync(message: str) -> None:
@@ -118,7 +119,7 @@ def _load_board_at(start: Path | None) -> AnyBoard:
         if remote is not None and remote.enabled
         else Board.load(start)
     )
-    board.on_notify = lambda title, body: _notify(board.config, title, body)
+    board.on_notify = lambda notification: _notify(board.config, notification)
     return board
 
 
@@ -1527,9 +1528,14 @@ def notify_hook() -> None:
     except KanbaiError:
         return
 
-    title = f"{board.config.name}: Claude needs input"
+    notification = Notification(
+        kind=Kind.agent_waiting,
+        title=f"{board.config.name}: Claude needs input",
+        body="Claude Code is waiting for you.",
+        board=board.config.name,
+    )
     with contextlib.suppress(Exception):  # must never surface as a Claude Code hook error
-        _notify(board.config, title, "Claude Code is waiting for you.")
+        _notify(board.config, notification)
 
 
 if __name__ == "__main__":  # pragma: no cover

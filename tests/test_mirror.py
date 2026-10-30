@@ -125,7 +125,7 @@ def test_a_move_notifies_once_not_once_per_side(
     cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
     calls: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
-        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
     )
     card_id = _add()
 

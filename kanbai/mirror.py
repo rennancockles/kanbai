@@ -22,6 +22,7 @@ from .board import Board
 from .config import RemoteConfig
 from .errors import KanbaiError, RemoteAPIError
 from .models import Card
+from .notifications import Notification
 from .remote_board import RemoteBoard
 
 R = TypeVar("R")
@@ -64,11 +65,11 @@ class MirrorBoard:
         return getattr(self.local, name)
 
     @property
-    def on_notify(self) -> Callable[[str, str], None] | None:
+    def on_notify(self) -> Callable[[Notification], None] | None:
         return self.local.on_notify
 
     @on_notify.setter
-    def on_notify(self, callback: Callable[[str, str], None] | None) -> None:
+    def on_notify(self, callback: Callable[[Notification], None] | None) -> None:
         self.local.on_notify = callback
 
     # Every mutation runs on the local board, then replicates whatever it changed.

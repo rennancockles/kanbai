@@ -480,7 +480,7 @@ def test_network_error_raises_remote_api_error(monkeypatch: pytest.MonkeyPatch) 
 
 def test_move_fires_on_notify_when_review_reached(remote_board: RemoteBoard) -> None:
     notifications: list[tuple[str, str]] = []
-    remote_board.on_notify = lambda title, body: notifications.append((title, body))
+    remote_board.on_notify = lambda n: notifications.append((n.title, n.body))
     card = remote_board.add("Card")
 
     remote_board.move(card.id, "review")
@@ -561,7 +561,7 @@ def test_notice_round_trips_through_add_and_edit(remote_board: RemoteBoard) -> N
 
 def test_move_to_done_notifies_a_pending_notice(remote_board: RemoteBoard) -> None:
     notifications: list[tuple[str, str]] = []
-    remote_board.on_notify = lambda title, body: notifications.append((title, body))
+    remote_board.on_notify = lambda n: notifications.append((n.title, n.body))
     card = remote_board.add("Card", notice="Tell Ana")
 
     remote_board.move(card.id, "done")

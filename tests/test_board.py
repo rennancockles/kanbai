@@ -98,7 +98,7 @@ def test_clear_archive_deletes_only_archived_cards_and_returns_the_count(board: 
 
 def test_move_to_review_notifies_card_in_review(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     board.add("Other task", column="todo")  # keeps the sprint non-empty
     card = board.add("Task", column="todo")
     board.move(card.id, "review")
@@ -107,7 +107,7 @@ def test_move_to_review_notifies_card_in_review(board: Board) -> None:
 
 def test_move_to_review_also_notifies_when_sprint_becomes_empty(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     card = board.add("Only sprint task", column="todo")
     board.move(card.id, "review")
     assert notes == [
@@ -125,7 +125,7 @@ def test_move_to_done_without_review_column_notifies_card_in_done(tmp_path: Path
     cfg.write_text(cfg.read_text().replace('"review", ', ""))
     no_review_board = Board.load(tmp_path)
     notes: list[tuple[str, str]] = []
-    no_review_board.on_notify = lambda title, body: notes.append((title, body))
+    no_review_board.on_notify = lambda n: notes.append((n.title, n.body))
     no_review_board.add("Other task", column="todo")
     card = no_review_board.add("Task", column="todo")
     no_review_board.move(card.id, no_review_board.config.done_column)
@@ -135,7 +135,7 @@ def test_move_to_done_without_review_column_notifies_card_in_done(tmp_path: Path
 def test_move_to_done_does_not_notify_when_review_column_exists(board: Board) -> None:
     # done isn't the "needs attention" target on a board that has a review column.
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     board.add("Other task", column="todo")  # keeps the sprint non-empty
     card = board.add("Task", column="doing")
     board.move(card.id, board.config.done_column)
@@ -144,7 +144,7 @@ def test_move_to_done_does_not_notify_when_review_column_exists(board: Board) ->
 
 def test_move_to_doing_does_not_notify(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     card = board.add("Task", column="todo")
     board.move(card.id, "doing")
     assert notes == []
@@ -336,7 +336,7 @@ def test_move_to_done_notifies_when_bypass_review_is_set(tmp_path: Path) -> None
     cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
     bypass_board = Board.load(tmp_path)
     notes: list[tuple[str, str]] = []
-    bypass_board.on_notify = lambda title, body: notes.append((title, body))
+    bypass_board.on_notify = lambda n: notes.append((n.title, n.body))
     bypass_board.add("Other task", column="todo")
     card = bypass_board.add("Task", column="doing")
     bypass_board.move(card.id, bypass_board.config.done_column)
@@ -444,7 +444,7 @@ def test_changing_the_notice_marks_it_pending_again(board: Board) -> None:
 
 def test_move_to_done_notifies_a_pending_notice(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     board.add("Other task", column="todo")  # keeps the sprint non-empty
     card = board.add("Task", column="todo", notice="Tell Ana the bug is fixed")
     board.move(card.id, "done")
@@ -453,7 +453,7 @@ def test_move_to_done_notifies_a_pending_notice(board: Board) -> None:
 
 def test_move_to_done_does_not_notify_a_sent_or_missing_notice(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     board.add("Other task", column="todo")
     sent = board.add("Sent", column="todo", notice="Tell Ana")
     board.edit(sent.id, notice_sent=True)
@@ -465,7 +465,7 @@ def test_move_to_done_does_not_notify_a_sent_or_missing_notice(board: Board) -> 
 
 def test_moving_a_noticed_card_before_done_does_not_notify(board: Board) -> None:
     notes: list[tuple[str, str]] = []
-    board.on_notify = lambda title, body: notes.append((title, body))
+    board.on_notify = lambda n: notes.append((n.title, n.body))
     board.add("Other task", column="todo")
     card = board.add("Task", column="todo", notice="Tell Ana")
     board.move(card.id, "doing")
