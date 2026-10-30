@@ -36,6 +36,15 @@
              placeholder="comma, separated" autocomplete="off">
     </label>
     <label class="field">
+      <span>Notice</span>
+      <input type="text" name="notice" value="{{ card.notice }}"
+             placeholder="Who to tell once this is done" autocomplete="off">
+    </label>
+    <label class="field-check">
+      <input type="checkbox" name="notice_sent" value="1"{% if card.notice_sent %} checked{% endif %}>
+      <span>Notice already passed on</span>
+    </label>
+    <label class="field">
       <span>Description</span>
       <textarea name="description" rows="8">{{ card.body }}</textarea>
     </label>

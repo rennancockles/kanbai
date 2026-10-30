@@ -355,6 +355,23 @@ def test_pull_moves_local_card_when_column_differs(local_project: Path) -> None:
     assert result.updated == 1
 
 
+def test_pull_keeps_the_local_only_notice(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    card = board.add("Has a notice", notice="Tell Ana")
+    board.edit(card.id, notice_sent=True)
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    remote = RemoteBoard(remote_config)
+    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Has a notice")
+    remote.edit(remote_card.id, priority="high")
+
+    hosted.pull_board(remote, kanbai_dir)
+
+    pulled = Board.load(local_project).show(card.id)
+    assert pulled.priority.value == "high"
+    assert (pulled.notice, pulled.notice_sent) == ("Tell Ana", True)
+
+
 def test_pull_keeps_local_only_cards_without_delete(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)

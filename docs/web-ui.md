@@ -87,6 +87,11 @@ notification fires on the machine that runs the CLI — so you hear about the mo
 with `kanbai review`/`done` — and its settings come from the project's own `[notifications]`
 section, never from the server. Moving a card in the hosted web page does not notify.
 
+A card with a [notice](concepts.md#card-notice) that reaches `done` sends one more notification
+carrying the notice text, on the same channels, so you know whom to tell. It stays pending —
+shown as a `notice` badge on the card — until you mark it as sent from the card's detail view
+or with `kanbai edit <id> --notice-sent`.
+
 A flaky or offline ntfy.sh never blocks the move that triggered it — a failed push is
 silently skipped rather than raised. Every notification title is prefixed with the board's
 name, so running several boards side by side doesn't mix up which one needs your attention.

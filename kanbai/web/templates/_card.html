@@ -9,6 +9,9 @@
     <span class="card-type{% if card.type not in type_style %} {{ type_class.get(card.type, 'type-other') }}{% endif %}"
           {% if card.type in type_style %}style="{{ type_style[card.type] }}"{% endif %}>{{ card.type }}</span>
     {% endif %}
+    {% if card.notice and not card.notice_sent %}
+    <span class="card-notice" title="Notice to pass on: {{ card.notice }}">notice</span>
+    {% endif %}
     <span class="card-pri">{{ card.priority.value }}</span>
   </div>
   <p class="card-title">{{ card.title }}</p>

@@ -299,7 +299,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         )
 
     @app.post("/cards/{card_id}/edit", response_class=HTMLResponse)
-    def card_edit(
+    def card_edit(  # noqa: PLR0913, PLR0917 - one Form field per editable card field
         request: Request,
         card_id: str,
         title: str = Form(...),
@@ -307,6 +307,8 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         priority: str = Form("medium"),
         type: str = Form(""),  # noqa: A002
         labels: str = Form(""),
+        notice: str = Form(""),
+        notice_sent: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         with contextlib.suppress(KanbaiError):
@@ -317,7 +319,15 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 priority=priority,
                 type=type,
                 labels=label_list,
+                notice=notice,
+                notice_sent=notice_sent == "1",
             )
+        return render(request, "_board.html", context())
+
+    @app.post("/cards/{card_id}/notice-sent", response_class=HTMLResponse)
+    def card_notice_sent(request: Request, card_id: str) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.edit(card_id, notice_sent=True)
         return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/archive", response_class=HTMLResponse)
@@ -342,7 +352,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     @app.post("/cards", response_class=HTMLResponse)
-    def create_card(
+    def create_card(  # noqa: PLR0913, PLR0917 - one Form field per card field
         request: Request,
         title: str = Form(...),
         column: str = Form(...),
@@ -350,6 +360,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         type: str = Form(""),  # noqa: A002
         labels: str = Form(""),
         description: str = Form(""),
+        notice: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         # invalid column/priority/type — re-render the board unchanged
@@ -361,6 +372,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 type=type or None,
                 labels=label_list,
                 description=description,
+                notice=notice,
             )
         return render(request, "_board.html", context())
 

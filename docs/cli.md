@@ -81,6 +81,7 @@ kanbai add "Ship the release" -v v1.2.0
 | `-l`, `--label` | Add a label (repeatable). |
 | `--dep` | Id of a blocking card (repeatable). |
 | `-a`, `--assignee` | Assignee. |
+| `-n`, `--notice` | [Notice](concepts.md#card-notice) to pass on once the card is done. |
 | `--json` | Emit the created card as JSON. |
 
 ## list
@@ -153,6 +154,11 @@ notifies separately if this move leaves the sprint with no actionable card left.
 kanbai done 001
 ```
 
+If the card has a [notice](concepts.md#card-notice) still to pass on, `done` also prints it in
+a "notice pending" panel (to stderr under `--json`) and pushes it through the configured
+[notification channels](web-ui.md#notifications). The same happens for `kanbai review` on
+boards where it lands straight in `done`, and for `kanbai move <id> done`.
+
 ## edit
 
 Update fields on a card. Only the options you pass change.
@@ -175,6 +181,8 @@ kanbai edit 001 --dep 002 --dep 003     # replace the blocking ids
 | `--dep` | Replace blocking card ids. |
 | `-a`, `--assignee` | New assignee. |
 | `--order` | New in-column order. |
+| `-n`, `--notice` | New [notice](concepts.md#card-notice) (pass an empty string to clear it). Changing it marks it pending again. |
+| `--notice-sent` / `--no-notice-sent` | Mark the notice as passed on, or pending again. |
 
 ## sort
 

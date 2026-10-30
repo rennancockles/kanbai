@@ -59,6 +59,23 @@ Support "Sign in with Google".
 | `order` | Position within the column. |
 | `labels` | Free-form tags, used for filtering in the UI. |
 | `deps` | Ids of cards that **block** this one until they are finished. |
+| `notice`, `notice_sent` | A [notice](#card-notice) to pass on once the card is done, and whether you already did. Omitted when there is no notice. |
+
+### Card notice
+
+A card can carry a `notice`: a short free-text heads-up to relay once the work ships, such as
+"tell Ana the export bug is fixed". Set it with `-n`/`--notice` on [`add`](cli.md#add) or
+[`edit`](cli.md#edit), or in the card's form in the [web UI](web-ui.md).
+
+When the card reaches `done`, the notice fires: the CLI prints it in a "notice pending" panel,
+and it is pushed through the [notification channels](web-ui.md#notifications) (desktop and
+ntfy). KanbAI never contacts anyone itself — passing it on is up to you. Once you did, run
+`kanbai edit <id> --notice-sent` (or **Mark notice as sent** in the web UI); until then cards
+show a `notice` badge. Editing the notice text makes it pending again. Notices are local to the
+project and are not synced with a [hosted board](hosted.md).
+
+An agent such as Claude Code states a pending notice explicitly in its reply when it runs
+`kanbai done`, so it isn't missed.
 
 ### Card type
 

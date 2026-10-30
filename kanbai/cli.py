@@ -159,6 +159,24 @@ def _emit_card(card: Card, as_json: bool, message: str | None = None) -> None:
         console.print(message)
 
 
+def _announce_notice(board: AnyBoard, card: Card, as_json: bool) -> None:
+    """Print a prominent reminder when a card lands in done with a notice still to pass on.
+
+    Goes to stderr under ``--json`` so the JSON on stdout stays parseable.
+    """
+    if card.status != board.config.done_column or not card.notice or card.notice_sent:
+        return
+    (err_console if as_json else console).print(
+        Panel(
+            f"{escape(card.notice)}\n\n"
+            f"[dim]Pass this on, then run[/dim] [cyan]kanbai edit {card.id} --notice-sent[/cyan]",
+            title=f"notice pending for card {card.id}",
+            title_align="left",
+            border_style="yellow",
+        )
+    )
+
+
 def _warn_over_wip(board: AnyBoard, column: str) -> None:
     """Warn (on stderr) when ``column`` is over its configured WIP limit — never blocks."""
     limit = board.config.wip_limit(column)
@@ -261,6 +279,9 @@ def add(  # noqa: PLR0913 - one option per card field
     labels: list[str] | None = typer.Option(None, "--label", "-l", help="Label (repeatable)."),
     deps: list[str] | None = typer.Option(None, "--dep", help="Blocking card id (repeatable)."),
     assignee: str | None = typer.Option(None, "--assignee", "-a", help="Assignee."),
+    notice: str = typer.Option(
+        "", "--notice", "-n", help="Heads-up to pass on once the card is done."
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit the created card as JSON."),
 ) -> None:
     """Create a new card (defaults to the backlog column)."""
@@ -275,6 +296,7 @@ def add(  # noqa: PLR0913 - one option per card field
         labels=labels,
         deps=deps,
         assignee=assignee,
+        notice=notice,
     )
     _emit_card(
         card,
@@ -341,6 +363,13 @@ def next(  # noqa: A001 - "next" mirrors the user-facing verb
         )
 
 
+def _notice_cell(card: Card) -> str:
+    if not card.notice:
+        return "—"
+    state = "sent" if card.notice_sent else "pending"
+    return f"{escape(card.notice)} [dim]({state})[/dim]"
+
+
 @app.command()
 def show(
     card_id: str = typer.Argument(..., help="Card id."),
@@ -361,7 +390,8 @@ def show(
             f"status: {card.status}   type: {card.type or '—'}   "
             f"priority: {_priority_cell(card.priority)}   order: {card.order}\n"
             f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}   "
-            f"version: {card.version or '—'}"
+            f"version: {card.version or '—'}\n"
+            f"notice: {_notice_cell(card)}"
             f"{body}",
             title=f"card {card.id}",
             title_align="left",
@@ -383,6 +413,7 @@ def move(
         as_json,
         f"[green]✓[/green] Moved [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
+    _announce_notice(board, card, as_json)
     _warn_over_wip(board, card.status)
 
 
@@ -419,6 +450,7 @@ def review(
         as_json,
         f"[green]✓[/green] Finished [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]{suffix}",
     )
+    _announce_notice(board, card, as_json)
     _warn_over_wip(board, card.status)
 
 
@@ -435,6 +467,7 @@ def done(
         as_json,
         f"[green]✓[/green] Approved [cyan]{card.id}[/cyan] → [bold]{card.status}[/bold]",
     )
+    _announce_notice(board, card, as_json)
     _warn_over_wip(board, card.status)
 
 
@@ -450,6 +483,14 @@ def edit(  # noqa: PLR0913 - one option per editable card field
     deps: list[str] | None = typer.Option(None, "--dep", help="Replace blocking card ids."),
     assignee: str | None = typer.Option(None, "--assignee", "-a", help="New assignee."),
     order: int | None = typer.Option(None, "--order", help="New in-column order."),
+    notice: str | None = typer.Option(
+        None, "--notice", "-n", help="New notice to pass on once done (empty clears it)."
+    ),
+    notice_sent: bool | None = typer.Option(
+        None,
+        "--notice-sent/--no-notice-sent",
+        help="Mark the notice as passed on (or pending again).",
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit the edited card as JSON."),
 ) -> None:
     """Update fields on a card (only the options you pass change)."""
@@ -465,6 +506,8 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         deps=deps,
         assignee=assignee,
         order=order,
+        notice=notice,
+        notice_sent=notice_sent,
     )
     _emit_card(card, as_json, f"[green]✓[/green] Updated [cyan]{card.id}[/cyan]")
 

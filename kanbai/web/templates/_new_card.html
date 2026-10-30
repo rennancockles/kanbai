@@ -43,6 +43,11 @@
              value="{{ prefill_labels or '' }}">
     </label>
     <label class="field">
+      <span>Notice</span>
+      <input type="text" name="notice" placeholder="Who to tell once this is done (optional)"
+             autocomplete="off">
+    </label>
+    <label class="field">
       <span>Description</span>
       <textarea name="description" rows="8">{{ prefill_description or '' }}</textarea>
     </label>

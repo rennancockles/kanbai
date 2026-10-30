@@ -60,6 +60,11 @@ When asked to work on the project, do **one card at a time** and stop:
   conventions/instructions for how). Do not wait for them to run `kanbai done` themselves,
   and do not ask for confirmation first or ask whether to commit; their approval is the
   confirmation for both. This applies every time a card is approved, not just once.
+- **The card has a notice** (a `notice` field, shown by `kanbai show <id>`): when the card
+  lands in `done`, the CLI prints a "notice pending" panel and pushes it via ntfy. **State
+  that notice explicitly in your reply to the user** — quote it and say it must be passed
+  on to the interested people. Leave it pending until the user confirms they passed it on,
+  then run `kanbai edit <id> --notice-sent`.
 - **The user asks for a change** — run `kanbai move <id> doing` before writing any code
   (never edit a card's work while it sits in `review`), make the change, re-verify (checks
   + tests), then run `kanbai review <id>` again. This repeats the same review/doing cycle
@@ -127,6 +132,11 @@ edit `.kanbai/` files directly):
 commit the work — don't wait for them to run `kanbai done`, and don't ask for confirmation
 first or ask whether to commit; their approval covers both.
 
+**If the card has a notice**, the CLI prints a "notice pending" panel when it reaches `done`
+(also via `kanbai review` when `bypass_review = true`). State that notice explicitly in your
+reply — quote it and say it must be passed on to the interested people — and leave it
+pending until the user confirms they did; then run `kanbai edit <id> --notice-sent`.
+
 **When the user asks for a change** on a card in `review`, move it back to `doing` first
 (`kanbai move <id> doing`) before writing any code, then repeat from step 3 — this
 review/doing cycle repeats for as many rounds as it takes.
@@ -166,6 +176,11 @@ Loop until the sprint (todo column) is empty, using the `kanbai` CLI for all boa
 **When the user approves a card in `review`**, run `kanbai done <id>` yourself right away,
 then commit the work — don't wait for them to run `kanbai done`, and don't ask for
 confirmation first or ask whether to commit; their approval covers both.
+
+**If the card has a notice**, the CLI prints a "notice pending" panel when it reaches `done`
+(also via `kanbai review` when `bypass_review = true`). State that notice explicitly in your
+reply — quote it and say it must be passed on to the interested people — and leave it
+pending until the user confirms they did; then run `kanbai edit <id> --notice-sent`.
 
 **When the user asks for a change** on a card in `review`, move it back to `doing` first
 (`kanbai move <id> doing`) before writing any code — this review/doing cycle repeats for

@@ -28,7 +28,9 @@ By default Claude works a single card and then stops for your review:
 5. **You review** the work in the `review` column and give your verdict:
     - **You approve it** (e.g. "aprovado", "looks good") — Claude runs **`kanbai done
       <id>`** itself right away and commits the work, without waiting for you to run the
-      command or asking for confirmation first.
+      command or asking for confirmation first. If the card has a [notice](concepts.md#card-notice),
+      Claude also states it explicitly in its reply, so you can pass it on, and marks it as
+      sent once you confirm.
     - **You ask for a change** — Claude moves the card back to `doing` first (it never
       edits a card's work while it sits in `review`), makes the change, and repeats from
       step 4 — as many rounds as it takes.

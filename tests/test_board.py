@@ -407,3 +407,66 @@ def test_sort_column_by_type(board: Board) -> None:
 
     board.sort_column("backlog", "type", descending=True)  # untyped last when descending
     assert [c.title for c in board.list_column("backlog")] == ["new thing", "fix it", "no type"]
+
+
+# --------------------------------------------------------------------------- notice
+
+
+def test_add_and_edit_store_a_stripped_notice(board: Board) -> None:
+    card = board.add("Task", notice="  Tell Ana  ")
+    assert card.notice == "Tell Ana"
+    assert card.notice_sent is False
+    assert board.edit(card.id, notice="Tell Bob").notice == "Tell Bob"
+    cleared = board.edit(card.id, notice="")
+    assert cleared.notice == ""
+    assert "notice" not in cleared.frontmatter()
+
+
+def test_notice_round_trips_through_the_card_file(board: Board) -> None:
+    card = board.add("Task", notice="Tell Ana")
+    board.edit(card.id, notice_sent=True)
+    reloaded = board.show(card.id)
+    assert (reloaded.notice, reloaded.notice_sent) == ("Tell Ana", True)
+
+
+def test_cards_without_a_notice_keep_their_frontmatter_unchanged(board: Board) -> None:
+    frontmatter = board.add("Task").frontmatter()
+    assert "notice" not in frontmatter
+    assert "notice_sent" not in frontmatter
+
+
+def test_changing_the_notice_marks_it_pending_again(board: Board) -> None:
+    card = board.add("Task", notice="Tell Ana")
+    board.edit(card.id, notice_sent=True)
+    assert board.edit(card.id, notice="Tell Ana").notice_sent is True
+    assert board.edit(card.id, notice="Tell Bob").notice_sent is False
+
+
+def test_move_to_done_notifies_a_pending_notice(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    board.add("Other task", column="todo")  # keeps the sprint non-empty
+    card = board.add("Task", column="todo", notice="Tell Ana the bug is fixed")
+    board.move(card.id, "done")
+    assert notes == [(f"{board.config.name}: card {card.id} done, pass on the notice", card.notice)]
+
+
+def test_move_to_done_does_not_notify_a_sent_or_missing_notice(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    board.add("Other task", column="todo")
+    sent = board.add("Sent", column="todo", notice="Tell Ana")
+    board.edit(sent.id, notice_sent=True)
+    plain = board.add("Plain", column="todo")
+    board.move(sent.id, "done")
+    board.move(plain.id, "done")
+    assert notes == []
+
+
+def test_moving_a_noticed_card_before_done_does_not_notify(board: Board) -> None:
+    notes: list[tuple[str, str]] = []
+    board.on_notify = lambda title, body: notes.append((title, body))
+    board.add("Other task", column="todo")
+    card = board.add("Task", column="todo", notice="Tell Ana")
+    board.move(card.id, "doing")
+    assert notes == []

@@ -1633,3 +1633,35 @@ def test_hub_view_page_subscribes_to_live_updates(
 
     assert "new EventSource('/v/events')" in page
     assert "refreshBoard(e.data)" in page
+
+
+def test_notice_can_be_set_shown_and_marked_sent(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    created = client.post(
+        "/cards", data={"title": "Noticed", "column": "todo", "notice": "Tell Ana"}
+    )
+    assert created.status_code == 200
+    assert 'class="card-notice"' in created.text
+
+    detail = client.get("/cards/003").text
+    assert "Tell Ana (pending)" in detail
+    assert "Mark notice as sent" in detail
+    assert 'value="Tell Ana"' in client.get("/cards/003/edit").text
+
+    sent = client.post("/cards/003/notice-sent")
+    assert sent.status_code == 200
+    assert 'class="card-notice"' not in sent.text
+    assert "Tell Ana (sent)" in client.get("/cards/003").text
+    assert "Mark notice as sent" not in client.get("/cards/003").text
+
+
+def test_editing_the_notice_in_the_form_rearms_it(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    form = {"title": "Sprint task", "priority": "high", "notice": "Tell Ana"}
+    assert 'class="card-notice"' in client.post("/cards/001/edit", data=form).text
+
+    client.post("/cards/001/notice-sent")
+    assert 'class="card-notice"' not in client.get("/board").text
+
+    rearmed = client.post("/cards/001/edit", data={**form, "notice": "Tell Bob"})
+    assert 'class="card-notice"' in rearmed.text

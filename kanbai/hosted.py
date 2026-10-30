@@ -356,6 +356,7 @@ def pull_board(
     created = updated = 0
     for card in incoming.values():
         current = local.get(card.id)
+        to_write = card
         if current is None:
             created += 1
         else:
@@ -365,7 +366,11 @@ def pull_board(
                 old = storage.find_card_path(kanbai_dir, board.columns, card.id)
                 if old:
                     storage.delete_card_file(old[0])
-        storage.write_card(kanbai_dir, card)
+            # The notice isn't hosted yet, so the server's copy never carries it.
+            to_write = card.model_copy(
+                update={"notice": current.notice, "notice_sent": current.notice_sent}
+            )
+        storage.write_card(kanbai_dir, to_write)
 
     only_local = set(local) - set(incoming)
     deleted = 0

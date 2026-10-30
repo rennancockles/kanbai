@@ -492,3 +492,61 @@ def test_hub_logs_prints_file_contents(tmp_path: Path, monkeypatch: pytest.Monke
     result = runner.invoke(app, ["hub", "logs"])
     assert result.exit_code == 0, result.output
     assert "hello from the hub" in result.output
+
+
+def test_done_prints_a_pending_notice_and_pushes_it_via_ntfy(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+    runner.invoke(app, ["add", "Task", "-c", "todo", "--notice", "Tell [bold]Ana[/bold]"])
+    runner.invoke(app, ["review", "001"])
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, title, body: calls.append((topic, title, body))
+    )
+
+    result = runner.invoke(app, ["done", "001"])
+
+    assert result.exit_code == 0
+    assert "notice pending for card 001" in result.output
+    assert "Tell [bold]Ana[/bold]" in result.output
+    assert "kanbai edit 001 --notice-sent" in result.output
+    assert any(body == "Tell [bold]Ana[/bold]" for _, _, body in calls)
+
+
+def test_review_before_done_does_not_print_the_notice(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo", "-n", "Tell Ana"])
+    result = runner.invoke(app, ["review", "001"])
+    assert "notice pending" not in result.output
+
+
+def test_review_with_bypass_review_prints_the_notice(project: Path) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text().replace("[defaults]", "bypass_review = true\n\n[defaults]"))
+    runner.invoke(app, ["add", "Task", "-c", "todo", "-n", "Tell Ana"])
+    result = runner.invoke(app, ["review", "001"])
+    assert "notice pending for card 001" in result.output
+
+
+def test_done_json_keeps_stdout_parseable(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo", "-n", "Tell Ana"])
+    result = runner.invoke(app, ["done", "001", "--json"])
+    assert json.loads(result.stdout)["notice"] == "Tell Ana"
+
+
+def test_done_without_a_notice_prints_nothing_extra(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+    assert "notice" not in runner.invoke(app, ["done", "001"]).output
+
+
+def test_edit_notice_sent_silences_the_notice_and_show_reflects_it(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo", "-n", "Tell Ana"])
+    assert "Tell Ana (pending)" in runner.invoke(app, ["show", "001"]).output
+
+    assert runner.invoke(app, ["edit", "001", "--notice-sent"]).exit_code == 0
+    assert "Tell Ana (sent)" in runner.invoke(app, ["show", "001"]).output
+    assert "notice pending" not in runner.invoke(app, ["done", "001"]).output
+
+    runner.invoke(app, ["edit", "001", "--no-notice-sent"])
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["notice_sent"] is False

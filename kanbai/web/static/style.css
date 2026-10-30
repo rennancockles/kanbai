@@ -378,6 +378,16 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .card-id { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .card.blocked { opacity: 0.55; }
 .card-lock { font-size: 0.72rem; }
+.card-notice {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--medium);
+  background: rgba(245,196,81,0.15);
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+}
+.field-check { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.7rem; font-size: 0.82rem; color: var(--muted); }
 .card-pri { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .pri-high .card-pri { color: var(--high); }
 .pri-medium .card-pri { color: var(--medium); }

@@ -73,6 +73,7 @@ class Board:
         labels: list[str] | None = None,
         deps: list[str] | None = None,
         assignee: str | None = None,
+        notice: str = "",
     ) -> Card:
         """Create a new card and write it to disk."""
         column = column or self.config.add_column
@@ -95,6 +96,7 @@ class Board:
             labels=labels or [],
             deps=deps or [],
             assignee=assignee,
+            notice=notice.strip(),
             created=timestamp,
             updated=timestamp,
             body=description,
@@ -129,7 +131,8 @@ class Board:
     def _notify_on_move(self, notify: Callable[[str, str], None], card: Card, column: str) -> None:
         """Fire ``notify`` when a move needs the user's attention.
 
-        Two independent checks, either or both may fire:
+        Independent checks, any of which may fire:
+        - The card reached ``done`` carrying a notice that has not been passed on yet.
         - The card itself reached ``review`` (or ``done``, on boards with no ``review``
           column — there the terminal move is the one that needs approval).
         - The sprint (``todo``) has no actionable card left to pick up next, regardless of
@@ -137,6 +140,8 @@ class Board:
         """
         review = self.config.review_column
         done = self.config.done_column
+        if column == done and card.notice and not card.notice_sent:
+            notify(f"{self.config.name}: card {card.id} done, pass on the notice", card.notice)
         review_or_done_target = review if review is not None else done
         if column == review_or_done_target:
             label = "review" if review is not None else "done"
@@ -239,8 +244,14 @@ class Board:
         deps: list[str] | None = None,
         assignee: str | None = None,
         order: int | None = None,
+        notice: str | None = None,
+        notice_sent: bool | None = None,
     ) -> Card:
-        """Update fields on a card. Only provided fields change."""
+        """Update fields on a card. Only provided fields change.
+
+        Changing ``notice`` re-arms it (``notice_sent`` goes back to ``False``) unless
+        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it.
+        """
         card, old_path, _ = self._locate(card_id)
         if title is not None:
             card.title = title
@@ -260,10 +271,23 @@ class Board:
             card.assignee = assignee
         if order is not None:
             card.order = order
+        self._apply_notice(card, notice, notice_sent)
         card.updated = storage.now()
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
         return card
+
+    @staticmethod
+    def _apply_notice(card: Card, notice: str | None, notice_sent: bool | None) -> None:
+        if notice is not None:
+            new_notice = notice.strip()
+            if new_notice != card.notice:
+                card.notice_sent = False
+            card.notice = new_notice
+        if notice_sent is not None:
+            card.notice_sent = notice_sent
+        if not card.notice:
+            card.notice_sent = False
 
     def archive(self, card_id: str) -> Card:
         """Move a card into the ``.kanbai/archive/`` folder, recording where it came from."""

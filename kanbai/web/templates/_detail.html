@@ -15,6 +15,9 @@
       <div><dt>type</dt><dd>{{ card.type or '—' }}</dd></div>
       <div><dt>labels</dt><dd>{{ card.labels | join(', ') or '—' }}</dd></div>
       <div><dt>deps</dt><dd>{{ card.deps | join(', ') or '—' }}</dd></div>
+      {% if card.notice %}
+      <div><dt>notice</dt><dd>{{ card.notice }} ({{ 'sent' if card.notice_sent else 'pending' }})</dd></div>
+      {% endif %}
       <div><dt>created</dt><dd>{{ card.created }}</dd></div>
       <div><dt>updated</dt><dd>{{ card.updated }}</dd></div>
     </dl>
@@ -38,6 +41,11 @@
     </label>
 
     <div class="modal-actions">
+      {% if card.notice and not card.notice_sent %}
+      <button type="button" class="btn-ghost"
+              hx-post="{{ base }}/cards/{{ card.id }}/notice-sent" hx-target="#board" hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) kanbaiClearDetail()">Mark notice as sent</button>
+      {% endif %}
       <button type="button" class="btn-danger"
               hx-post="{{ base }}/cards/{{ card.id }}/delete" hx-target="#board" hx-swap="outerHTML"
               hx-confirm="Delete card #{{ card.id }} permanently?"
