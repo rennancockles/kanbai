@@ -11,6 +11,31 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.18.0 (2026-10-30)
+
+### Bug Fixes
+
+- Filtro de categoria persiste ao trocar de board (152)
+  ([`eb10bda`](https://github.com/rennancockles/kanbai/commit/eb10bdadf0f06d1f47b4b15fd43d5958bdd44630))
+
+- Hosted pull não duplica o arquivo do card quando o título muda no servidor (155)
+  ([`257a508`](https://github.com/rennancockles/kanbai/commit/257a50868bc0cedd73ae0ff48e9eda47343bf15b))
+
+### Features
+
+- Aviso por card disparado ao concluir, com notice e notice_sent (153)
+  ([`4288c73`](https://github.com/rennancockles/kanbai/commit/4288c73860e55db7a8ecc95775e080e3cc308610))
+
+- Mensagens personalizadas por tipo de notificação do hook do Claude (158)
+  ([`4654a48`](https://github.com/rennancockles/kanbai/commit/4654a4898a8ae96a525f5652c922f6eada865c4b))
+
+- Notificações ntfy com emoji, prioridade e mensagem por tipo de evento (157)
+  ([`14bb888`](https://github.com/rennancockles/kanbai/commit/14bb888148d75c5146ea0b2cea365f294505f792))
+
+- Sincronizar o aviso dos cards com o kanbai_server (154)
+  ([`ace633e`](https://github.com/rennancockles/kanbai/commit/ace633e44d4b76642482e177ea1572f06b080a19))
+
+
 ## v0.17.0 (2026-10-27)
 
 ### Features
