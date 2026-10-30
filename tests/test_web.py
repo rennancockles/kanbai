@@ -1755,3 +1755,9 @@ def test_hub_applies_hosted_mode_changes_without_restart(
     client.post(f"/b/hosted/cards/{card.id}/move", data={"column": "review"})
 
     assert host.cards[BOARD_ID][card.id]["status"] == "review"
+
+
+def test_backlog_column_has_its_own_style(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    assert 'class="column is-backlog"' in client.get("/").text
+    assert ".column.is-backlog {" in client.get("/static/style.css").text

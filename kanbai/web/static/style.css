@@ -6,6 +6,7 @@
   --text: #e6e8ec;
   --muted: #8b93a1;
   --accent: #6ea8fe;
+  --backlog: #9370f8;
   --high: #f77;
   --medium: #f5c451;
   --low: #6bcB8b;
@@ -304,6 +305,14 @@ details.hub-category:not([open]) .hub-category-name::before { transform: rotate(
   border-radius: var(--radius);
   padding: 0.75rem;
 }
+
+/* Backlog stands apart from the sprint columns (todo is easy to mistake for it). */
+.column.is-backlog {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--backlog) 55%, var(--border));
+  background: color-mix(in srgb, var(--backlog) 6%, var(--surface));
+}
+.column.is-backlog .column-title { color: var(--backlog); }
 
 /* Backlog toggle: hidden column drops out of the grid, sprint columns reflow to fill. */
 body.hide-backlog .column.is-backlog { display: none; }
