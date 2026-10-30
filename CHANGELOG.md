@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.19.0 (2026-10-30)
+
+### Bug Fixes
+
+- Ações no hub são espelhadas para o servidor hosted (159)
+  ([`570e2d8`](https://github.com/rennancockles/kanbai/commit/570e2d883ef397ff25f52ec3cd4b06f059642e0f))
+
+### Features
+
+- Cor própria para a coluna de backlog na UI web (160)
+  ([`7b04eeb`](https://github.com/rennancockles/kanbai/commit/7b04eeb94056744e9c60cccf58c7a377081836dd))
+
+
 ## v0.18.0 (2026-10-30)
 
 ### Bug Fixes
