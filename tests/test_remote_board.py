@@ -69,6 +69,8 @@ class _FakeServer:
             "deps": [],
             "assignee": None,
             "archived_from": None,
+            "notice": "",
+            "notice_sent": False,
             "created": _NOW.isoformat(),
             "updated": _NOW.isoformat(),
             "body": "",
@@ -210,6 +212,7 @@ class _FakeServer:
             labels=body.get("labels") or [],
             deps=body.get("deps") or [],
             assignee=body.get("assignee"),
+            notice=body.get("notice") or "",
             body=body.get("description") or "",
         )
         cards[card_id] = card
@@ -238,9 +241,23 @@ class _FakeServer:
             for field in fields:
                 if body.get(field) is not None:
                     cards[card_id][field] = body[field]
+            self._patch_notice(cards[card_id], body)
         elif method == "DELETE":
             return httpx.Response(200, json=cards.pop(card_id))
         return httpx.Response(200, json=cards[card_id])
+
+    @staticmethod
+    def _patch_notice(card: dict[str, object], body: dict[str, object]) -> None:
+        """Emulates the server's rules: editing the text re-arms it, an empty text clears it."""
+        notice = body.get("notice")
+        if isinstance(notice, str):
+            if notice.strip() != card["notice"]:
+                card["notice_sent"] = False
+            card["notice"] = notice.strip()
+        if body.get("notice_sent") is not None:
+            card["notice_sent"] = body["notice_sent"]
+        if not card["notice"]:
+            card["notice_sent"] = False
 
     def _sort_column(
         self, cards: dict[str, dict[str, object]], column: str, body: dict[str, object]
@@ -529,3 +546,26 @@ def test_bad_login_credentials_do_not_suggest_hosted_login(
         login("https://kanbai.example.com", ADMIN_EMAIL, "wrong")
     assert "Invalid email or password" in str(exc_info.value)
     assert "hosted login" not in str(exc_info.value)
+
+
+def test_notice_round_trips_through_add_and_edit(remote_board: RemoteBoard) -> None:
+    card = remote_board.add("Card", notice="Tell Ana")
+    assert (card.notice, card.notice_sent) == ("Tell Ana", False)
+
+    sent = remote_board.edit(card.id, notice_sent=True)
+    assert (sent.notice, sent.notice_sent) == ("Tell Ana", True)
+    changed = remote_board.edit(card.id, notice="Tell Bob")
+    assert (changed.notice, changed.notice_sent) == ("Tell Bob", False)
+    assert remote_board.show(card.id).notice == "Tell Bob"
+
+
+def test_move_to_done_notifies_a_pending_notice(remote_board: RemoteBoard) -> None:
+    notifications: list[tuple[str, str]] = []
+    remote_board.on_notify = lambda title, body: notifications.append((title, body))
+    card = remote_board.add("Card", notice="Tell Ana")
+
+    remote_board.move(card.id, "done")
+
+    assert (f"{remote_board.config.name}: card {card.id} done, pass on the notice", "Tell Ana") in (
+        notifications
+    )

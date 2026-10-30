@@ -160,6 +160,7 @@ class RemoteBoard:
         labels: list[str] | None = None,
         deps: list[str] | None = None,
         assignee: str | None = None,
+        notice: str = "",
         card_id: str | None = None,
     ) -> Card:
         """Create a new card on the hosted board.
@@ -183,6 +184,7 @@ class RemoteBoard:
                 "labels": labels or [],
                 "deps": deps or [],
                 "assignee": assignee,
+                "notice": notice,
             },
         )
         card = Card.model_validate(data)
@@ -210,6 +212,8 @@ class RemoteBoard:
         """Mirrors ``kanbai.board.Board._notify_on_move`` — same triggers, remote data."""
         review = self.config.review_column
         done = self.config.done_column
+        if column == done and card.notice and not card.notice_sent:
+            notify(f"{self.config.name}: card {card.id} done, pass on the notice", card.notice)
         review_or_done_target = review if review is not None else done
         if column == review_or_done_target:
             label = "review" if review is not None else "done"
@@ -270,6 +274,8 @@ class RemoteBoard:
         deps: list[str] | None = None,
         assignee: str | None = None,
         order: int | None = None,
+        notice: str | None = None,
+        notice_sent: bool | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change."""
         resolved_priority = priority.value if isinstance(priority, Priority) else priority
@@ -286,6 +292,8 @@ class RemoteBoard:
                 "deps": deps,
                 "assignee": assignee,
                 "order": order,
+                "notice": notice,
+                "notice_sent": notice_sent,
             },
         )
         return Card.model_validate(data)

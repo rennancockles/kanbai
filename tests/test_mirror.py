@@ -267,3 +267,16 @@ def test_disable_keeps_changes_local_only(project: tuple[Path, _FakeServer]) -> 
 
     assert [c.title for c in Board.load(project_dir).list_column("todo")] == ["Local only"]
     assert _host(server) == {}
+
+
+def test_notice_is_replicated_and_rearmed_on_the_host(project: tuple[Path, _FakeServer]) -> None:
+    result = runner.invoke(app, ["add", "Noticed", "-c", "todo", "-n", "Tell Ana", "--json"])
+    card_id = str(json.loads(result.output)["id"])
+    assert _host(project[1])[card_id]["notice"] == "Tell Ana"
+
+    assert runner.invoke(app, ["edit", card_id, "--notice-sent"]).exit_code == 0
+    assert _host(project[1])[card_id]["notice_sent"] is True
+
+    assert runner.invoke(app, ["edit", card_id, "-n", "Tell Bob"]).exit_code == 0
+    assert _host(project[1])[card_id]["notice"] == "Tell Bob"
+    assert _host(project[1])[card_id]["notice_sent"] is False

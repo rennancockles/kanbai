@@ -355,21 +355,31 @@ def test_pull_moves_local_card_when_column_differs(local_project: Path) -> None:
     assert result.updated == 1
 
 
-def test_pull_keeps_the_local_only_notice(local_project: Path) -> None:
+def test_push_and_pull_carry_the_notice(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
-    card = board.add("Has a notice", notice="Tell Ana")
-    board.edit(card.id, notice_sent=True)
+    sent = board.add("Already passed on", notice="Tell Ana")
+    board.edit(sent.id, notice_sent=True)
+    pending = board.add("Pending", notice="Tell Bob")
     remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
     remote = RemoteBoard(remote_config)
-    remote_card = next(c for c in remote.list_column("backlog") if c.title == "Has a notice")
-    remote.edit(remote_card.id, priority="high")
 
+    on_server = {c.title: c for c in remote.list_column("backlog")}
+    assert (on_server["Already passed on"].notice, on_server["Already passed on"].notice_sent) == (
+        "Tell Ana",
+        True,
+    )
+    assert (on_server["Pending"].notice, on_server["Pending"].notice_sent) == ("Tell Bob", False)
+
+    remote.edit(pending.id, notice="Tell Carol")
+    assert hosted.diff_boards(board, remote).changed[0].changes[0].field == "notice"
     hosted.pull_board(remote, kanbai_dir)
+    pulled = Board.load(local_project).show(pending.id)
+    assert (pulled.notice, pulled.notice_sent) == ("Tell Carol", False)
 
-    pulled = Board.load(local_project).show(card.id)
-    assert pulled.priority.value == "high"
-    assert (pulled.notice, pulled.notice_sent) == ("Tell Ana", True)
+    board.edit(pending.id, notice="Tell Dave")
+    hosted.push_board(remote, kanbai_dir)
+    assert remote.show(pending.id).notice == "Tell Dave"
 
 
 def test_pull_keeps_local_only_cards_without_delete(local_project: Path) -> None:

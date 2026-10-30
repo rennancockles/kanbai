@@ -68,8 +68,7 @@ class Card(BaseModel):
     # The column a card was in before it was archived (so we know it was, e.g., finished).
     archived_from: str | None = None
     # Free-text heads-up to relay to someone once the card is done (e.g. "tell Ana the bug is
-    # fixed"). ``notice_sent`` is flipped once the user has passed it on. Local-only for now:
-    # not synced with the hosted board.
+    # fixed"). ``notice_sent`` is flipped once the user has passed it on.
     notice: str = ""
     notice_sent: bool = False
     created: datetime

@@ -71,8 +71,8 @@ When the card reaches `done`, the notice fires: the CLI prints it in a "notice p
 and it is pushed through the [notification channels](web-ui.md#notifications) (desktop and
 ntfy). KanbAI never contacts anyone itself — passing it on is up to you. Once you did, run
 `kanbai edit <id> --notice-sent` (or **Mark notice as sent** in the web UI); until then cards
-show a `notice` badge. Editing the notice text makes it pending again. Notices are local to the
-project and are not synced with a [hosted board](hosted.md).
+show a `notice` badge. Editing the notice text makes it pending again. Notices are synced with a
+[hosted board](hosted.md) like any other card field (needs a `kanbai_server` that supports them).
 
 An agent such as Claude Code states a pending notice explicitly in its reply when it runs
 `kanbai done`, so it isn't missed.

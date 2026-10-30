@@ -38,6 +38,8 @@ _COMPARED_FIELDS = (
     "deps",
     "assignee",
     "archived_from",
+    "notice",
+    "notice_sent",
     "body",
 )
 
@@ -297,7 +299,10 @@ def _create_remote(remote: RemoteBoard, card: Card, add_column: str) -> None:
         column=(card.archived_from or add_column) if archived else card.status,
         labels=card.labels,
         assignee=card.assignee,
+        notice=card.notice,
     )
+    if card.notice_sent:
+        remote.edit(uploaded.id, notice_sent=True)
     if archived:
         remote.archive(uploaded.id)
 
@@ -312,6 +317,8 @@ def _update_remote(remote: RemoteBoard, card: Card, current: Card) -> None:
         version=card.version,
         labels=card.labels,
         assignee=card.assignee,
+        notice=card.notice,
+        notice_sent=card.notice_sent,
     )
     if card.status == current.status:
         if card.status == storage.ARCHIVE_DIRNAME:
@@ -356,7 +363,6 @@ def pull_board(
     created = updated = 0
     for card in incoming.values():
         current = local.get(card.id)
-        to_write = card
         if current is None:
             created += 1
         else:
@@ -366,11 +372,7 @@ def pull_board(
                 old = storage.find_card_path(kanbai_dir, board.columns, card.id)
                 if old:
                     storage.delete_card_file(old[0])
-            # The notice isn't hosted yet, so the server's copy never carries it.
-            to_write = card.model_copy(
-                update={"notice": current.notice, "notice_sent": current.notice_sent}
-            )
-        storage.write_card(kanbai_dir, to_write)
+        storage.write_card(kanbai_dir, card)
 
     only_local = set(local) - set(incoming)
     deleted = 0

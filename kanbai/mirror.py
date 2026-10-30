@@ -28,7 +28,19 @@ R = TypeVar("R")
 
 _NOT_FOUND = 404
 #: Card fields replicated as one edit; ``body`` is sent as ``description``.
-_EDITABLE = ("title", "body", "priority", "type", "version", "labels", "deps", "assignee", "order")
+_EDITABLE = (
+    "title",
+    "body",
+    "priority",
+    "type",
+    "version",
+    "labels",
+    "deps",
+    "assignee",
+    "order",
+    "notice",
+    "notice_sent",
+)
 #: Fields the API can only clear with an empty string (``None`` means "leave unchanged").
 _CLEARED_WITH_EMPTY_STRING = ("type", "version")
 
