@@ -195,6 +195,32 @@ def test_notify_hook_fires_on_agent_needs_input(
     assert calls[0][0] == "my-topic"
 
 
+def test_notify_hook_sends_a_message_per_type_with_the_card_in_progress(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = project / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + '\n[notifications]\nntfy_topic = "my-topic"\n')
+    runner.invoke(app, ["add", "Fix export", "-c", "doing"])
+    calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        "kanbai.cli.notify_ntfy", lambda topic, n: calls.append((topic, n.title, n.body))
+    )
+
+    for notification_type, message in (
+        ("permission_prompt", "Claude needs permission to Bash"),
+        ("idle_prompt", "Claude is waiting for your input"),
+    ):
+        payload = json.dumps(
+            {"notification_type": notification_type, "message": message, "cwd": str(project)}
+        )
+        assert runner.invoke(app, ["notify-hook"], input=payload).exit_code == 0
+
+    titles = [title for _, title, _ in calls]
+    assert titles[0].endswith("Claude needs your approval")
+    assert titles[1].endswith("Claude is waiting for you")
+    assert calls[0][2] == "Claude needs permission to Bash\n\nCard #001: Fix export"
+
+
 def test_notify_hook_ignores_unrelated_notification_type(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

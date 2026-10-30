@@ -34,7 +34,7 @@ from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
 from .mirror import MirrorBoard
 from .models import BoardConfig, Card, Priority
-from .notifications import Kind, Notification
+from .notifications import Notification, hook_notification
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
 
@@ -81,10 +81,6 @@ _PRIORITY_STYLE = {
 
 
 # --------------------------------------------------------------------------- helpers
-
-# Notification-hook `notification_type` values that mean Claude Code is stuck waiting on the
-# user (as opposed to e.g. a completed subagent or an auth event) — see `notify_hook()`.
-_WAITING_NOTIFICATION_TYPES = frozenset({"agent_needs_input", "permission_prompt", "idle_prompt"})
 
 
 def _notify(config: BoardConfig, notification: Notification) -> None:
@@ -1507,18 +1503,18 @@ def notify_hook() -> None:
     """Claude Code `Notification` hook entrypoint, installed by `kanbai init` — not for humans.
 
     Reads the hook's JSON payload from stdin and, when `notification_type` means Claude is
-    waiting on the user, fires the same notification channels configured in config.toml
-    (native/ntfy) via `_notify()`. Every failure mode (malformed input, no board found at the
-    payload's `cwd`, a notification backend raising) is a silent no-op — this command is
-    invoked by Claude Code itself, so it must never exit non-zero or raise.
+    waiting on the user (approval, a question, or its next step), fires the same notification
+    channels configured in config.toml (native/ntfy) via `_notify()`, with a message tailored
+    to the type (see `kanbai.notifications.hook_notification`). Every failure mode (malformed
+    input, no board found at the payload's `cwd`, a notification backend raising) is a silent
+    no-op — this command is invoked by Claude Code itself, so it must never exit non-zero or
+    raise.
     """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return
     if not isinstance(payload, dict):
-        return
-    if payload.get("notification_type") not in _WAITING_NOTIFICATION_TYPES:
         return
 
     cwd = payload.get("cwd")
@@ -1528,14 +1524,11 @@ def notify_hook() -> None:
     except KanbaiError:
         return
 
-    notification = Notification(
-        kind=Kind.agent_waiting,
-        title=f"{board.config.name}: Claude needs input",
-        body="Claude Code is waiting for you.",
-        board=board.config.name,
-    )
     with contextlib.suppress(Exception):  # must never surface as a Claude Code hook error
-        _notify(board.config, notification)
+        in_progress = board.list_column(board.config.doing_column)
+        notification = hook_notification(payload, board.config.name, in_progress)
+        if notification is not None:
+            _notify(board.config, notification)
 
 
 if __name__ == "__main__":  # pragma: no cover

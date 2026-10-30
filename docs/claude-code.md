@@ -70,8 +70,19 @@ The merge is additive: any entries already in your `allow` list (or any other ke
 hook](https://code.claude.com/docs/en/hooks#notification) in `.claude/settings.json`, pointed
 at `kanbai notify-hook`. It fires the same [native desktop and ntfy
 channels](web-ui.md#notifications) configured in `config.toml` whenever Claude is waiting on
-you — a permission prompt, an `AskUserQuestion`, or plain idleness — independently of any
-board activity.
+you, independently of any board activity. Each situation gets its own title, emoji and ntfy
+priority, and the message carries Claude's own text (for example which tool needs approval):
+
+| `notification_type` | Notification |
+|---------------------|--------------|
+| `permission_prompt` | 🔒 *Claude needs your approval* (high priority) |
+| `elicitation_dialog`, `elicitation_url_dialog`, `agent_needs_input` | ❓ *Claude needs your input* (high priority) |
+| `idle_prompt` | ⏳ *Claude is waiting for you* |
+
+When exactly one card is in `doing`, the message also names it. Every other type
+(`auth_success`, `agent_completed`, `quota_*`, ...) is ignored. The hook keeps its single `*`
+matcher and tells the types apart itself, so an existing install picks this up by just
+updating kanbai — no need to re-run `init`.
 
 The merge is additive and non-destructive: it only touches `hooks.Notification`, leaving
 every other key (and any hooks you've configured yourself) exactly as they were. Re-running

@@ -8,7 +8,7 @@ import pytest
 from kanbai import scaffold
 from kanbai.board import Board
 from kanbai.models import Card
-from kanbai.notifications import Kind, Notification, move_notifications
+from kanbai.notifications import Kind, Notification, hook_notification, move_notifications
 from kanbai.notify_ntfy import _message, _payload, _priority
 
 
@@ -68,7 +68,9 @@ def test_the_ntfy_payload_has_a_tag_and_a_priority_per_kind(board: Board) -> Non
         Kind.done: ("white_check_mark", 4),
         Kind.notice: ("bell", 4),
         Kind.sprint_empty: ("zzz", 2),
-        Kind.agent_waiting: ("robot", 4),
+        Kind.permission: ("lock", 4),
+        Kind.input_needed: ("question", 4),
+        Kind.idle: ("hourglass_flowing_sand", 3),
     }
     for kind, (tag, priority) in expected.items():
         payload = _payload("topic", _event(kind, card))
@@ -107,6 +109,70 @@ def test_a_message_without_a_card_is_the_body_and_the_board() -> None:
 
 
 def test_non_ascii_text_is_sent_as_is() -> None:
-    payload = _payload("topic", Notification(Kind.agent_waiting, "Ação — pronta", "Olá", "Demo"))
+    payload = _payload("topic", Notification(Kind.idle, "Ação — pronta", "Olá", "Demo"))
     assert payload["title"] == "Ação — pronta"
     assert "Olá" in str(payload["message"])
+
+
+@pytest.mark.parametrize(
+    ("notification_type", "kind", "title"),
+    [
+        ("permission_prompt", Kind.permission, "Demo: Claude needs your approval"),
+        ("elicitation_dialog", Kind.input_needed, "Demo: Claude needs your input"),
+        ("elicitation_url_dialog", Kind.input_needed, "Demo: Claude needs your input"),
+        ("agent_needs_input", Kind.input_needed, "Demo: Claude needs your input"),
+        ("idle_prompt", Kind.idle, "Demo: Claude is waiting for you"),
+    ],
+)
+def test_each_waiting_hook_type_gets_its_own_kind_and_title(
+    notification_type: str, kind: Kind, title: str
+) -> None:
+    event = hook_notification({"notification_type": notification_type}, "Demo", [])
+
+    assert event is not None
+    assert (event.kind, event.title, event.board, event.card) == (kind, title, "Demo", None)
+
+
+@pytest.mark.parametrize(
+    "notification_type",
+    ["auth_success", "agent_completed", "elicitation_complete", "quota_auto_resume_fired", None],
+)
+def test_unrelated_hook_types_are_ignored(notification_type: str | None) -> None:
+    assert hook_notification({"notification_type": notification_type}, "Demo", []) is None
+    assert hook_notification({}, "Demo", []) is None
+
+
+def test_the_hook_body_is_claudes_own_message_or_a_per_type_fallback() -> None:
+    said = hook_notification(
+        {"notification_type": "permission_prompt", "message": "  Claude needs permission to Bash "},
+        "Demo",
+        [],
+    )
+    assert said is not None
+    assert said.body == "Claude needs permission to Bash"
+
+    for message in (None, "", "   ", 42):
+        fallback = hook_notification(
+            {"notification_type": "permission_prompt", "message": message}, "Demo", []
+        )
+        assert fallback is not None
+        assert fallback.body == "Claude is waiting for your approval."
+    idle = hook_notification({"notification_type": "idle_prompt"}, "Demo", [])
+    assert idle is not None
+    assert idle.body != "Claude is waiting for your approval."
+
+
+def test_the_hook_names_the_card_only_when_exactly_one_is_in_progress(board: Board) -> None:
+    first = board.add("First", column="doing")
+    second = board.add("Second", column="doing")
+    payload = {"notification_type": "idle_prompt", "message": "Done"}
+
+    one = hook_notification(payload, "Demo", [first])
+    none = hook_notification(payload, "Demo", [])
+    several = hook_notification(payload, "Demo", [first, second])
+
+    assert one is not None
+    assert one.body == f"Done\n\nCard #{first.id}: First"
+    assert none is not None
+    assert several is not None
+    assert none.body == several.body == "Done"

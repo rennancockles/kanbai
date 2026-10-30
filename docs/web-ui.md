@@ -90,7 +90,9 @@ Two channels, checked independently on every qualifying move:
   | Card in `done` (boards without `review`) | ✅ | same as `review` |
   | [Notice](concepts.md#card-notice) to pass on | 🔔 | high |
   | Sprint empty | 💤 | low |
-  | Claude waiting for input | 🤖 | high |
+  | Claude needs permission | 🔒 | high |
+  | Claude has a question (or an MCP server does) | ❓ | high |
+  | Claude is idle, waiting for your next step | ⏳ | default |
 
   The message is formatted in Markdown: the card title in bold, then its id, type and
   priority, and the board name. For a notice, the notice text comes first.

@@ -29,10 +29,17 @@ _TAGS = {
     Kind.done: "white_check_mark",
     Kind.notice: "bell",
     Kind.sprint_empty: "zzz",
-    Kind.agent_waiting: "robot",
+    Kind.permission: "lock",
+    Kind.input_needed: "question",
+    Kind.idle: "hourglass_flowing_sand",
 }
 _DEFAULT_PRIORITY = 3
-_PRIORITIES = {Kind.notice: 4, Kind.agent_waiting: 4, Kind.sprint_empty: 2}
+_PRIORITIES = {
+    Kind.notice: 4,
+    Kind.permission: 4,
+    Kind.input_needed: 4,
+    Kind.sprint_empty: 2,
+}
 _HIGH_PRIORITY = 4
 
 

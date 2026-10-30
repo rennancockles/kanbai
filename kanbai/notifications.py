@@ -7,7 +7,7 @@ and ``card`` to pick tags, priority and a richer message.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 
@@ -21,7 +21,9 @@ class Kind(str, Enum):
     done = "done"
     notice = "notice"
     sprint_empty = "sprint_empty"
-    agent_waiting = "agent_waiting"
+    permission = "permission"
+    input_needed = "input_needed"
+    idle = "idle"
 
 
 @dataclass(frozen=True)
@@ -82,3 +84,39 @@ def move_notifications(
             )
         )
     return found
+
+
+# Claude Code `Notification` hook types worth a push, and what each one means. Every other
+# `notification_type` (auth_success, agent_completed, quota_*, ...) is ignored.
+_HOOK_KINDS = {
+    "permission_prompt": Kind.permission,
+    "elicitation_dialog": Kind.input_needed,
+    "elicitation_url_dialog": Kind.input_needed,
+    "agent_needs_input": Kind.input_needed,
+    "idle_prompt": Kind.idle,
+}
+# kind -> (title suffix, fallback body when Claude's own message is missing)
+_HOOK_TEXT = {
+    Kind.permission: ("Claude needs your approval", "Claude is waiting for your approval."),
+    Kind.input_needed: ("Claude needs your input", "Claude has a question for you."),
+    Kind.idle: ("Claude is waiting for you", "Claude finished and is waiting for your next step."),
+}
+
+
+def hook_notification(
+    payload: Mapping[str, object], board: str, in_progress: list[Card]
+) -> Notification | None:
+    """The notification for a Claude Code ``Notification`` hook payload, or ``None`` to ignore it.
+
+    The body is Claude's own ``message`` (it names the tool or question) when present. When
+    exactly one card is in progress, it is named too; with none or several, nothing is guessed.
+    """
+    kind = _HOOK_KINDS.get(str(payload.get("notification_type")))
+    if kind is None:
+        return None
+    suffix, fallback = _HOOK_TEXT[kind]
+    message = payload.get("message")
+    body = message.strip() if isinstance(message, str) and message.strip() else fallback
+    if len(in_progress) == 1:
+        body += f"\n\nCard #{in_progress[0].id}: {in_progress[0].title}"
+    return Notification(kind=kind, title=f"{board}: {suffix}", body=body, board=board)
