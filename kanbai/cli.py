@@ -32,16 +32,11 @@ from . import (
 from .board import Board
 from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
-from .mirror import MirrorBoard
+from .mirror import AnyBoard, MirrorBoard, mirror_if_hosted
 from .models import BoardConfig, Card, Priority
 from .notifications import Notification, hook_notification
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
-
-#: Either a local, filesystem-backed board or a hosted one talking to a kanbai_server API —
-#: every command function below only calls verbs both implement, so callers never branch on
-#: which one `_load()` returned.
-AnyBoard = Board | MirrorBoard
 
 app = typer.Typer(
     name="kanbai",
@@ -108,13 +103,7 @@ def _load_board_at(start: Path | None) -> AnyBoard:
     """Load the board at (or above) ``start``: the local files, which also replicate to the
     hosted board when its `config.toml` has a complete, enabled `[server]` section (see
     :class:`kanbai.mirror.MirrorBoard`). Raises :class:`KanbaiError`."""
-    kanbai_dir = storage.find_kanbai_dir(start)
-    remote = load_remote_config(kanbai_dir) if kanbai_dir is not None else None
-    board: AnyBoard = (
-        MirrorBoard(Board.load(start), remote, _warn_out_of_sync)
-        if remote is not None and remote.enabled
-        else Board.load(start)
-    )
+    board = mirror_if_hosted(Board.load(start), _warn_out_of_sync)
     board.on_notify = lambda notification: _notify(board.config, notification)
     return board
 

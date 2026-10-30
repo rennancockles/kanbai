@@ -19,7 +19,7 @@ from typing import Any, TypeVar
 
 from . import hosted, storage, sync_state
 from .board import Board
-from .config import RemoteConfig
+from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
 from .models import Card
 from .notifications import Notification
@@ -199,3 +199,15 @@ class MirrorBoard:
         edits = {k: v for k, v in edits.items() if v is not None}
         if edits:
             remote.edit(after.id, **edits)
+
+
+#: Either a plain local board or one that also mirrors its changes to a hosted board.
+AnyBoard = Board | MirrorBoard
+
+
+def mirror_if_hosted(board: Board, warn: Callable[[str], None]) -> AnyBoard:
+    """Wrap ``board`` in a :class:`MirrorBoard` when its config has an enabled ``[server]``."""
+    remote = load_remote_config(board.kanbai_dir)
+    if remote is None or not remote.enabled:
+        return board
+    return MirrorBoard(board, remote, warn)

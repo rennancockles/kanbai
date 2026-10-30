@@ -18,6 +18,7 @@ from kanbai.ai.schema import ExtractedCard
 from kanbai.board import Board
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
+from kanbai.models import Card
 from kanbai.notifications import Kind, Notification
 from kanbai.notify_ntfy import notify_ntfy, notify_ntfy_background
 from kanbai.web import app as app_module, hub as hub_module, server
@@ -25,6 +26,8 @@ from kanbai.web.app import create_app
 from kanbai.web.hub import create_hub_app
 from kanbai.web.watcher import watch_board, watch_boards
 from typer.testing import CliRunner
+
+from test_remote_board import BOARD_ID, _FakeServer, patch_transport
 
 cli_runner = CliRunner()
 
@@ -1671,3 +1674,84 @@ def test_editing_the_notice_in_the_form_rearms_it(tmp_path: Path) -> None:
 
     rearmed = client.post("/cards/001/edit", data={**form, "notice": "Tell Bob"})
     assert 'class="card-notice"' in rearmed.text
+
+
+def _hosted_hub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Board, _FakeServer, TestClient]:
+    """A hosted project served through the hub, with every card also present on a fake host."""
+    scaffold.init_board(tmp_path)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    server_section = (
+        f'\n[server]\nurl = "https://kanbai.example.com"\ntoken = "tok"\nboard_id = "{BOARD_ID}"\n'
+    )
+    cfg.write_text(cfg.read_text() + server_section)
+    client = TestClient(create_hub_app({"hosted": str(tmp_path)}))
+    host = _FakeServer()
+    # Patched only after the TestClient exists, or it would route the test's own requests too.
+    patch_transport(monkeypatch, httpx.MockTransport(host.handle))
+    return Board.load(tmp_path), host, client
+
+
+def _seed_host(host: _FakeServer, card: Card) -> None:
+    host.cards[BOARD_ID][card.id] = host._card_dict(  # noqa: SLF001
+        BOARD_ID, id=card.id, title=card.title, status=card.status
+    )
+
+
+def test_hub_mirrors_card_moves_to_the_hosted_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board, host, client = _hosted_hub(tmp_path, monkeypatch)
+    card = board.add("Task", column="todo")
+    _seed_host(host, card)
+
+    resp = client.post(f"/b/hosted/cards/{card.id}/move", data={"column": "doing"})
+
+    assert resp.status_code == 200
+    assert Board.load(tmp_path).show(card.id).status == "doing"
+    assert host.cards[BOARD_ID][card.id]["status"] == "doing"
+
+
+def test_hub_mirrors_a_closed_sprint_to_the_hosted_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board, host, client = _hosted_hub(tmp_path, monkeypatch)
+    card = board.add("Shipped", column="done")
+    _seed_host(host, card)
+
+    resp = client.post("/b/hosted/sprint/new", data={"version": "1.0"})
+
+    assert resp.status_code == 200
+    assert Board.load(tmp_path).list_archive()[0].id == card.id
+    assert host.cards[BOARD_ID][card.id]["status"] == "archive"
+    assert host.cards[BOARD_ID][card.id]["version"] == "1.0"
+
+
+def test_hub_keeps_local_boards_unmirrored(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    card = Board.load(tmp_path).add("Task", column="todo")
+    client = TestClient(create_hub_app({"local": str(tmp_path)}))
+
+    resp = client.post(f"/b/local/cards/{card.id}/move", data={"column": "doing"})
+
+    assert resp.status_code == 200
+    assert Board.load(tmp_path).show(card.id).status == "doing"
+
+
+def test_hub_applies_hosted_mode_changes_without_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board, host, client = _hosted_hub(tmp_path, monkeypatch)
+    cfg = tmp_path / ".kanbai" / "config.toml"
+    cfg.write_text(cfg.read_text() + "enabled = false\n")
+    card = board.add("Task", column="todo")
+    _seed_host(host, card)
+
+    client.post(f"/b/hosted/cards/{card.id}/move", data={"column": "doing"})
+    assert host.cards[BOARD_ID][card.id]["status"] == "todo"  # hosted mode off: local only
+
+    cfg.write_text(cfg.read_text().replace("enabled = false", "enabled = true"))
+    client.post(f"/b/hosted/cards/{card.id}/move", data={"column": "review"})
+
+    assert host.cards[BOARD_ID][card.id]["status"] == "review"

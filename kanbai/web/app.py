@@ -17,6 +17,7 @@ from .. import APP_NAME, __version__
 from ..ai import ExtractedCard, ai_available, clamp_to_board, extract_card
 from ..board import Board
 from ..errors import KanbaiError
+from ..mirror import AnyBoard
 from ..models import Card, Priority
 from ..notifications import Notification
 from ..notify_ntfy import notify_ntfy_background
@@ -47,7 +48,7 @@ def _type_badge_style(hex_color: str) -> str:
     return f"color: {hex_color}; background: rgba({r}, {g}, {b}, 0.14);"
 
 
-def _make_notify_hook(board: Board) -> Callable[[Notification], None]:
+def _make_notify_hook(board: AnyBoard) -> Callable[[Notification], None]:
     """Build the ``Board.on_notify`` callback: native desktop + ntfy, best-effort.
 
     ``kanbai/web`` always has the ``ui`` extra installed (it's what pulls this module in),
@@ -66,7 +67,7 @@ def _make_notify_hook(board: Board) -> Callable[[Notification], None]:
 
 
 def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == route count
-    board: Board | None = None,
+    board: AnyBoard | None = None,
     *,
     force_polling: bool = False,
     base_path: str = "",

@@ -15,10 +15,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.routing import Mount
 
-from .. import APP_NAME, __version__, view_registry
+from .. import APP_NAME, __version__, credentials, storage, view_registry
 from ..ai import ai_available, clamp_to_board, extract_card
 from ..board import Board
+from ..config import CONFIG_FILENAME
 from ..errors import KanbaiError
+from ..mirror import AnyBoard, mirror_if_hosted
 from ..models import Priority
 from . import watcher
 from .app import PRIORITY_CLASS, TYPE_CLASS, create_app
@@ -78,6 +80,30 @@ def _board_counts(path: str) -> dict[str, int]:
     return {col: len(all_cols.get(col, [])) for col in _OVERVIEW_COLS}
 
 
+def _warn_out_of_sync(message: str) -> None:
+    print(f"! {message}", file=sys.stderr)
+
+
+def _file_stamp(path: Path | None) -> tuple[int, int] | None:
+    try:
+        stat = path.stat() if path is not None else None
+    except OSError:
+        return None
+    return (stat.st_mtime_ns, stat.st_size) if stat is not None else None
+
+
+def _hosting_stamp(boards: dict[str, str]) -> dict[str, tuple[int, int] | None]:
+    """Change fingerprint of everything that decides whether a board mirrors to a host:
+    each board's ``config.toml`` (the ``[server]`` section) and the global credentials file
+    (the token), so ``hosted connect``/``disable``/``enable``/``login`` apply without a restart."""
+    stamp: dict[str, tuple[int, int] | None] = {}
+    for name, path in boards.items():
+        kanbai_dir = storage.find_kanbai_dir(Path(path))
+        stamp[name] = _file_stamp(kanbai_dir / CONFIG_FILENAME if kanbai_dir else None)
+    stamp[""] = _file_stamp(credentials.credentials_path())
+    return stamp
+
+
 def _mount_boards(
     hub: FastAPI, boards: dict[str, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, str | None]]]:
@@ -94,10 +120,10 @@ def _mount_boards(
     ]
 
     # Resolve which boards actually load first, so every board's switcher lists the same set.
-    loaded: list[tuple[str, str, Board]] = []
+    loaded: list[tuple[str, str, AnyBoard]] = []
     for name, path in sorted(boards.items()):
         try:
-            loaded.append((name, path, Board.load(Path(path))))
+            loaded.append((name, path, mirror_if_hosted(Board.load(Path(path)), _warn_out_of_sync)))
         except KanbaiError:
             continue
         except OSError as exc:
@@ -131,23 +157,27 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
     ``boards_provider`` is either a static ``{name: path}`` mapping (as stored in the
     registry) or a callable returning one. When it's a callable, the hub re-reads it before
     each request and remounts the boards if the registered set changed — so boards added via
-    ``kanbai hub add`` while the hub is already running show up without a restart.
+    ``kanbai hub add`` while the hub is already running show up without a restart. A change to a
+    board's ``config.toml`` or to the stored hosted credentials remounts them too, so toggling
+    hosted mode (``hosted connect``/``disable``/``enable``/``login``) needs no restart either.
     """
     hub = FastAPI(title=f"{APP_NAME} hub", docs_url=None, redoc_url=None)
     hub.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
     get_boards = boards_provider if callable(boards_provider) else (lambda: boards_provider)
     last_boards = dict(get_boards())
+    last_stamp = _hosting_stamp(last_boards)
     mounted, switcher = _mount_boards(hub, last_boards)
 
     @hub.middleware("http")
     async def refresh_boards(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        nonlocal last_boards, mounted, switcher
+        nonlocal last_boards, last_stamp, mounted, switcher
         current = dict(get_boards())
-        if current != last_boards:
-            last_boards = current
+        stamp = _hosting_stamp(current)
+        if current != last_boards or stamp != last_stamp:
+            last_boards, last_stamp = current, stamp
             mounted, switcher = _mount_boards(hub, current)
         return await call_next(request)
 
