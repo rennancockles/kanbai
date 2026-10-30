@@ -120,6 +120,19 @@ def test_category_filter_shown_when_multiple_categories(tmp_path: Path) -> None:
     assert 'data-category="work"' in html
 
 
+def test_category_filter_persists_across_board_switch(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    switcher = [
+        {"name": "a", "url": "/b/a/", "category": "Work"},
+        {"name": "b", "url": "/b/b/", "category": "Personal"},
+    ]
+    client = TestClient(create_app(board, base_path="/b/a", boards=switcher, current="a"))
+    html = client.get("/").text
+    assert "localStorage.setItem(STORAGE_KEY" in html
+    assert "localStorage.getItem(STORAGE_KEY" in html
+
+
 def test_category_filter_shown_when_mixed_categorized(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

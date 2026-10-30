@@ -222,14 +222,19 @@
     // Filter the board-switcher <select> to show only boards from the chosen category.
     (function () {
       var catFilter = document.getElementById('category-filter');
-      if (!catFilter) return;
-      catFilter.addEventListener('change', function () {
-        var cat = this.value;
-        var switcher = document.querySelector('.board-switcher');
-        if (!switcher) return;
+      var switcher = document.querySelector('.board-switcher');
+      if (!catFilter || !switcher) return;
+      var STORAGE_KEY = 'kanbai.categoryFilter';
+
+      function applyFilter(cat, keepSelection) {
         for (var i = 0; i < switcher.options.length; i++) {
           var opt = switcher.options[i];
           opt.hidden = !!(cat && opt.dataset.category !== cat);
+        }
+        if (keepSelection) {
+          // Restoring on page load: the board being viewed must stay visible and selected.
+          if (switcher.selectedOptions.length) switcher.selectedOptions[0].hidden = false;
+          return;
         }
         // If the current selection is now hidden, move to the first visible option.
         if (switcher.selectedOptions.length && switcher.selectedOptions[0].hidden) {
@@ -237,7 +242,23 @@
             if (!switcher.options[j].hidden) { switcher.selectedIndex = j; break; }
           }
         }
+      }
+
+      catFilter.addEventListener('change', function () {
+        try { localStorage.setItem(STORAGE_KEY, this.value); } catch (e) { /* storage unavailable */ }
+        applyFilter(this.value, false);
       });
+
+      // Switching board reloads the page, so restore the filter the user had chosen.
+      var saved = '';
+      try { saved = localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { /* storage unavailable */ }
+      if (saved) {
+        var known = Array.prototype.some.call(catFilter.options, function (o) { return o.value === saved; });
+        if (known) {
+          catFilter.value = saved;
+          applyFilter(saved, true);
+        }
+      }
     }());
 
     // Filter the items in a modal list (Plan sprint / Archive) client-side, so checkbox
