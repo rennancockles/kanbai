@@ -33,6 +33,7 @@ FRONTMATTER_FIELDS = (
     "labels",
     "deps",
     "assignee",
+    "group",
     "archived_from",
     "notice",
     "notice_sent",
@@ -65,6 +66,9 @@ class Card(BaseModel):
     labels: list[str] = Field(default_factory=list)
     deps: list[str] = Field(default_factory=list)
     assignee: str | None = None
+    # Optional free-text group (e.g. "auth", "billing") used to cluster related cards, such as
+    # the boxes of a grouped backlog. Empty means no group; whitespace is stripped on write.
+    group: str = ""
     # The column a card was in before it was archived (so we know it was, e.g., finished).
     archived_from: str | None = None
     # Free-text heads-up to relay to someone once the card is done (e.g. "tell Ana the bug is
@@ -87,6 +91,9 @@ class Card(BaseModel):
             if field == "type" and value is None:
                 continue
             if field == "version" and value is None:
+                continue
+            # Ungrouped cards omit the field, keeping their files unchanged.
+            if field == "group" and not value:
                 continue
             # Cards without a notice carry neither field, keeping their files unchanged.
             if field in ("notice", "notice_sent") and not self.notice:

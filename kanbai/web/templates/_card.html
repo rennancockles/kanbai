@@ -1,6 +1,6 @@
 {% set is_blocked = blocked is defined and card.id in blocked %}
 <article class="card {{ priority_class[card.priority.value] }}{% if is_blocked %} blocked{% endif %}"
-         data-id="{{ card.id }}"
+         data-id="{{ card.id }}" data-group="{{ card.group }}"
          hx-get="{{ base }}/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">
   <div class="card-head">
     <span class="card-id">#{{ card.id }}{% if is_blocked %}

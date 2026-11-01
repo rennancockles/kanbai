@@ -15,6 +15,9 @@
       <div><dt>type</dt><dd>{{ card.type or '—' }}</dd></div>
       <div><dt>labels</dt><dd>{{ card.labels | join(', ') or '—' }}</dd></div>
       <div><dt>deps</dt><dd>{{ card.deps | join(', ') or '—' }}</dd></div>
+      {% if card.group %}
+      <div><dt>group</dt><dd>{{ card.group }}</dd></div>
+      {% endif %}
       {% if card.notice %}
       <div><dt>notice</dt><dd>{{ card.notice }} ({{ 'sent' if card.notice_sent else 'pending' }})</dd></div>
       {% endif %}

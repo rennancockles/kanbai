@@ -43,6 +43,14 @@
              value="{{ prefill_labels or '' }}">
     </label>
     <label class="field">
+      <span>Group</span>
+      <input type="text" name="group" list="card-groups" placeholder="e.g. auth (optional)"
+             autocomplete="off">
+      <datalist id="card-groups">
+        {% for g in groups %}<option value="{{ g }}">{% endfor %}
+      </datalist>
+    </label>
+    <label class="field">
       <span>Notice</span>
       <input type="text" name="notice" placeholder="Who to tell once this is done (optional)"
              autocomplete="off">

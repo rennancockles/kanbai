@@ -41,6 +41,7 @@ _EDITABLE = (
     "order",
     "notice",
     "notice_sent",
+    "group",
 )
 #: Fields the API can only clear with an empty string (``None`` means "leave unchanged").
 _CLEARED_WITH_EMPTY_STRING = ("type", "version")
@@ -82,8 +83,15 @@ class MirrorBoard:
     def add(self, title: str, **fields: Any) -> Card:
         return self._run(self.local.add, title, **fields)
 
-    def move(self, card_id: str, column: str, *, position: int | None = None) -> Card:
-        return self._run(self.local.move, card_id, column, position=position)
+    def move(
+        self,
+        card_id: str,
+        column: str,
+        *,
+        position: int | None = None,
+        group: str | None = None,
+    ) -> Card:
+        return self._run(self.local.move, card_id, column, position=position, group=group)
 
     def edit(self, card_id: str, **fields: Any) -> Card:
         return self._run(self.local.edit, card_id, **fields)

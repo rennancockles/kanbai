@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from kanbai import scaffold
-from kanbai.board import Board
+from kanbai.board import Board, group_arranged, group_blocks
 from kanbai.errors import (
     CardNotFoundError,
     CardsInReviewError,
@@ -407,6 +407,99 @@ def test_sort_column_by_type(board: Board) -> None:
 
     board.sort_column("backlog", "type", descending=True)  # untyped last when descending
     assert [c.title for c in board.list_column("backlog")] == ["new thing", "fix it", "no type"]
+
+
+# --------------------------------------------------------------------------- group
+
+
+def test_add_and_edit_store_a_stripped_group(board: Board) -> None:
+    card = board.add("Task", group="  auth  ")
+    assert card.group == "auth"
+    assert board.edit(card.id, group=" billing ").group == "billing"
+    assert board.edit(card.id, title="Renamed").group == "billing"  # None leaves it unchanged
+    cleared = board.edit(card.id, group="")
+    assert cleared.group == ""
+    assert "group" not in cleared.frontmatter()
+
+
+def test_group_round_trips_through_the_card_file(board: Board) -> None:
+    card = board.add("Task", group="auth")
+    assert board.show(card.id).group == "auth"
+    assert Board.load(board.kanbai_dir.parent).show(card.id).group == "auth"
+
+
+def test_ungrouped_cards_keep_their_frontmatter_unchanged(board: Board) -> None:
+    assert "group" not in board.add("Task").frontmatter()
+    assert board.add("Task", group="   ").group == ""
+
+
+def test_group_blocks_gather_a_group_where_its_first_member_sits(board: Board) -> None:
+    groups = ["billing", "", "auth", "billing", "", "auth"]
+    cards = [board.add(f"Task {i}", group=g) for i, g in enumerate(groups, start=1)]
+
+    blocks = group_blocks(cards)
+
+    assert [(name, [c.id for c in members]) for name, members in blocks] == [
+        ("billing", ["001", "004"]),
+        ("", ["002"]),
+        ("auth", ["003", "006"]),
+        ("", ["005"]),
+    ]
+    assert [c.id for c in group_arranged(cards)] == ["001", "004", "002", "003", "006", "005"]
+
+
+def test_group_arranged_is_the_identity_when_nobody_has_a_group(board: Board) -> None:
+    cards = [board.add(f"Task {i}") for i in range(3)]
+    assert group_arranged(cards) == cards
+
+
+def test_move_with_position_and_group_places_the_card_in_the_grouped_view(board: Board) -> None:
+    plain = board.add("Plain")
+    a1 = board.add("A1", group="auth")
+    a2 = board.add("A2", group="auth")
+    b1 = board.add("B1", group="billing")
+    moved = board.add("Moved")
+    # drawn without the moved card: Plain, A1, A2, B1 -> drop between A1 and A2
+    result = board.move(moved.id, "backlog", position=2, group="auth")
+
+    assert result.group == "auth"
+    ordered = group_arranged(board.list_column("backlog"))
+    assert [c.id for c in ordered] == [plain.id, a1.id, moved.id, a2.id, b1.id]
+    assert [c.group for c in ordered] == ["", "auth", "auth", "auth", "billing"]
+
+
+def test_moving_a_card_out_of_its_group_leaves_it_right_below_the_box(board: Board) -> None:
+    a1 = board.add("A1", group="auth")
+    leaving = board.add("A2", group="auth")
+    plain = board.add("Plain")
+
+    result = board.move(leaving.id, "backlog", position=1, group="")
+
+    assert result.group == ""
+    ordered = group_arranged(board.list_column("backlog"))
+    assert [c.id for c in ordered] == [a1.id, leaving.id, plain.id]
+    assert [c.group for c in ordered] == ["auth", "", ""]
+
+
+def test_move_with_group_can_clear_the_group(board: Board) -> None:
+    card = board.add("Task", group="auth")
+    assert board.move(card.id, "backlog", position=0, group=" ").group == ""
+    assert "group" not in board.show(card.id).frontmatter()
+
+
+def test_move_without_group_keeps_the_group(board: Board) -> None:
+    card = board.add("Task", group="auth")
+    assert board.move(card.id, "todo").group == "auth"
+    assert board.move(card.id, "backlog", position=0).group == "auth"
+    assert board.show(card.id).group == "auth"
+
+
+def test_position_in_a_non_backlog_column_ignores_groups(board: Board) -> None:
+    a = board.add("A", column="todo", group="zzz")
+    b = board.add("B", column="todo", group="aaa")
+    c = board.add("C", column="todo")
+    board.move(c.id, "todo", position=1)
+    assert [x.id for x in board.list_column("todo")] == [a.id, c.id, b.id]
 
 
 # --------------------------------------------------------------------------- notice

@@ -268,6 +268,7 @@ def add(  # noqa: PLR0913 - one option per card field
     notice: str = typer.Option(
         "", "--notice", "-n", help="Heads-up to pass on once the card is done."
     ),
+    group: str = typer.Option("", "--group", "-g", help="Group (free text, e.g. 'auth')."),
     as_json: bool = typer.Option(False, "--json", help="Emit the created card as JSON."),
 ) -> None:
     """Create a new card (defaults to the backlog column)."""
@@ -283,6 +284,7 @@ def add(  # noqa: PLR0913 - one option per card field
         deps=deps,
         assignee=assignee,
         notice=notice,
+        group=group,
     )
     _emit_card(
         card,
@@ -297,13 +299,18 @@ def add(  # noqa: PLR0913 - one option per card field
 def list_cards(
     column: str | None = typer.Argument(None, help="Only show this column."),
     type: str | None = typer.Option(None, "--type", "-t", help="Only show cards of this type."),  # noqa: A002
+    group: str | None = typer.Option(None, "--group", "-g", help="Only show cards in this group."),
     as_json: bool = typer.Option(False, "--json", help="Emit the board as JSON."),
 ) -> None:
     """Show the board, a single column, or the ``archive``."""
     board = _load()
 
     def filtered(cards: list[Card]) -> list[Card]:
-        return [c for c in cards if c.type == type] if type else cards
+        return [
+            c
+            for c in cards
+            if (not type or c.type == type) and (group is None or c.group == group.strip())
+        ]
 
     if column is not None:
         cards = filtered(
@@ -376,7 +383,7 @@ def show(
             f"status: {card.status}   type: {card.type or '—'}   "
             f"priority: {_priority_cell(card.priority)}   order: {card.order}\n"
             f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}   "
-            f"version: {card.version or '—'}\n"
+            f"version: {card.version or '—'}   group: {escape(card.group) if card.group else '—'}\n"
             f"notice: {_notice_cell(card)}"
             f"{body}",
             title=f"card {card.id}",
@@ -477,6 +484,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         "--notice-sent/--no-notice-sent",
         help="Mark the notice as passed on (or pending again).",
     ),
+    group: str | None = typer.Option(None, "--group", "-g", help="New group (empty clears it)."),
     as_json: bool = typer.Option(False, "--json", help="Emit the edited card as JSON."),
 ) -> None:
     """Update fields on a card (only the options you pass change)."""
@@ -494,6 +502,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         order=order,
         notice=notice,
         notice_sent=notice_sent,
+        group=group,
     )
     _emit_card(card, as_json, f"[green]✓[/green] Updated [cyan]{card.id}[/cyan]")
 

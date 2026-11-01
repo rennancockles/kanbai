@@ -22,6 +22,31 @@ from .models import BoardConfig, Card, Priority
 from .notifications import Notification, move_notifications
 
 
+def group_blocks(cards: list[Card]) -> list[tuple[str, list[Card]]]:
+    """Arrange ``cards`` (in ``order``) the way the backlog draws them.
+
+    Each block is ``("", [card])`` for an ungrouped card or ``(name, members)`` for a group.
+    A group sits where its first member sits and gathers all its members there, so the
+    ungrouped cards keep their place around it.
+    """
+    blocks: list[tuple[str, list[Card]]] = []
+    by_group: dict[str, list[Card]] = {}
+    for card in cards:
+        if not card.group:
+            blocks.append(("", [card]))
+        elif card.group in by_group:
+            by_group[card.group].append(card)
+        else:
+            by_group[card.group] = [card]
+            blocks.append((card.group, by_group[card.group]))
+    return blocks
+
+
+def group_arranged(cards: list[Card]) -> list[Card]:
+    """``cards`` in the order :func:`group_blocks` draws them (the identity without groups)."""
+    return [card for _, members in group_blocks(cards) for card in members]
+
+
 class Board:
     """A loaded kanbai board rooted at a ``.kanbai/`` directory."""
 
@@ -75,6 +100,7 @@ class Board:
         deps: list[str] | None = None,
         assignee: str | None = None,
         notice: str = "",
+        group: str = "",
     ) -> Card:
         """Create a new card and write it to disk."""
         column = column or self.config.add_column
@@ -98,6 +124,7 @@ class Board:
             deps=deps or [],
             assignee=assignee,
             notice=notice.strip(),
+            group=group.strip(),
             created=timestamp,
             updated=timestamp,
             body=description,
@@ -105,8 +132,18 @@ class Board:
         storage.write_card(self.kanbai_dir, card)
         return card
 
-    def move(self, card_id: str, column: str, *, position: int | None = None) -> Card:
+    def move(
+        self,
+        card_id: str,
+        column: str,
+        *,
+        position: int | None = None,
+        group: str | None = None,
+    ) -> Card:
         """Move a card to ``column``, updating its status, order and timestamp.
+
+        ``group`` (when not ``None``) also sets the card's group - a drop into a group's
+        section of the backlog. Otherwise the card keeps its group wherever it goes.
 
         When ``position`` is given, the card is inserted at that index within the column and
         the column's ``order`` values are reflowed — this is what persists drag-to-reorder
@@ -116,6 +153,8 @@ class Board:
         self._require_column(column)
         card, old_path, old_column = self._locate(card_id)
         card.status = column
+        if group is not None:
+            card.group = group.strip()
         if position is None and column != old_column:
             card.order = self._next_order(column)
         card.updated = storage.now()
@@ -143,6 +182,8 @@ class Board:
         cards = storage.read_column(self.kanbai_dir, column)
         moved = next(c for c in cards if c.id == card_id)
         others = [c for c in cards if c.id != card_id]
+        if column == self.config.add_column:
+            others = group_arranged(others)  # positions index the grouped view, minus the card
         index = max(0, min(position, len(others)))
         ordered = [*others[:index], moved, *others[index:]]
         for new_order, card in enumerate(ordered, start=1):
@@ -232,11 +273,13 @@ class Board:
         order: int | None = None,
         notice: str | None = None,
         notice_sent: bool | None = None,
+        group: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change.
 
         Changing ``notice`` re-arms it (``notice_sent`` goes back to ``False``) unless
-        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it.
+        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group`` is
+        stripped; an empty string clears it and ``None`` leaves it unchanged.
         """
         card, old_path, _ = self._locate(card_id)
         if title is not None:
@@ -258,6 +301,7 @@ class Board:
         if order is not None:
             card.order = order
         self._apply_notice(card, notice, notice_sent)
+        card.group = card.group if group is None else group.strip()
         card.updated = storage.now()
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)

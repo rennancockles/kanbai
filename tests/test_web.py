@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 import sys
 import threading
@@ -15,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 from kanbai import __version__, scaffold, view_registry
 from kanbai.ai.schema import ExtractedCard
-from kanbai.board import Board
+from kanbai.board import Board, group_arranged
 from kanbai.cli import app as cli_app
 from kanbai.errors import CardNotFoundError
 from kanbai.models import Card
@@ -1674,6 +1675,117 @@ def test_editing_the_notice_in_the_form_rearms_it(tmp_path: Path) -> None:
 
     rearmed = client.post("/cards/001/edit", data={**form, "notice": "Tell Bob"})
     assert 'class="card-notice"' in rearmed.text
+
+
+def test_group_can_be_set_shown_edited_and_cleared(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    created = client.post("/cards", data={"title": "Grouped", "column": "todo", "group": " auth "})
+    assert created.status_code == 200
+    assert 'name="group"' in client.get("/cards/new").text
+    assert "<dt>group</dt><dd>auth</dd>" in client.get("/cards/003").text
+    assert 'name="group" list="card-groups" value="auth"' in client.get("/cards/003/edit").text
+
+    form = {"title": "Grouped", "priority": "high"}
+    client.post("/cards/003/edit", data={**form, "group": "billing"})
+    assert "<dt>group</dt><dd>billing</dd>" in client.get("/cards/003").text
+    client.post("/cards/003/edit", data={**form, "group": ""})
+    assert "<dt>group</dt>" not in client.get("/cards/003").text
+
+
+def _grouped_board(tmp_path: Path) -> tuple[Board, TestClient]:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Plain one")
+    board.add("Billing one", group="billing", labels=["ui"])
+    board.add("Auth one", group="auth", type="bug")
+    board.add("Billing two", group="billing")
+    board.add("Sprint task", column="todo", group="auth")
+    return board, TestClient(create_app(board))
+
+
+def test_backlog_is_flat_when_no_card_has_a_group(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/board").text
+    assert 'class="group-box"' not in body
+    assert "data-grouped" not in body
+    assert "data-filtering" not in body
+    assert "data-group-action" not in body
+    assert 'data-group=""' in body  # cards still carry their (empty) group
+
+
+def test_grouped_backlog_draws_boxes_where_the_first_member_sits(tmp_path: Path) -> None:
+    _, client = _grouped_board(tmp_path)
+    body = client.get("/board").text
+
+    boxes = re.findall(
+        r'<div class="group-box" data-group="([^"]*)">.*?'
+        r'<span class="group-count">(\d+)</span>',
+        body,
+        flags=re.S,
+    )
+    assert boxes == [("billing", "2"), ("auth", "1")]
+    # Plain one first, then the billing box (both its cards), then the auth box
+    order = [body.index(t) for t in ("Plain one", "Billing one", "Billing two", "Auth one")]
+    assert order == sorted(order)
+    box = body.split('<div class="group-box" data-group="billing">')[1].split("</section>")[0]
+    assert box.index("Billing one") < box.index("Billing two") < box.index("Auth one")
+    assert body.count('class="group-box"') == 2  # the sprint column never gets boxes
+    assert 'data-grouped="1"' in body
+    assert 'data-group-action="collapse"' in body
+    assert 'data-group-action="expand"' in body
+
+
+def test_grouped_backlog_boxes_only_count_the_cards_shown(tmp_path: Path) -> None:
+    _, client = _grouped_board(tmp_path)
+    body = client.get("/board", params={"q": "billing"}).text
+    assert body.count('class="group-box"') == 1  # only the billing box has matches
+    assert 'data-group="billing"' in body
+    assert 'data-group="auth"' not in body
+    # a filter with no grouped match falls back to the flat backlog
+    flat = client.get("/board", params={"q": "plain"}).text
+    assert 'class="group-box"' not in flat
+    assert "data-filtering" not in flat
+
+
+def test_data_filtering_flags_an_active_search_label_or_type(tmp_path: Path) -> None:
+    _, client = _grouped_board(tmp_path)
+    assert 'data-filtering="0"' in client.get("/board").text
+    assert 'data-filtering="1"' in client.get("/board", params={"q": "one"}).text
+    assert 'data-filtering="1"' in client.get("/board", params={"label": "ui"}).text
+    assert 'data-filtering="1"' in client.get("/board", params={"type": "bug"}).text
+
+
+def test_move_with_regroup_sets_and_clears_the_group(tmp_path: Path) -> None:
+    board, client = _grouped_board(tmp_path)
+    # drawn without the moved card: Billing one, Billing two, Auth one -> drop after Auth one
+    resp = client.post(
+        "/cards/001/move",
+        data={"column": "backlog", "position": 3, "regroup": "1", "group": " auth "},
+    )
+    assert resp.status_code == 200
+    assert board.show("001").group == "auth"
+    ordered = group_arranged(board.list_column("backlog"))
+    assert [c.id for c in ordered] == ["002", "004", "003", "001"]
+
+    client.post("/cards/002/move", data={"column": "backlog", "position": 0, "regroup": "1"})
+    assert board.show("002").group == ""  # regroup with an empty group clears it
+    assert [c.id for c in group_arranged(board.list_column("backlog"))][0] == "002"
+
+
+def test_move_without_regroup_keeps_the_group(tmp_path: Path) -> None:
+    board, client = _grouped_board(tmp_path)
+    client.post("/cards/002/move", data={"column": "todo"})
+    assert board.show("002").group == "billing"
+    client.post("/cards/002/move", data={"column": "backlog", "position": 0, "group": "other"})
+    assert board.show("002").group == "billing"  # a group without the flag is ignored
+
+
+def test_card_forms_offer_the_board_groups_in_a_datalist(tmp_path: Path) -> None:
+    _, client = _grouped_board(tmp_path)
+    for url in ("/cards/new", "/cards/001/edit"):
+        page = client.get(url).text
+        assert 'list="card-groups"' in page
+        assert '<datalist id="card-groups">' in page
+        assert page.index('<option value="auth">') < page.index('<option value="billing">')
 
 
 def _hosted_hub(

@@ -576,3 +576,23 @@ def test_edit_notice_sent_silences_the_notice_and_show_reflects_it(project: Path
 
     runner.invoke(app, ["edit", "001", "--no-notice-sent"])
     assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["notice_sent"] is False
+
+
+def test_add_and_edit_group_show_in_show_and_json(project: Path) -> None:
+    added = runner.invoke(app, ["add", "Task", "-c", "todo", "--group", " auth ", "--json"])
+    assert json.loads(added.output)["group"] == "auth"
+    assert "group: auth" in runner.invoke(app, ["show", "001"]).output
+
+    assert runner.invoke(app, ["edit", "001", "-g", "billing"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["group"] == "billing"
+
+    assert runner.invoke(app, ["edit", "001", "--group", ""]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["group"] == ""
+    assert "group: —" in runner.invoke(app, ["show", "001"]).output
+
+
+def test_list_filters_by_group(project: Path) -> None:
+    runner.invoke(app, ["add", "Auth task", "-g", "auth"])
+    runner.invoke(app, ["add", "Plain task"])
+    result = runner.invoke(app, ["list", "backlog", "--group", "auth", "--json"])
+    assert [c["title"] for c in json.loads(result.output)] == ["Auth task"]

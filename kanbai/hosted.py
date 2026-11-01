@@ -37,6 +37,7 @@ _COMPARED_FIELDS = (
     "labels",
     "deps",
     "assignee",
+    "group",
     "archived_from",
     "notice",
     "notice_sent",
@@ -300,6 +301,7 @@ def _create_remote(remote: RemoteBoard, card: Card, add_column: str) -> None:
         labels=card.labels,
         assignee=card.assignee,
         notice=card.notice,
+        group=card.group,
     )
     if card.notice_sent:
         remote.edit(uploaded.id, notice_sent=True)
@@ -319,6 +321,7 @@ def _update_remote(remote: RemoteBoard, card: Card, current: Card) -> None:
         assignee=card.assignee,
         notice=card.notice,
         notice_sent=card.notice_sent,
+        group=card.group,
     )
     if card.status == current.status:
         if card.status == storage.ARCHIVE_DIRNAME:

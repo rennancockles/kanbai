@@ -10,6 +10,7 @@ import pytest
 from kanbai import scaffold, sync_state
 from kanbai.board import Board
 from kanbai.cli import app
+from kanbai.mirror import MirrorBoard, mirror_if_hosted
 from typer.testing import CliRunner
 
 from test_remote_board import BOARD_ID, _FakeServer, patch_transport
@@ -81,6 +82,28 @@ def test_moves_are_applied_on_both_sides(project: tuple[Path, _FakeServer]) -> N
 
     assert [c.id for c in Board.load(project_dir).list_column("review")] == [card_id]
     assert _host(server)[card_id]["status"] == "review"
+
+
+def test_move_with_group_is_applied_locally_and_replicated(
+    project: tuple[Path, _FakeServer],
+) -> None:
+    project_dir, server = project
+    card_id = _add("Task", "backlog")
+    mirror = mirror_if_hosted(Board.load(project_dir), lambda message: None)
+    assert isinstance(mirror, MirrorBoard)
+
+    moved = mirror.move(card_id, "todo", group="auth")
+    assert moved.group == "auth"
+    assert Board.load(project_dir).show(card_id).group == "auth"
+    assert (_host(server)[card_id]["status"], _host(server)[card_id]["group"]) == ("todo", "auth")
+
+    # a regroup inside the backlog (status unchanged) reaches the host too
+    mirror.move(card_id, "backlog", position=0, group="billing")
+    assert _host(server)[card_id]["group"] == "billing"
+
+    mirror.move(card_id, "todo")  # no group passed: unchanged on both sides
+    assert Board.load(project_dir).show(card_id).group == "billing"
+    assert _host(server)[card_id]["group"] == "billing"
 
 
 def test_edit_archive_restore_and_remove_are_replicated(
@@ -280,3 +303,15 @@ def test_notice_is_replicated_and_rearmed_on_the_host(project: tuple[Path, _Fake
     assert runner.invoke(app, ["edit", card_id, "-n", "Tell Bob"]).exit_code == 0
     assert _host(project[1])[card_id]["notice"] == "Tell Bob"
     assert _host(project[1])[card_id]["notice_sent"] is False
+
+
+def test_group_is_replicated_to_the_host(project: tuple[Path, _FakeServer]) -> None:
+    result = runner.invoke(app, ["add", "Grouped", "-c", "todo", "-g", "auth", "--json"])
+    card_id = str(json.loads(result.output)["id"])
+    assert _host(project[1])[card_id]["group"] == "auth"
+
+    assert runner.invoke(app, ["edit", card_id, "-g", "billing"]).exit_code == 0
+    assert _host(project[1])[card_id]["group"] == "billing"
+
+    assert runner.invoke(app, ["edit", card_id, "-g", ""]).exit_code == 0
+    assert _host(project[1])[card_id]["group"] == ""

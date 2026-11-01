@@ -36,7 +36,7 @@ in one step.
 ## Card details
 
 Click any card to open its details — description and acceptance criteria, labels,
-dependencies, type, and release version — and **move**, **edit**, **archive**, or **delete**
+dependencies, type, group, and release version — and **move**, **edit**, **archive**, or **delete**
 it right from the modal.
 
 ![The card detail modal](assets/card_modal.png)
@@ -132,6 +132,19 @@ The backlog column has a small sort control in its header. Pick a key (**id**, *
 **type**, or **title**) and a direction (**↑** ascending / **↓** descending); the new order is
 written back to the cards, so it sticks everywhere — including the CLI. Ascending priority
 reads `low → medium → high`; use **↓** to put the highest priority first.
+
+## Grouping the backlog
+
+Give cards a **Group** (in the new/edit form, or with `kanbai add --group`) and the backlog
+column draws the cards of each group together inside a framed box with the group's name and
+card count. The box sits where the group's first card sits; cards without a group stay as they
+were around it. Drag a card into a box to add it to that group, and drag it out of the box to
+take it out (a group disappears once its last card leaves). Click a box's header (or use the
+collapse/expand-all buttons in the column header) to fold it; which groups are folded is
+remembered per board in the browser, and while a search, label or type filter is active every
+group is shown open. Moving a card to another column keeps its group. The
+[backlog sort](#sorting-the-backlog) reorders the cards, and the boxes follow the first card
+of each group.
 
 ## Closing a sprint
 

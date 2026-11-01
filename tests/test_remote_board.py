@@ -68,6 +68,7 @@ class _FakeServer:
             "labels": [],
             "deps": [],
             "assignee": None,
+            "group": "",
             "archived_from": None,
             "notice": "",
             "notice_sent": False,
@@ -212,6 +213,7 @@ class _FakeServer:
             labels=body.get("labels") or [],
             deps=body.get("deps") or [],
             assignee=body.get("assignee"),
+            group=(body.get("group") or "").strip(),
             notice=body.get("notice") or "",
             body=body.get("description") or "",
         )
@@ -230,6 +232,8 @@ class _FakeServer:
             return _not_found(card_id)
         if action == "move":
             cards[card_id]["status"] = body["column"]
+            if body.get("group") is not None:  # null means "unchanged", like the host
+                cards[card_id]["group"] = body["group"]
         elif action == "archive":
             cards[card_id]["archived_from"] = cards[card_id]["status"]
             cards[card_id]["status"] = "archive"
@@ -237,7 +241,7 @@ class _FakeServer:
             cards[card_id]["status"] = cards[card_id]["archived_from"] or "backlog"
             cards[card_id]["archived_from"] = None
         elif method == "PATCH":
-            fields = ("title", "priority", "type", "version", "labels", "deps", "assignee")
+            fields = ("title", "priority", "type", "version", "labels", "deps", "assignee", "group")
             for field in fields:
                 if body.get(field) is not None:
                     cards[card_id][field] = body[field]
@@ -361,6 +365,14 @@ def test_move_updates_status(remote_board: RemoteBoard) -> None:
     moved = remote_board.move(card.id, "todo")
 
     assert moved.status == "todo"
+
+
+def test_move_sends_group_and_null_leaves_it_unchanged(remote_board: RemoteBoard) -> None:
+    card = remote_board.add("Card", group="auth")
+
+    assert remote_board.move(card.id, "todo").group == "auth"  # group=None -> null in the body
+    assert remote_board.move(card.id, "backlog", position=0, group="billing").group == "billing"
+    assert remote_board.move(card.id, "todo", group="").group == ""  # "" clears it
 
 
 def test_show_returns_full_card(remote_board: RemoteBoard) -> None:
@@ -557,6 +569,15 @@ def test_notice_round_trips_through_add_and_edit(remote_board: RemoteBoard) -> N
     changed = remote_board.edit(card.id, notice="Tell Bob")
     assert (changed.notice, changed.notice_sent) == ("Tell Bob", False)
     assert remote_board.show(card.id).notice == "Tell Bob"
+
+
+def test_group_round_trips_through_add_and_edit(remote_board: RemoteBoard) -> None:
+    card = remote_board.add("Card", group="auth")
+    assert card.group == "auth"
+    assert remote_board.edit(card.id, group="billing").group == "billing"
+    assert remote_board.edit(card.id, title="Renamed").group == "billing"  # None: unchanged
+    assert remote_board.edit(card.id, group="").group == ""
+    assert remote_board.add("Plain").group == ""
 
 
 def test_move_to_done_notifies_a_pending_notice(remote_board: RemoteBoard) -> None:

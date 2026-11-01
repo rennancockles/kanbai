@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import NamedTuple
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -15,7 +16,7 @@ from starlette.responses import Response
 
 from .. import APP_NAME, __version__
 from ..ai import ExtractedCard, ai_available, clamp_to_board, extract_card
-from ..board import Board
+from ..board import Board, group_blocks
 from ..errors import KanbaiError
 from ..mirror import AnyBoard
 from ..models import Card, Priority
@@ -46,6 +47,19 @@ def _type_badge_style(hex_color: str) -> str:
     """Inline CSS for a type badge overridden via ``[types.colors]`` in config.toml."""
     r, g, b = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
     return f"color: {hex_color}; background: rgba({r}, {g}, {b}, 0.14);"
+
+
+class _Block(NamedTuple):
+    """A backlog item: one ungrouped card (``name`` empty) or a group box with its cards."""
+
+    name: str
+    cards: list[Card]
+
+
+def _groups_in(columns: dict[str, list[Card]]) -> list[str]:
+    """Every distinct group on the board, A-Z, for the form datalists."""
+    used = {c.group for cards in columns.values() for c in cards if c.group}
+    return sorted(used, key=str.casefold)
 
 
 def _make_notify_hook(board: AnyBoard) -> Callable[[Notification], None]:
@@ -112,9 +126,14 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
 
         def column_view(name: str, cards: list[Card]) -> dict[str, object]:
             limit = resolved.config.wip_limit(name)
+            shown = [c for c in cards if matches(c)]
+            blocks: list[_Block] = []
+            if name == resolved.config.add_column and any(c.group for c in shown):
+                blocks = [_Block(group, members) for group, members in group_blocks(shown)]
             return {
                 "name": name,
-                "cards": [c for c in cards if matches(c)],
+                "cards": shown,
+                "blocks": blocks,
                 "limit": limit,
                 "over": limit is not None and len(cards) > limit,  # WIP uses the real count
             }
@@ -140,6 +159,8 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "current": current,
             "hub_url": "/" if base_path else "",
             "backlog_column": resolved.config.add_column,
+            "filtering": bool(query or label or type_),
+            "groups": _groups_in(board_data),
             "ai_available": ai_available(),
         }
 
@@ -164,6 +185,9 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             resolved.sort_column(column, by, descending=dir == "desc")
         return render(request, "_board.html", context(q, label))
 
+    def groups_on_board() -> list[str]:
+        return _groups_in(resolved.board())
+
     def new_card_context(prefill: ExtractedCard | None = None) -> dict[str, object]:
         """Context for `_new_card.html` — blank by default, or pre-filled from the AI
         command (already clamped to this board's real column/type by the caller)."""
@@ -177,6 +201,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             "prefill_title": prefill.title if prefill else "",
             "prefill_description": prefill.description if prefill else "",
             "prefill_labels": ", ".join(prefill.labels) if prefill else "",
+            "groups": groups_on_board(),
         }
 
     @app.get("/cards/new", response_class=HTMLResponse)
@@ -297,6 +322,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 "priorities": [p.value for p in Priority],
                 "priority_class": PRIORITY_CLASS,
                 "types": resolved.config.types,
+                "groups": groups_on_board(),
             },
         )
 
@@ -311,6 +337,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         labels: str = Form(""),
         notice: str = Form(""),
         notice_sent: str = Form(""),
+        group: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         with contextlib.suppress(KanbaiError):
@@ -323,6 +350,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 labels=label_list,
                 notice=notice,
                 notice_sent=notice_sent == "1",
+                group=group,
             )
         return render(request, "_board.html", context())
 
@@ -363,6 +391,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         labels: str = Form(""),
         description: str = Form(""),
         notice: str = Form(""),
+        group: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         # invalid column/priority/type — re-render the board unchanged
@@ -375,19 +404,26 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 labels=label_list,
                 description=description,
                 notice=notice,
+                group=group,
             )
         return render(request, "_board.html", context())
 
     @app.post("/cards/{card_id}/move", response_class=HTMLResponse)
-    def move_card(
+    def move_card(  # noqa: PLR0913, PLR0917 - one Form field per move parameter
         request: Request,
         card_id: str,
         column: str = Form(...),
         position: int | None = Form(None),
+        regroup: str = Form(""),
+        group: str = Form(""),
     ) -> Response:
-        # unknown card/column — re-render the board unchanged
+        # unknown card/column — re-render the board unchanged. ``regroup`` is an explicit
+        # flag because an empty ``group`` (a drop above every header) must clear the group,
+        # and FastAPI turns an empty form value into None for an optional field.
         with contextlib.suppress(KanbaiError):
-            resolved.move(card_id, column, position=position)
+            resolved.move(
+                card_id, column, position=position, group=group if regroup == "1" else None
+            )
         return render(request, "_board.html", context())
 
     @app.exception_handler(StarletteHTTPException)

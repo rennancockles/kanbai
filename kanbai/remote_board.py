@@ -162,6 +162,7 @@ class RemoteBoard:
         deps: list[str] | None = None,
         assignee: str | None = None,
         notice: str = "",
+        group: str = "",
         card_id: str | None = None,
     ) -> Card:
         """Create a new card on the hosted board.
@@ -186,6 +187,7 @@ class RemoteBoard:
                 "deps": deps or [],
                 "assignee": assignee,
                 "notice": notice,
+                "group": group,
             },
         )
         card = Card.model_validate(data)
@@ -196,12 +198,19 @@ class RemoteBoard:
             )
         return card
 
-    def move(self, card_id: str, column: str, *, position: int | None = None) -> Card:
-        """Move a card to ``column`` on the hosted board."""
+    def move(
+        self,
+        card_id: str,
+        column: str,
+        *,
+        position: int | None = None,
+        group: str | None = None,
+    ) -> Card:
+        """Move a card to ``column`` on the hosted board (``group`` None leaves it as is)."""
         data = self._request(
             "POST",
             self._board_path(f"/cards/{card_id}/move"),
-            json={"column": column, "position": position},
+            json={"column": column, "position": position, "group": group},
         )
         card = Card.model_validate(data)
         notify = self.on_notify
@@ -270,6 +279,7 @@ class RemoteBoard:
         order: int | None = None,
         notice: str | None = None,
         notice_sent: bool | None = None,
+        group: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change."""
         resolved_priority = priority.value if isinstance(priority, Priority) else priority
@@ -288,6 +298,7 @@ class RemoteBoard:
                 "order": order,
                 "notice": notice,
                 "notice_sent": notice_sent,
+                "group": group,
             },
         )
         return Card.model_validate(data)

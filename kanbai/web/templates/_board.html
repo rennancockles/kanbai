@@ -1,7 +1,7 @@
 <main id="board" class="board">
   {% for column in columns %}
   <section class="column{% if column.name == backlog_column %} is-backlog{% endif %}"
-           data-column="{{ column.name }}">
+           data-column="{{ column.name }}"{% if column.blocks %} data-filtering="{{ 1 if filtering else 0 }}"{% endif %}>
     <div class="column-head">
       <h2 class="column-title">{{ column.name }}</h2>
       {% if column.name == backlog_column %}
@@ -21,16 +21,47 @@
         </select>
       </form>
       {% endif %}
+      {% if column.blocks %}
+      <span class="group-actions">
+        <button type="button" class="group-action" data-group-action="collapse"
+                title="Collapse all groups" aria-label="Collapse all groups">&#x25B8;</button>
+        <button type="button" class="group-action" data-group-action="expand"
+                title="Expand all groups" aria-label="Expand all groups">&#x25BE;</button>
+      </span>
+      {% endif %}
       <span class="count{% if column.over %} over{% endif %}"
             {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
         {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
     </div>
-    <div class="cards" data-column="{{ column.name }}">
+    <div class="cards" data-column="{{ column.name }}"{% if column.blocks %} data-grouped="1"{% endif %}>
+      {% if column.blocks %}
+        {% for block in column.blocks %}
+        {% if block.name %}
+        <div class="group-box" data-group="{{ block.name }}">
+          <div class="group-head" role="button" tabindex="0" aria-expanded="true">
+            <span class="group-chevron" aria-hidden="true">&#x25BE;</span>
+            <span class="group-name">{{ block.name }}</span>
+            <span class="group-count">{{ block.cards | length }}</span>
+          </div>
+          <div class="group-cards" data-column="{{ column.name }}" data-group="{{ block.name }}">
+            {% for card in block.cards %}
+              {% include "_card.html" %}
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+          {% for card in block.cards %}
+            {% include "_card.html" %}
+          {% endfor %}
+        {% endif %}
+        {% endfor %}
+      {% else %}
       {% for card in column.cards %}
         {% include "_card.html" %}
       {% else %}
         <p class="empty">Nothing here yet</p>
       {% endfor %}
+      {% endif %}
     </div>
   </section>
   {% endfor %}

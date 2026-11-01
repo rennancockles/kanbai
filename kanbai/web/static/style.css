@@ -364,6 +364,29 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .count.over { color: #0d1b2f; background: var(--high); font-weight: 600; }
 
 .cards { display: flex; flex-direction: column; gap: 0.6rem; }
+.group-actions { display: inline-flex; gap: 0.15rem; margin-left: auto; }
+.col-sort + .group-actions, .group-actions + .count { margin-left: 0; }
+.group-action {
+  background: none; border: 1px solid transparent; border-radius: 4px; color: var(--muted);
+  cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 0.2rem 0.35rem;
+}
+.group-action:hover { color: var(--text); border-color: var(--border); }
+.group-box {
+  display: flex; flex-direction: column; gap: 0.4rem; padding: 0.35rem;
+  border: 1.5px solid var(--accent); border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.group-head {
+  display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none;
+  padding: 0.1rem 0.25rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--accent);
+}
+.group-head:hover, .group-head:focus-visible { filter: brightness(1.2); outline: none; }
+.group-chevron { display: inline-block; width: 0.8rem; transition: transform 0.12s; }
+.group-box.is-collapsed .group-chevron { transform: rotate(-90deg); }
+.group-count { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 500; color: var(--muted); }
+.group-cards { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0.5rem; }
+.group-box.is-collapsed .group-cards { display: none; }
 
 .card {
   background: var(--surface-2);

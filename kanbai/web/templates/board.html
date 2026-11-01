@@ -118,7 +118,7 @@
     // Drag-and-drop between columns; persist each move via HTMX, then swap in the
     // server-rendered board so the UI always matches the .kanbai/ files.
     function initSortables() {
-      document.querySelectorAll('.cards').forEach(function (el) {
+      document.querySelectorAll('.cards, .group-cards').forEach(function (el) {
         if (el._sortable) return;
         el._sortable = Sortable.create(el, {
           group: 'kanbai',
@@ -127,13 +127,24 @@
           ghostClass: 'card-ghost',
           delay: 150,                // long-press to drag on touch, so swiping still scrolls
           delayOnTouchOnly: true,
+          fallbackOnBody: true,      // nested lists: group boxes live inside the column
+          swapThreshold: 0.65,
           onEnd: function (evt) {
             var id = evt.item.getAttribute('data-id');
             var column = evt.to.getAttribute('data-column');
             if (!id || !column) return;
+            // Position among every card of the column, whether it sits in a group box or not.
+            var root = evt.to.closest('.cards');
+            var all = Array.prototype.slice.call(root.querySelectorAll('.card'));
+            var values = { column: column, position: all.indexOf(evt.item) };
+            // In the grouped backlog, dropping inside a group box joins that group and
+            // dropping anywhere else in the column takes the card out of its group.
+            if (root.hasAttribute('data-grouped')) {
+              values.regroup = '1';
+              values.group = evt.to.classList.contains('group-cards') ? evt.to.getAttribute('data-group') : '';
+            }
             htmx.ajax('POST', BASE + '/cards/' + id + '/move', {
-              target: '#board', swap: 'outerHTML',
-              values: { column: column, position: evt.newIndex }
+              target: '#board', swap: 'outerHTML', values: values
             });
           }
         });
@@ -176,7 +187,57 @@
       });
     })();
 
-    // Close any open modal (detail / edit / plan) with the Escape key.
+    // Collapsible group boxes in the backlog. The collapsed set lives in localStorage (per
+    // board) and is re-applied after every board re-render; an active search/filter shows
+    // every group open.
+    (function () {
+      var KEY = 'kanbai:collapsed-groups:' + BASE;
+      function load() {
+        try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
+      }
+      function save(list) {
+        try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable */ }
+      }
+      function apply() {
+        var col = document.querySelector('.column[data-filtering]');
+        if (!col) return;
+        var collapsed = col.getAttribute('data-filtering') === '1' ? [] : load();
+        col.querySelectorAll('.group-box').forEach(function (box) {
+          var closed = collapsed.indexOf(box.getAttribute('data-group')) !== -1;
+          box.classList.toggle('is-collapsed', closed);
+          box.querySelector('.group-head').setAttribute('aria-expanded', closed ? 'false' : 'true');
+        });
+      }
+      function toggle(head) {
+        var name = head.closest('.group-box').getAttribute('data-group');
+        var list = load();
+        var at = list.indexOf(name);
+        if (at === -1) list.push(name); else list.splice(at, 1);
+        save(list);
+        apply();
+      }
+      document.addEventListener('click', function (e) {
+        var head = e.target.closest('.group-head');
+        if (head) return toggle(head);
+        var action = e.target.closest('[data-group-action]');
+        if (!action) return;
+        var all = Array.prototype.map.call(document.querySelectorAll('.group-box'), function (b) {
+          return b.getAttribute('data-group');
+        });
+        save(action.getAttribute('data-group-action') === 'collapse' ? all : []);
+        apply();
+      });
+      document.addEventListener('keydown', function (e) {
+        var head = e.target.closest && e.target.closest('.group-head');
+        if (head && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          toggle(head);
+        }
+      });
+      document.body.addEventListener('htmx:afterSwap', apply);
+      apply();
+    })();
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') kanbaiCloseDetail();
     });

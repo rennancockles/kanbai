@@ -59,6 +59,7 @@ Support "Sign in with Google".
 | `order` | Position within the column. |
 | `labels` | Free-form tags, used for filtering in the UI. |
 | `deps` | Ids of cards that **block** this one until they are finished. |
+| `group` | Optional free-text group (e.g. `auth`, `billing`) that clusters related cards, such as the boxes of a grouped backlog. Omitted when empty. |
 | `notice`, `notice_sent` | A [notice](#card-notice) to pass on once the card is done, and whether you already did. Omitted when there is no notice. |
 
 ### Card notice
@@ -113,6 +114,11 @@ The key idea: [`kanbai next`](cli.md#next) only reads the **sprint** (`todo`), n
 backlog. So you can pile future work into the backlog freely; the agent won't touch it until
 you **plan** it into the sprint with [`kanbai move <id> todo`](cli.md#move) (or the UI's
 *Plan sprint* button).
+
+When cards in the backlog have a [`group`](#cards), the web UI draws each group as a framed,
+collapsible box inside the backlog, where the group's first card sits. Groups are only a view
+over the backlog: moving a card to another column keeps its group, and `kanbai next` ignores
+them.
 
 ```mermaid
 flowchart LR

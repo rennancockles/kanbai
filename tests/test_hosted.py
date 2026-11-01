@@ -413,6 +413,27 @@ def test_push_and_pull_carry_the_notice(local_project: Path) -> None:
     assert remote.show(pending.id).notice == "Tell Dave"
 
 
+def test_push_and_pull_carry_the_group(local_project: Path) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    board = Board.load(local_project)
+    grouped = board.add("Grouped", group="auth")
+    board.add("Ungrouped")
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    remote = RemoteBoard(remote_config)
+
+    on_server = {c.title: c for c in remote.list_column("backlog")}
+    assert (on_server["Grouped"].group, on_server["Ungrouped"].group) == ("auth", "")
+
+    remote.edit(grouped.id, group="billing")
+    assert hosted.diff_boards(board, remote).changed[0].changes[0].field == "group"
+    hosted.pull_board(remote, kanbai_dir)
+    assert Board.load(local_project).show(grouped.id).group == "billing"
+
+    board.edit(grouped.id, group="")
+    hosted.push_board(remote, kanbai_dir)
+    assert remote.show(grouped.id).group == ""
+
+
 def test_pull_keeps_local_only_cards_without_delete(local_project: Path) -> None:
     kanbai_dir = local_project / ".kanbai"
     board = Board.load(local_project)
