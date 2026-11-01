@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.20.0 (2026-11-01)
+
+### Features
+
+- Campo group no card e backlog agrupado em caixas colapsáveis (162)
+  ([`4f3b364`](https://github.com/rennancockles/kanbai/commit/4f3b3640101f9dd54e28af13aeee5eb0f17877c8))
+
+
 ## v0.19.0 (2026-10-30)
 
 ### Bug Fixes
