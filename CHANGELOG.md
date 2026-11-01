@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.21.0 (2026-11-01)
+
+### Features
+
+- Criar grupo arrastando um card sobre outro no backlog (163)
+  ([`63a2d26`](https://github.com/rennancockles/kanbai/commit/63a2d265441e40c565c86578c156879990053c57))
+
+
 ## v0.20.0 (2026-11-01)
 
 ### Features
