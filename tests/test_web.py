@@ -1873,3 +1873,33 @@ def test_backlog_column_has_its_own_style(tmp_path: Path) -> None:
     client = _client(tmp_path)
     assert 'class="column is-backlog"' in client.get("/").text
     assert ".column.is-backlog {" in client.get("/static/style.css").text
+
+
+def test_group_with_route_starts_a_group_and_ignores_bad_input(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    for title in ("Dragged", "Target", "Other"):
+        board.add(title)
+    client = TestClient(create_app(board))
+
+    bad = client.post("/cards/001/group-with", data={"onto": "002", "group": " "})
+    missing = client.post("/cards/001/group-with", data={"onto": "404", "group": "auth"})
+    assert bad.status_code == missing.status_code == 200
+    assert 'class="group-box"' not in bad.text + missing.text
+
+    resp = client.post("/cards/001/group-with", data={"onto": "002", "group": "auth"})
+
+    assert resp.status_code == 200
+    box = resp.text.split('<div class="group-box" data-group="auth">')[1]
+    assert box.index("Target") < box.index("Dragged") < box.index("Other")
+    assert {c.title: c.group for c in board.list_column("backlog")} == {
+        "Dragged": "auth",
+        "Target": "auth",
+        "Other": "",
+    }
+
+
+def test_only_the_backlog_column_is_marked_as_a_merge_target_list(tmp_path: Path) -> None:
+    body = _client(tmp_path).get("/board").text
+    assert body.count("data-backlog=") == 1
+    assert 'data-column="backlog" data-backlog="1"' in body

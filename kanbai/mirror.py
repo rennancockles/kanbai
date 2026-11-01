@@ -93,6 +93,9 @@ class MirrorBoard:
     ) -> Card:
         return self._run(self.local.move, card_id, column, position=position, group=group)
 
+    def group_with(self, card_id: str, onto_id: str, group: str) -> Card:
+        return self._run(self.local.group_with, card_id, onto_id, group)
+
     def edit(self, card_id: str, **fields: Any) -> Card:
         return self._run(self.local.edit, card_id, **fields)
 

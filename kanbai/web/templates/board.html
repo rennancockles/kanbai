@@ -117,6 +117,75 @@
 
     // Drag-and-drop between columns; persist each move via HTMX, then swap in the
     // server-rendered board so the UI always matches the .kanbai/ files.
+    // Drag onto backlog cards. Sortable swaps cards as soon as the pointer is ~18% into one, so
+    // the middle of a card can never be reached; instead the backlog's ungrouped cards take
+    // over the drop: while dragging, the card under the pointer shows where the drop lands
+    // (top third: before it, bottom third: after it, middle: start a group with it) and the
+    // drop applies that. onMove stops Sortable's own swapping around those cards.
+    var dragged = null;
+    var pending = null;   // {card, mode} under the pointer, or null
+    function pointerOf(e) {
+      if (!e) return null;
+      var p = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+      return typeof p.clientY === 'number' ? p : null;
+    }
+    function isDropCard(el) {
+      return !!el && el.classList.contains('card') && el !== dragged &&
+             !!el.parentElement && el.parentElement.hasAttribute('data-backlog');
+    }
+    function clearDrop() {
+      if (pending) pending.card.classList.remove('drop-before', 'drop-after', 'merge-target');
+      pending = null;
+    }
+    function trackDrop(e) {
+      if (!dragged) return;
+      var p = pointerOf(e);
+      if (!p) return;
+      var el = document.elementFromPoint(p.clientX, p.clientY);
+      var card = el && el.closest ? el.closest('.card') : null;
+      if (!isDropCard(card)) { clearDrop(); return; }
+      var r = card.getBoundingClientRect();
+      var f = (p.clientY - r.top) / r.height;
+      var mode = f < 0.3 ? 'before' : (f > 0.7 ? 'after' : 'merge');
+      if (pending && pending.card === card && pending.mode === mode) return;
+      clearDrop();
+      card.classList.add(mode === 'merge' ? 'merge-target' : 'drop-' + mode);
+      pending = { card: card, mode: mode };
+    }
+    ['dragover', 'mousemove', 'touchmove'].forEach(function (name) {
+      document.addEventListener(name, trackDrop, true);
+    });
+    function refreshBoard() {
+      var q = document.querySelector('[name=q]');
+      var label = document.querySelector('[name=label]');
+      var type = document.querySelector('.type-filter');
+      htmx.ajax('GET', BASE + '/board', {
+        target: '#board', swap: 'outerHTML',
+        values: { q: q ? q.value : '', label: label ? label.value : '', type: type ? type.value : '' }
+      });
+    }
+    function startGroup(item, target) {
+      var name = window.prompt('Name the new group', '');
+      if (!name || !name.trim()) { refreshBoard(); return; }
+      htmx.ajax('POST', BASE + '/cards/' + item.getAttribute('data-id') + '/group-with', {
+        target: '#board', swap: 'outerHTML',
+        values: { onto: target.getAttribute('data-id'), group: name.trim() }
+      });
+    }
+    function dropNear(item, target, mode) {
+      var root = target.closest('.cards');
+      var others = Array.prototype.filter.call(root.querySelectorAll('.card'), function (c) { return c !== item; });
+      var values = {
+        column: root.getAttribute('data-column'),
+        position: others.indexOf(target) + (mode === 'after' ? 1 : 0)
+      };
+      // next to an ungrouped card means outside every group box
+      if (root.hasAttribute('data-grouped')) { values.regroup = '1'; values.group = ''; }
+      htmx.ajax('POST', BASE + '/cards/' + item.getAttribute('data-id') + '/move', {
+        target: '#board', swap: 'outerHTML', values: values
+      });
+    }
+
     function initSortables() {
       document.querySelectorAll('.cards, .group-cards').forEach(function (el) {
         if (el._sortable) return;
@@ -129,7 +198,20 @@
           delayOnTouchOnly: true,
           fallbackOnBody: true,      // nested lists: group boxes live inside the column
           swapThreshold: 0.65,
+          onStart: function (evt) { dragged = evt.item; },
+          onMove: function (evt) {
+            // the drop decides where a card lands next to an ungrouped backlog card
+            if (isDropCard(evt.related)) return false;
+          },
           onEnd: function (evt) {
+            var drop = pending;
+            clearDrop();
+            dragged = null;
+            if (drop && drop.card !== evt.item && document.body.contains(drop.card)) {
+              if (drop.mode === 'merge') startGroup(evt.item, drop.card);
+              else dropNear(evt.item, drop.card, drop.mode);
+              return;
+            }
             var id = evt.item.getAttribute('data-id');
             var column = evt.to.getAttribute('data-column');
             if (!id || !column) return;

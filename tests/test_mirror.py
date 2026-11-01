@@ -315,3 +315,17 @@ def test_group_is_replicated_to_the_host(project: tuple[Path, _FakeServer]) -> N
 
     assert runner.invoke(app, ["edit", card_id, "-g", ""]).exit_code == 0
     assert _host(project[1])[card_id]["group"] == ""
+
+
+def test_group_with_is_applied_locally_and_replicated(project: tuple[Path, _FakeServer]) -> None:
+    project_dir, server = project
+    target = _add("Target", "backlog")
+    dragged = _add("Dragged", "backlog")
+    mirror = mirror_if_hosted(Board.load(project_dir), lambda message: None)
+    assert isinstance(mirror, MirrorBoard)
+
+    mirror.group_with(dragged, target, "auth")
+
+    local = Board.load(project_dir)
+    assert (local.show(target).group, local.show(dragged).group) == ("auth", "auth")
+    assert (_host(server)[target]["group"], _host(server)[dragged]["group"]) == ("auth", "auth")

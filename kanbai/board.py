@@ -17,6 +17,7 @@ from .errors import (
     CardNotFoundError,
     CardsInReviewError,
     ColumnNotFoundError,
+    KanbaiError,
 )
 from .models import BoardConfig, Card, Priority
 from .notifications import Notification, move_notifications
@@ -167,6 +168,30 @@ class Board:
         if notify is not None:
             self._notify_on_move(notify, card, column)
         return card
+
+    def group_with(self, card_id: str, onto_id: str, group: str) -> Card:
+        """Put ``card_id`` and ``onto_id`` in ``group``, the first right after the second.
+
+        This is dropping a card onto another one in the backlog: ``onto_id`` must be in the
+        backlog; ``card_id`` may come from any column and is moved there. The group box sits
+        where its first card sits, so it stays where ``onto_id`` was (or at ``group``'s
+        existing box if the name is already used).
+        """
+        name = group.strip()
+        if not name:
+            raise KanbaiError("Name the group.")
+        if card_id == onto_id:
+            raise KanbaiError("Pick another card to group with.")
+        backlog = self.config.add_column
+        self._locate(card_id)
+        _, _, onto_column = self._locate(onto_id)
+        if onto_column != backlog:
+            raise KanbaiError("Cards can only be grouped in the backlog.")
+        self.edit(onto_id, group=name)
+        cards = storage.read_column(self.kanbai_dir, backlog)
+        arranged = group_arranged([c for c in cards if c.id != card_id])
+        position = next(i for i, c in enumerate(arranged) if c.id == onto_id) + 1
+        return self.move(card_id, backlog, position=position, group=name)
 
     def _notify_on_move(
         self, notify: Callable[[Notification], None], card: Card, column: str

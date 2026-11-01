@@ -12,6 +12,7 @@ from kanbai.errors import (
     CardsInReviewError,
     ColumnNotFoundError,
     InvalidTypeError,
+    KanbaiError,
 )
 from kanbai.models import Priority
 
@@ -563,3 +564,73 @@ def test_moving_a_noticed_card_before_done_does_not_notify(board: Board) -> None
     card = board.add("Task", column="todo", notice="Tell Ana")
     board.move(card.id, "doing")
     assert notes == []
+
+
+def test_group_with_groups_both_cards_and_puts_the_dragged_one_after_the_target(
+    board: Board,
+) -> None:
+    dragged = board.add("Dragged")
+    board.add("Between")
+    target = board.add("Target")
+    board.add("Last")
+
+    result = board.group_with(dragged.id, target.id, "  auth ")
+
+    assert result.group == "auth"
+    cards = group_arranged(board.list_column("backlog"))
+    assert [(c.title, c.group) for c in cards] == [
+        ("Between", ""),
+        ("Target", "auth"),
+        ("Dragged", "auth"),
+        ("Last", ""),
+    ]
+
+
+def test_group_with_accepts_a_card_from_another_column(board: Board) -> None:
+    target = board.add("Target")
+    outsider = board.add("Outsider", column="doing")
+
+    moved = board.group_with(outsider.id, target.id, "auth")
+
+    assert (moved.status, moved.group) == ("backlog", "auth")
+    assert [c.title for c in group_arranged(board.list_column("backlog"))] == [
+        "Target",
+        "Outsider",
+    ]
+
+
+def test_group_with_joins_an_existing_group_of_that_name_at_its_box(board: Board) -> None:
+    board.add("A1", group="auth")
+    board.add("Plain")
+    target = board.add("Target")
+    dragged = board.add("Dragged")
+
+    board.group_with(dragged.id, target.id, "auth")
+
+    cards = group_arranged(board.list_column("backlog"))
+    assert [(c.title, c.group) for c in cards] == [
+        ("A1", "auth"),
+        ("Target", "auth"),
+        ("Dragged", "auth"),
+        ("Plain", ""),
+    ]
+
+
+def test_group_with_rejects_bad_requests_and_changes_nothing(board: Board) -> None:
+    first = board.add("First")
+    second = board.add("Second")
+    sprint = board.add("Sprint", column="todo")
+
+    for args in (
+        (first.id, second.id, "  "),
+        (first.id, first.id, "auth"),
+        (first.id, sprint.id, "auth"),
+    ):
+        with pytest.raises(KanbaiError):
+            board.group_with(*args)
+    with pytest.raises(CardNotFoundError):
+        board.group_with("999", second.id, "auth")
+    with pytest.raises(CardNotFoundError):
+        board.group_with(first.id, "999", "auth")
+
+    assert [c.group for c in board.list_column("backlog")] == ["", ""]

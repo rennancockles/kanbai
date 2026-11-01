@@ -33,7 +33,7 @@
             {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
         {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
     </div>
-    <div class="cards" data-column="{{ column.name }}"{% if column.blocks %} data-grouped="1"{% endif %}>
+    <div class="cards" data-column="{{ column.name }}"{% if column.name == backlog_column %} data-backlog="1"{% endif %}{% if column.blocks %} data-grouped="1"{% endif %}>
       {% if column.blocks %}
         {% for block in column.blocks %}
         {% if block.name %}

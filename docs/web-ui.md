@@ -142,7 +142,10 @@ were around it. Drag a card into a box to add it to that group, and drag it out 
 take it out (a group disappears once its last card leaves). Click a box's header (or use the
 collapse/expand-all buttons in the column header) to fold it; which groups are folded is
 remembered per board in the browser, and while a search, label or type filter is active every
-group is shown open. Moving a card to another column keeps its group. The
+group is shown open. To start a group, drag a card onto the **middle** of another
+ungrouped backlog card (it lights up with a dashed outline) and name the group: both cards go
+into a new box, the dragged one right after the other. Near a card's top or bottom edge a
+drag only reorders. Moving a card to another column keeps its group. The
 [backlog sort](#sorting-the-backlog) reorders the cards, and the boxes follow the first card
 of each group.
 

@@ -408,6 +408,15 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             )
         return render(request, "_board.html", context())
 
+    @app.post("/cards/{card_id}/group-with", response_class=HTMLResponse)
+    def group_card_with(
+        request: Request, card_id: str, onto: str = Form(...), group: str = Form(...)
+    ) -> Response:
+        # unknown cards, empty name, target outside the backlog — re-render unchanged
+        with contextlib.suppress(KanbaiError):
+            resolved.group_with(card_id, onto, group)
+        return render(request, "_board.html", context())
+
     @app.post("/cards/{card_id}/move", response_class=HTMLResponse)
     def move_card(  # noqa: PLR0913, PLR0917 - one Form field per move parameter
         request: Request,

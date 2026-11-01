@@ -462,6 +462,9 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 }
 
 /* drag-and-drop affordances */
+.card.drop-before { box-shadow: 0 -4px 0 -1px var(--accent); }
+.card.drop-after { box-shadow: 0 4px 0 -1px var(--accent); }
+.card.merge-target { outline: 2px dashed var(--accent); outline-offset: 2px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 .card { cursor: grab; }
 .card:active { cursor: grabbing; }
 .card-ghost { opacity: 0.4; }
