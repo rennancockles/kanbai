@@ -92,24 +92,88 @@
     });
 
     function refreshBoard(boardName) {
-      return fetch('/b/' + boardName + '/board')
-        .then(function (r) { return r.text(); })
+      return fetch('/v/board/' + encodeURIComponent(boardName))
+        .then(function (r) { return r.ok ? r.text() : null; })
         .then(function (html) {
-          var doc = new DOMParser().parseFromString(html, 'text/html');
-          var newContent = doc.querySelector('#board');
           var ourBoard = document.getElementById('board-' + boardName);
-          if (newContent && ourBoard) {
-            ourBoard.innerHTML = newContent.innerHTML;
-            initSortables();
-            htmx.process(ourBoard);
-          }
+          if (!html || !ourBoard) return;
+          ourBoard.outerHTML = html;
+          var fresh = document.getElementById('board-' + boardName);
+          initSortables();
+          applyGroupCollapse(fresh);
+          htmx.process(fresh);
         });
+    }
+
+    function boardOf(el) { return el.closest('[data-board-name]').getAttribute('data-board-name'); }
+
+    // Drag onto backlog cards. Sortable swaps cards as soon as the pointer is ~18% into one, so
+    // the middle of a card can never be reached; instead the backlog's ungrouped cards take
+    // over the drop: while dragging, the card under the pointer shows where the drop lands
+    // (top third: before it, bottom third: after it, middle: start a group with it).
+    var dragged = null;
+    var pending = null;   // {card, mode} under the pointer, or null
+    function pointerOf(e) {
+      if (!e) return null;
+      var p = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+      return typeof p.clientY === 'number' ? p : null;
+    }
+    function isDropCard(el) {
+      return !!el && el.classList.contains('card') && el !== dragged &&
+             !!el.parentElement && el.parentElement.hasAttribute('data-backlog');
+    }
+    function clearDrop() {
+      if (pending) pending.card.classList.remove('drop-before', 'drop-after', 'merge-target');
+      pending = null;
+    }
+    function trackDrop(e) {
+      if (!dragged) return;
+      var p = pointerOf(e);
+      if (!p) return;
+      var el = document.elementFromPoint(p.clientX, p.clientY);
+      var card = el && el.closest ? el.closest('.card') : null;
+      if (!isDropCard(card)) { clearDrop(); return; }
+      var r = card.getBoundingClientRect();
+      var f = (p.clientY - r.top) / r.height;
+      var mode = f < 0.3 ? 'before' : (f > 0.7 ? 'after' : 'merge');
+      if (pending && pending.card === card && pending.mode === mode) return;
+      clearDrop();
+      card.classList.add(mode === 'merge' ? 'merge-target' : 'drop-' + mode);
+      pending = { card: card, mode: mode };
+    }
+    ['dragover', 'mousemove', 'touchmove'].forEach(function (name) {
+      document.addEventListener(name, trackDrop, true);
+    });
+
+    function post(boardName, path, values) {
+      return fetch('/b/' + boardName + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(values)
+      }).then(function () { return refreshBoard(boardName); });
+    }
+    function startGroup(boardName, item, target) {
+      var name = window.prompt('Name the new group', '');
+      if (!name || !name.trim()) { refreshBoard(boardName); return; }
+      post(boardName, '/cards/' + item.getAttribute('data-id') + '/group-with',
+           { onto: target.getAttribute('data-id'), group: name.trim() });
+    }
+    function dropNear(boardName, item, target, mode) {
+      var root = target.closest('.cards');
+      var others = Array.prototype.filter.call(root.querySelectorAll('.card'), function (c) { return c !== item; });
+      var values = {
+        column: root.getAttribute('data-column'),
+        position: others.indexOf(target) + (mode === 'after' ? 1 : 0)
+      };
+      // next to an ungrouped card means outside every group box
+      if (root.hasAttribute('data-grouped')) { values.regroup = '1'; values.group = ''; }
+      post(boardName, '/cards/' + item.getAttribute('data-id') + '/move', values);
     }
 
     function initSortables() {
       document.querySelectorAll('[data-board-name]').forEach(function (boardDiv) {
         var boardName = boardDiv.getAttribute('data-board-name');
-        boardDiv.querySelectorAll('.cards').forEach(function (el) {
+        boardDiv.querySelectorAll('.cards, .group-cards').forEach(function (el) {
           if (el._sortable) return;
           el._sortable = Sortable.create(el, {
             group: 'kanbai-' + boardName,
@@ -118,18 +182,88 @@
             ghostClass: 'card-ghost',
             delay: 150,
             delayOnTouchOnly: true,
+            fallbackOnBody: true,      // nested lists: group boxes live inside the column
+            swapThreshold: 0.65,
+            onStart: function (evt) { dragged = evt.item; },
+            onMove: function (evt) {
+              // the drop decides where a card lands next to an ungrouped backlog card
+              if (isDropCard(evt.related)) return false;
+            },
             onEnd: function (evt) {
+              var drop = pending;
+              clearDrop();
+              dragged = null;
+              if (drop && drop.card !== evt.item && document.body.contains(drop.card)) {
+                if (drop.mode === 'merge') startGroup(boardName, evt.item, drop.card);
+                else dropNear(boardName, evt.item, drop.card, drop.mode);
+                return;
+              }
               var id = evt.item.getAttribute('data-id');
               var column = evt.to.getAttribute('data-column');
               if (!id || !column) return;
-              fetch('/b/' + boardName + '/cards/' + id + '/move', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ column: column, position: evt.newIndex })
-              }).then(function () { refreshBoard(boardName); });
+              // Position among every card of the column, whether it sits in a group box or not.
+              var root = evt.to.closest('.cards');
+              var all = Array.prototype.slice.call(root.querySelectorAll('.card'));
+              var values = { column: column, position: all.indexOf(evt.item) };
+              // In the grouped backlog, dropping inside a group box joins that group and
+              // dropping anywhere else in the column takes the card out of its group.
+              if (root.hasAttribute('data-grouped')) {
+                values.regroup = '1';
+                values.group = evt.to.classList.contains('group-cards') ? evt.to.getAttribute('data-group') : '';
+              }
+              post(boardName, '/cards/' + id + '/move', values);
             }
           });
         });
+      });
+    }
+
+    // Collapsible group boxes. Same storage key as the single-board page, so a group
+    // collapsed there is collapsed here too.
+    function collapsedKey(boardName) { return 'kanbai:collapsed-groups:/b/' + boardName; }
+    function loadCollapsed(boardName) {
+      try { return JSON.parse(localStorage.getItem(collapsedKey(boardName)) || '[]'); } catch (_) { return []; }
+    }
+    function saveCollapsed(boardName, list) {
+      try { localStorage.setItem(collapsedKey(boardName), JSON.stringify(list)); } catch (_) {}
+    }
+    function applyGroupCollapse(boardDiv) {
+      var collapsed = loadCollapsed(boardDiv.getAttribute('data-board-name'));
+      boardDiv.querySelectorAll('.group-box').forEach(function (box) {
+        var closed = collapsed.indexOf(box.getAttribute('data-group')) !== -1;
+        box.classList.toggle('is-collapsed', closed);
+        box.querySelector('.group-head').setAttribute('aria-expanded', closed ? 'false' : 'true');
+      });
+    }
+    function toggleGroup(head) {
+      var boardName = boardOf(head);
+      var name = head.closest('.group-box').getAttribute('data-group');
+      var list = loadCollapsed(boardName);
+      var at = list.indexOf(name);
+      if (at === -1) list.push(name); else list.splice(at, 1);
+      saveCollapsed(boardName, list);
+      applyGroupCollapse(document.getElementById('board-' + boardName));
+    }
+    function initGroups() {
+      document.querySelectorAll('[data-board-name]').forEach(applyGroupCollapse);
+      document.addEventListener('click', function (e) {
+        var head = e.target.closest('.group-head');
+        if (head) return toggleGroup(head);
+        var action = e.target.closest('[data-group-action]');
+        if (!action) return;
+        var boardDiv = action.closest('[data-board-name]');
+        var all = Array.prototype.map.call(boardDiv.querySelectorAll('.group-box'), function (b) {
+          return b.getAttribute('data-group');
+        });
+        saveCollapsed(boardOf(action), action.getAttribute('data-group-action') === 'collapse' ? all : []);
+        applyGroupCollapse(boardDiv);
+      });
+      document.addEventListener('keydown', function (e) {
+        var head = e.target.closest && e.target.closest('.group-head');
+        if (head && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          toggleGroup(head);
+        }
       });
     }
 
@@ -190,6 +324,7 @@
         } catch (_) {}
       });
       initSortables();
+      initGroups();
       initCollapse();
       initReorder();
     });

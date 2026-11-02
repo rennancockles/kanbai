@@ -4,16 +4,20 @@
            data-column="{{ column.name }}">
     <div class="column-head">
       <h2 class="column-title">{{ column.name }}</h2>
+      {% if column.blocks %}
+      <span class="group-actions">
+        <button type="button" class="group-action" data-group-action="collapse"
+                title="Collapse all groups" aria-label="Collapse all groups">&#x25B8;</button>
+        <button type="button" class="group-action" data-group-action="expand"
+                title="Expand all groups" aria-label="Expand all groups">&#x25BE;</button>
+      </span>
+      {% endif %}
       <span class="count{% if column.over %} over{% endif %}"
             {% if column.limit %}title="WIP limit {{ column.limit }}"{% endif %}>
         {{ column.cards | length }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
     </div>
-    <div class="cards" data-column="{{ column.name }}">
-      {% for card in column.cards %}
-        {% include "_card.html" %}
-      {% else %}
-        <p class="empty">Nothing here yet</p>
-      {% endfor %}
+    <div class="cards" data-column="{{ column.name }}"{% if column.name == backlog_column %} data-backlog="1"{% endif %}{% if column.blocks %} data-grouped="1"{% endif %}>
+      {% include "_column_cards.html" %}
     </div>
   </section>
   {% endfor %}

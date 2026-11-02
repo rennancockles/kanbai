@@ -1,0 +1,28 @@
+{% if column.blocks %}
+  {% for block in column.blocks %}
+  {% if block.name %}
+  <div class="group-box" data-group="{{ block.name }}">
+    <div class="group-head" role="button" tabindex="0" aria-expanded="true">
+      <span class="group-chevron" aria-hidden="true">&#x25BE;</span>
+      <span class="group-name">{{ block.name }}</span>
+      <span class="group-count">{{ block.cards | length }}</span>
+    </div>
+    <div class="group-cards" data-column="{{ column.name }}" data-group="{{ block.name }}">
+      {% for card in block.cards %}
+        {% include "_card.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+    {% for card in block.cards %}
+      {% include "_card.html" %}
+    {% endfor %}
+  {% endif %}
+  {% endfor %}
+{% else %}
+{% for card in column.cards %}
+  {% include "_card.html" %}
+{% else %}
+  <p class="empty">Nothing here yet</p>
+{% endfor %}
+{% endif %}

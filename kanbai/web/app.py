@@ -19,7 +19,7 @@ from ..ai import ExtractedCard, ai_available, clamp_to_board, extract_card
 from ..board import Board, group_blocks
 from ..errors import KanbaiError
 from ..mirror import AnyBoard
-from ..models import Card, Priority
+from ..models import BoardConfig, Card, Priority
 from ..notifications import Notification
 from ..notify_ntfy import notify_ntfy_background
 from . import watcher
@@ -49,11 +49,18 @@ def _type_badge_style(hex_color: str) -> str:
     return f"color: {hex_color}; background: rgba({r}, {g}, {b}, 0.14);"
 
 
-class _Block(NamedTuple):
+class Block(NamedTuple):
     """A backlog item: one ungrouped card (``name`` empty) or a group box with its cards."""
 
     name: str
     cards: list[Card]
+
+
+def column_blocks(config: BoardConfig, name: str, cards: list[Card]) -> list[Block]:
+    """Group boxes for the backlog column; empty (render flat) elsewhere or with no groups."""
+    if name != config.add_column or not any(c.group for c in cards):
+        return []
+    return [Block(group, members) for group, members in group_blocks(cards)]
 
 
 def _groups_in(columns: dict[str, list[Card]]) -> list[str]:
@@ -127,9 +134,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         def column_view(name: str, cards: list[Card]) -> dict[str, object]:
             limit = resolved.config.wip_limit(name)
             shown = [c for c in cards if matches(c)]
-            blocks: list[_Block] = []
-            if name == resolved.config.add_column and any(c.group for c in shown):
-                blocks = [_Block(group, members) for group, members in group_blocks(shown)]
+            blocks = column_blocks(resolved.config, name, shown)
             return {
                 "name": name,
                 "cards": shown,

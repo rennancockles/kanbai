@@ -1645,6 +1645,75 @@ def test_hub_view_page_subscribes_to_live_updates(
     assert "refreshBoard(e.data)" in page
 
 
+def _grouped_view(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    path = tmp_path / "a"
+    scaffold.init_board(path)
+    board = Board.load(path)
+    board.add("Billing one", group="billing")
+    board.add("Loose")
+    board.add("Billing two", group="billing")
+    board.add("Sprint task", column="todo", group="auth")
+    client = TestClient(create_hub_app({"a": str(path)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+    return client
+
+
+def test_hub_view_page_draws_group_boxes_in_the_backlog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = _grouped_view(tmp_path, monkeypatch).get("/v/").text
+
+    assert page.count('class="group-box"') == 1  # the sprint column never gets boxes
+    assert 'data-group="billing"' in page
+    assert re.search(r'<span class="group-count">2</span>', page)
+    assert 'data-grouped="1"' in page
+    assert 'data-backlog="1"' in page
+    assert 'data-group-action="collapse"' in page
+    assert "function initGroups()" in page
+
+
+def test_hub_view_page_backlog_stays_flat_without_groups(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    path = tmp_path / "a"
+    scaffold.init_board(path)
+    Board.load(path).add("Loose")
+    client = TestClient(create_hub_app({"a": str(path)}), follow_redirects=True)
+    client.post("/view", data={"boards": ["a"]})
+
+    page = client.get("/v/").text
+
+    assert 'class="group-box"' not in page
+    assert 'data-grouped="1"' not in page
+    assert 'data-group-action="collapse"' not in page
+
+
+def test_hub_view_board_fragment_matches_the_page_markup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _grouped_view(tmp_path, monkeypatch)
+
+    resp = client.get("/v/board/a")
+
+    assert resp.status_code == 200
+    assert resp.text.lstrip().startswith('<div class="board" id="board-a" data-board-name="a">')
+    assert resp.text.count('class="group-box"') == 1
+    assert 'data-grouped="1"' in resp.text
+    assert "col-sort" not in resp.text  # the single-board sort form must not leak in
+    assert "refreshBoard(e.data)" in client.get("/v/").text
+    assert "fetch('/v/board/'" in client.get("/v/").text
+
+
+def test_hub_view_board_fragment_404s_for_an_unknown_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _grouped_view(tmp_path, monkeypatch)
+
+    assert client.get("/v/board/nope").status_code == 404
+
+
 def test_notice_can_be_set_shown_and_marked_sent(tmp_path: Path) -> None:
     client = _client(tmp_path)
     created = client.post(

@@ -77,6 +77,9 @@ one under the other:
 - a toggle shows or hides the backlog columns for the whole view;
 - cards can be opened, moved and edited right there, and the view **updates live** when you
   (or Claude, from the CLI) move a card on any of its boards;
+- each board's backlog shows its [groups](web-ui.md#grouping-the-backlog) as collapsible boxes,
+  and cards can be dragged into, out of, or onto each other to form groups just like on the
+  single-board page;
 - the **edit** button changes which boards are in it, and the landing page's delete button
   removes the view (the boards themselves are untouched).
 

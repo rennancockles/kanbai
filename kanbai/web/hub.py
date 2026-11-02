@@ -23,7 +23,7 @@ from ..errors import KanbaiError
 from ..mirror import AnyBoard, mirror_if_hosted
 from ..models import Priority
 from . import watcher
-from .app import PRIORITY_CLASS, TYPE_CLASS, create_app
+from .app import PRIORITY_CLASS, TYPE_CLASS, column_blocks, create_app
 from .errors import render_http_error
 
 _WEB_DIR = Path(__file__).parent
@@ -54,6 +54,7 @@ def _board_view_data(name: str, path: str) -> dict[str, Any] | None:
         return {
             "name": col_name,
             "cards": cards,
+            "blocks": column_blocks(board.config, col_name, cards),
             "limit": limit,
             "over": limit is not None and len(cards) > limit,
         }
@@ -151,7 +152,7 @@ def _mount_boards(
     return mounted, switcher
 
 
-def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]]) -> FastAPI:  # noqa: C901
+def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]]) -> FastAPI:  # noqa: C901, PLR0915
     """Build a hub app that mounts one board app per registered board under ``/b/<name>``.
 
     ``boards_provider`` is either a static ``{name: path}`` mapping (as stored in the
@@ -258,13 +259,10 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
 
     @hub.get("/v/", response_class=HTMLResponse)
     def view_page(request: Request) -> Response:
-        board_names = view_registry.load_view()
         view_boards = []
-        for name in board_names:
+        for name in view_registry.load_view():
             path = last_boards.get(name)
-            if path is None:
-                continue
-            data = _board_view_data(name, path)
+            data = _board_view_data(name, path) if path is not None else None
             if data is not None:
                 view_boards.append(data)
         return _TEMPLATES.TemplateResponse(
@@ -275,6 +273,16 @@ def create_hub_app(boards_provider: dict[str, str] | Callable[[], dict[str, str]
                 "app_name": APP_NAME,
                 "app_version": __version__,
             },
+        )
+
+    @hub.get("/v/board/{name}", response_class=HTMLResponse)
+    def view_board(request: Request, name: str) -> Response:
+        path = last_boards.get(name)
+        data = _board_view_data(name, path) if path is not None else None
+        if data is None:
+            return Response(status_code=404)
+        return _TEMPLATES.TemplateResponse(
+            request, "_view_board.html", {**data, "board_name": name}
         )
 
     @hub.get("/v/events")
