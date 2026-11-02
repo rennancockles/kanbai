@@ -11,6 +11,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.22.0 (2026-11-02)
+
+### Bug Fixes
+
+- Grupos do backlog no multi view (164)
+  ([`c69c68b`](https://github.com/rennancockles/kanbai/commit/c69c68b1c4d9423f78bdccfa5b0bfe6485e509c9))
+
+### Features
+
+- Comando kanbai hub restart reaproveitando host e porta do daemon
+  ([`597849f`](https://github.com/rennancockles/kanbai/commit/597849fa0a8891abdd899fe6b953ad06218c7b52))
+
+
 ## v0.21.0 (2026-11-01)
 
 ### Features
