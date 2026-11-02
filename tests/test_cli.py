@@ -481,6 +481,57 @@ def test_hub_stop_invokes_daemon(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert calls == [True]
 
 
+def _hub_with_board(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    board = tmp_path / "proj"
+    scaffold.init_board(board)
+    runner.invoke(app, ["hub", "add", str(board)])
+
+
+def test_hub_restart_reuses_running_host_and_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _hub_with_board(tmp_path, monkeypatch)
+    calls: list[object] = []
+
+    monkeypatch.setattr(
+        "kanbai.daemon.status", lambda: DaemonInfo(pid=1, host="0.0.0.0", port=9123)
+    )
+    monkeypatch.setattr("kanbai.daemon.stop", lambda: calls.append("stop"))
+
+    def fake_start(host: str, port: int) -> DaemonInfo:
+        calls.append(("start", host, port))
+        return DaemonInfo(pid=2, host=host, port=port)
+
+    monkeypatch.setattr("kanbai.daemon.start", fake_start)
+    result = runner.invoke(app, ["hub", "restart"])
+    assert result.exit_code == 0, result.output
+    assert calls == ["stop", ("start", "0.0.0.0", 9123)]
+
+
+def test_hub_restart_when_not_running_starts_with_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _hub_with_board(tmp_path, monkeypatch)
+    calls: list[object] = []
+    monkeypatch.setattr("kanbai.daemon.stop", lambda: calls.append("stop"))
+
+    def fake_start(host: str, port: int) -> DaemonInfo:
+        calls.append(("start", host, port))
+        return DaemonInfo(pid=2, host=host, port=port)
+
+    monkeypatch.setattr("kanbai.daemon.start", fake_start)
+    result = runner.invoke(app, ["hub", "restart", "--port", "9000"])
+    assert result.exit_code == 0, result.output
+    assert calls == [("start", "127.0.0.1", 9000)]
+
+
+def test_hub_restart_without_boards_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["hub", "restart"])
+    assert result.exit_code == 1
+
+
 def test_hub_status_reports_not_running(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KANBAI_HOME", str(tmp_path / "home"))
     result = runner.invoke(app, ["hub", "status"])

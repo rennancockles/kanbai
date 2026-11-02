@@ -213,6 +213,7 @@ kanbai hub start --port 8000   # start it, detached
 kanbai hub status              # check whether it's running
 kanbai hub logs -f             # follow its log
 kanbai hub stop                # stop it
+kanbai hub restart             # stop + start on the same host/port (e.g. after an upgrade)
 ```
 
 The daemon's PID and log file live under `~/.kanbai/` (`hub.pid` / `hub.log`), alongside
@@ -293,7 +294,7 @@ from the web UI even if it's still present in `columns`.
 | `kanbai ui` | Serve the board in a local web UI (needs the `ui` extra). |
 | `kanbai hub add/list/remove` | Manage the multi-board hub registry. |
 | `kanbai hub` | Serve all registered boards on one port (needs the `ui` extra). |
-| `kanbai hub start/stop/status` | Run the hub as a background daemon instead. |
+| `kanbai hub start/stop/restart/status` | Run the hub as a background daemon instead. |
 | `kanbai hub logs [-f]` | Show (or follow) the hub daemon's log. |
 | `kanbai hosted connect/login/clone` | Connect a project to a hosted board, renew the token, or copy a hosted board here. |
 | `kanbai hosted push/pull/diff` | Local wins / server wins / compare (`--all`, `--archived`, `--delete`, `--settings`; `push`/`pull` preview and ask unless `--yes`). |

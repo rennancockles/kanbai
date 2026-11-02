@@ -1453,6 +1453,36 @@ def hub_stop() -> None:
     console.print("[green]✓[/green] Hub stopped")
 
 
+@hub_app.command("restart")
+def hub_restart(
+    host: str | None = typer.Option(None, "--host", help="Host to bind (default: keep current)."),
+    port: int | None = typer.Option(None, "--port", help="Port to bind (default: keep current)."),
+) -> None:
+    """Restart the hub daemon on the same host/port it was running on (e.g. after an upgrade)."""
+    if not registry.load_boards():
+        err_console.print(
+            "[yellow]![/yellow] No boards registered. Add one with "
+            "[cyan]kanbai hub add <path>[/cyan]."
+        )
+        raise typer.Exit(code=1)
+    _require_ui_extra()
+    current = daemon.status()
+    new_host = host or (current.host if current else "127.0.0.1")
+    new_port = port or (current.port if current else 8000)
+    try:
+        if current is not None:
+            daemon.stop()
+        info = daemon.start(new_host, new_port)
+    except KanbaiError as exc:
+        err_console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]✓[/green] Hub restarted (pid {info.pid}) at "
+        f"[cyan]http://{info.host}:{info.port}[/cyan] "
+        f"[dim](logs: {daemon.log_path()})[/dim]"
+    )
+
+
 @hub_app.command("status")
 def hub_status(as_json: bool = typer.Option(False, "--json", help="Emit status as JSON.")) -> None:
     """Check whether the hub daemon is running."""
