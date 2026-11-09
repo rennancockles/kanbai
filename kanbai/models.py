@@ -103,6 +103,11 @@ class Card(BaseModel):
             data[field] = value
         return data
 
+    @property
+    def notice_pending(self) -> bool:
+        """True when the card has a notice nobody has confirmed passing on yet."""
+        return bool(self.notice) and not self.notice_sent
+
     def sort_key(self) -> tuple[int, int, str]:
         """Ordering within a column: explicit order, then priority, then id."""
         return (self.order, self.priority.rank, self.id)

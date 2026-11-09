@@ -293,9 +293,19 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         review = resolved.config.review_column
         return len(resolved.list_column(review)) if review is not None else 0
 
+    def _sprint_blockers() -> dict[str, object]:
+        return {
+            "pending_review": _pending_review_count(),
+            "pending_notices": [
+                card
+                for card in resolved.list_column(resolved.config.done_column)
+                if card.notice_pending
+            ],
+        }
+
     @app.get("/sprint/new", response_class=HTMLResponse)
     def sprint_new_form(request: Request) -> Response:
-        return render(request, "_new_sprint.html", {"pending_review": _pending_review_count()})
+        return render(request, "_new_sprint.html", _sprint_blockers())
 
     @app.post("/sprint/new", response_class=HTMLResponse)
     def sprint_new(request: Request, reset: str = Form(""), version: str = Form("")) -> Response:
@@ -305,9 +315,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             # Re-render the modal (not the board) with the blocking count, without applying
             # anything — HX-Retarget/HX-Reswap override the form's normal #board/outerHTML
             # swap just for this response.
-            response = render(
-                request, "_new_sprint.html", {"pending_review": _pending_review_count()}
-            )
+            response = render(request, "_new_sprint.html", _sprint_blockers())
             response.headers["HX-Retarget"] = "#detail"
             response.headers["HX-Reswap"] = "innerHTML"
             return response

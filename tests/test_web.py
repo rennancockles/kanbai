@@ -1033,6 +1033,43 @@ def test_close_sprint_blocked_by_cards_in_review(tmp_path: Path) -> None:
     assert board.list_archive() == []
 
 
+def test_new_sprint_form_lists_cards_with_pending_notice(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Fixed bug", column="done", notice="tell Ana")
+    modal = TestClient(create_app(board)).get("/sprint/new").text
+    assert "pending notice" in modal
+    assert "Fixed bug" in modal
+    assert "tell Ana" in modal
+    assert "disabled" in modal  # submit button disabled proactively
+
+
+def test_new_sprint_form_has_no_notice_alert_once_sent(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Fixed bug", column="done", notice="tell Ana")
+    board.edit(card.id, notice_sent=True)
+    modal = TestClient(create_app(board)).get("/sprint/new").text
+    assert "pending notice" not in modal
+    assert "disabled" not in modal
+
+
+def test_close_sprint_blocked_by_pending_notice(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Fixed bug", column="done", notice="tell Ana")
+    client = TestClient(create_app(board))
+
+    resp = client.post("/sprint/new", data={"reset": "0"})
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#detail"
+    assert "pending notice" in resp.text
+    assert "tell Ana" in resp.text
+    # Nothing changed: the done card was not archived.
+    assert [c.title for c in board.list_column("done")] == ["Fixed bug"]
+    assert board.list_archive() == []
+
+
 def test_sprint_plan_lists_backlog_cards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)

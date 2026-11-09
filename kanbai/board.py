@@ -18,6 +18,7 @@ from .errors import (
     CardsInReviewError,
     ColumnNotFoundError,
     KanbaiError,
+    PendingNoticesError,
 )
 from .models import BoardConfig, Card, Priority
 from .notifications import Notification, move_notifications
@@ -399,6 +400,10 @@ class Board:
         archive/move work that hasn't been approved yet. Boards without a review column
         (``review_column is None``) skip this check entirely.
 
+        Raises :class:`PendingNoticesError` (also without changing anything) if any done
+        card has a notice that hasn't been marked as sent — archiving it would bury the
+        notice before anyone passed it on.
+
         Returns counts of what happened: ``{"archived": n, "reset": m}``.
         """
         review = self.config.review_column
@@ -409,6 +414,10 @@ class Board:
 
         backlog = self.config.add_column
         done = self.config.done_column
+
+        unsent = [card for card in self.list_column(done) if card.notice_pending]
+        if unsent:
+            raise PendingNoticesError(unsent)
 
         archived = 0
         for card in self.list_column(done):

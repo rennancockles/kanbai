@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import Card
+
 
 class KanbaiError(Exception):
     """Base class for all recoverable kanbai errors (shown to the user as a message)."""
@@ -55,6 +61,18 @@ class CardsInReviewError(KanbaiError):
         super().__init__(
             f"{count} {noun} still in review — approve or move them before closing the sprint."
         )
+
+
+class PendingNoticesError(KanbaiError):
+    """Raised when closing the sprint is blocked by done cards whose notice was not passed on."""
+
+    def __init__(self, cards: Sequence[Card]) -> None:
+        self.cards = list(cards)
+        noun = "card has" if len(self.cards) == 1 else "cards have"
+        lines = [f"{len(self.cards)} done {noun} a pending notice — pass it on before closing:"]
+        lines += [f"  {card.id} {card.title}: {card.notice}" for card in self.cards]
+        lines.append("Then run `kanbai edit <id> --notice-sent` for each one.")
+        super().__init__("\n".join(lines))
 
 
 class HubAlreadyRunningError(KanbaiError):

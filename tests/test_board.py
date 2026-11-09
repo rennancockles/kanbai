@@ -13,6 +13,7 @@ from kanbai.errors import (
     ColumnNotFoundError,
     InvalidTypeError,
     KanbaiError,
+    PendingNoticesError,
 )
 from kanbai.models import Priority
 
@@ -305,6 +306,26 @@ def test_new_sprint_blocked_by_cards_in_review(board: Board) -> None:
     # Nothing changed: the done card was not archived.
     assert board.list_column("done") != []
     assert board.list_archive() == []
+
+
+def test_new_sprint_blocked_by_pending_notices(board: Board) -> None:
+    pending = board.add("Fixed bug", column="done", notice="tell Ana")
+    board.add("No notice", column="done")
+    sent = board.add("Already told", column="done", notice="tell Bob")
+    board.edit(sent.id, notice_sent=True)
+    with pytest.raises(PendingNoticesError) as excinfo:
+        board.new_sprint(reset_to_backlog=False)
+    assert [c.id for c in excinfo.value.cards] == [pending.id]
+    assert "tell Ana" in str(excinfo.value)
+    # Nothing changed: no done card was archived.
+    assert len(board.list_column("done")) == 3
+    assert board.list_archive() == []
+
+
+def test_new_sprint_allowed_once_notices_are_sent(board: Board) -> None:
+    card = board.add("Fixed bug", column="done", notice="tell Ana")
+    board.edit(card.id, notice_sent=True)
+    assert board.new_sprint(reset_to_backlog=False) == {"archived": 1, "reset": 0}
 
 
 def test_new_sprint_ignored_when_board_has_no_review_column(tmp_path: Path) -> None:

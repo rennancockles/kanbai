@@ -567,7 +567,7 @@ def close_sprint(
     try:
         result = board.new_sprint(reset_to_backlog=to_backlog, version=version)
     except KanbaiError as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
+        err_console.print(f"[red]error:[/red] {escape(str(exc))}")
         raise typer.Exit(code=1) from exc
     message = f"[green]✓[/green] Closed sprint: archived {result['archived']} done card(s)"
     if to_backlog:

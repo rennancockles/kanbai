@@ -660,6 +660,8 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
   border: 1px solid rgba(255, 119, 119, 0.35);
   border-radius: 8px;
 }
+.modal-alert p { margin: 0; }
+.modal-alert ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
 .radio {
   display: flex;
   align-items: center;

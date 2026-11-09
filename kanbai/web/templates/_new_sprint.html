@@ -14,6 +14,21 @@
     </p>
     {% endif %}
 
+    {% if pending_notices %}
+    <div class="modal-alert">
+      <p>
+        {{ pending_notices|length }} done card{{ 's' if pending_notices|length != 1 else '' }}
+        with a <strong>pending notice</strong> — pass it on and mark it as sent before closing
+        the sprint:
+      </p>
+      <ul>
+        {% for card in pending_notices %}
+        <li><span class="card-id">{{ card.id }}</span> {{ card.title }} — {{ card.notice }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
     <p class="modal-note">All <strong>done</strong> cards will be archived. What should happen to
       the cards still in todo / doing / review?</p>
 
@@ -36,7 +51,7 @@
     <div class="modal-actions">
       <button type="button" class="btn-ghost"
               onclick="document.getElementById('detail').innerHTML=''">Cancel</button>
-      <button type="submit" class="btn-primary"{% if pending_review %} disabled{% endif %}>Close sprint</button>
+      <button type="submit" class="btn-primary"{% if pending_review or pending_notices %} disabled{% endif %}>Close sprint</button>
     </div>
   </form>
 </div>

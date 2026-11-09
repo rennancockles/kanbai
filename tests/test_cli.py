@@ -306,6 +306,25 @@ def test_close_sprint_blocked_by_cards_in_review(project: Path) -> None:
     assert runner.invoke(app, ["list", "archive", "--json"]).output.strip() == "[]"
 
 
+def test_close_sprint_blocked_by_pending_notice(project: Path) -> None:
+    runner.invoke(app, ["add", "Fixed bug", "-c", "done", "--notice", "tell Ana [urgent]"])
+    result = runner.invoke(app, ["close-sprint", "--yes"])
+    assert result.exit_code == 1
+    assert "pending notice" in result.output
+    assert "Fixed bug" in result.output
+    assert "tell Ana [urgent]" in result.output
+    assert "--notice-sent" in result.output
+    # Nothing changed: the done card was not archived.
+    assert runner.invoke(app, ["list", "archive", "--json"]).output.strip() == "[]"
+
+
+def test_close_sprint_allowed_once_notice_is_sent(project: Path) -> None:
+    runner.invoke(app, ["add", "Fixed bug", "-c", "done", "--notice", "tell Ana"])
+    runner.invoke(app, ["edit", "001", "--notice-sent"])
+    result = runner.invoke(app, ["close-sprint", "--yes"])
+    assert result.exit_code == 0
+
+
 def test_sort_backlog_by_priority(project: Path) -> None:
     runner.invoke(app, ["add", "zeta", "-p", "low"])
     runner.invoke(app, ["add", "alpha", "-p", "high"])
