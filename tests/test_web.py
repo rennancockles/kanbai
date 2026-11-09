@@ -976,6 +976,13 @@ def test_new_sprint_modal_and_action(tmp_path: Path) -> None:
     assert [c.title for c in board.list_column("backlog")] == ["A"]  # active reset to backlog
 
 
+def test_new_sprint_modal_defaults_to_leaving_cards_in_place(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    modal = TestClient(create_app(Board.load(tmp_path))).get("/sprint/new").text
+    assert 'name="reset" value="0" checked' in modal
+    assert 'name="reset" value="1" checked' not in modal
+
+
 def test_close_sprint_stamps_version_on_archived_cards(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     board = Board.load(tmp_path)
