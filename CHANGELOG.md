@@ -11,6 +11,17 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.23.0 (2026-11-09)
+
+### Features
+
+- Bloquear fechamento da sprint com notices pendentes em done (165)
+  ([`342f3b6`](https://github.com/rennancockles/kanbai/commit/342f3b680e09f42d588b0cf851d5c0e548f9ee8a))
+
+- Fechar sprint deixa os cards onde estao por padrao no modal (166)
+  ([`f1d5ecc`](https://github.com/rennancockles/kanbai/commit/f1d5ecc09e81532cf266e151ca42957779f7da23))
+
+
 ## v0.22.0 (2026-11-02)
 
 ### Bug Fixes
