@@ -103,6 +103,7 @@ class Board:
         assignee: str | None = None,
         notice: str = "",
         group: str = "",
+        source: str = "",
     ) -> Card:
         """Create a new card and write it to disk."""
         column = column or self.config.add_column
@@ -127,6 +128,7 @@ class Board:
             assignee=assignee,
             notice=notice.strip(),
             group=group.strip(),
+            source=source.strip(),
             created=timestamp,
             updated=timestamp,
             body=description,
@@ -300,12 +302,13 @@ class Board:
         notice: str | None = None,
         notice_sent: bool | None = None,
         group: str | None = None,
+        source: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change.
 
         Changing ``notice`` re-arms it (``notice_sent`` goes back to ``False``) unless
-        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group`` is
-        stripped; an empty string clears it and ``None`` leaves it unchanged.
+        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group`` and
+        ``source`` are stripped; an empty string clears them and ``None`` leaves them unchanged.
         """
         card, old_path, _ = self._locate(card_id)
         if title is not None:
@@ -328,6 +331,7 @@ class Board:
             card.order = order
         self._apply_notice(card, notice, notice_sent)
         card.group = card.group if group is None else group.strip()
+        card.source = card.source if source is None else source.strip()
         card.updated = storage.now()
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)

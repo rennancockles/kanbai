@@ -2016,3 +2016,41 @@ def test_only_the_backlog_column_is_marked_as_a_merge_target_list(tmp_path: Path
     body = _client(tmp_path).get("/board").text
     assert body.count("data-backlog=") == 1
     assert 'data-column="backlog" data-backlog="1"' in body
+
+
+def test_new_and_edit_forms_have_a_source_field(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo", source="PROJ-123")
+    client = TestClient(create_app(board))
+    assert 'name="source"' in client.get("/cards/new").text
+    edit = client.get("/cards/001/edit").text
+    assert 'name="source" value="PROJ-123"' in edit
+
+
+def test_create_and_edit_card_persist_source(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    client.post("/cards", data={"title": "T", "column": "todo", "source": " PROJ-1 "})
+    assert board.show("001").source == "PROJ-1"
+
+    client.post("/cards/001/edit", data={"title": "T", "source": "email from Ana"})
+    assert board.show("001").source == "email from Ana"
+
+
+def test_card_detail_links_a_url_source_and_shows_text_otherwise(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Linked", column="todo", source="https://example.com/browse/PROJ-1")
+    board.add("Plain", column="todo", source="email from Ana")
+    board.add("Unsafe", column="todo", source="javascript:alert(1)")
+    client = TestClient(create_app(board))
+
+    linked = client.get("/cards/001").text
+    assert '<a href="https://example.com/browse/PROJ-1" target="_blank"' in linked
+    plain = client.get("/cards/002").text
+    assert "email from Ana" in plain
+    assert 'href="email' not in plain
+    assert '<a href="javascript' not in client.get("/cards/003").text

@@ -60,6 +60,7 @@ Support "Sign in with Google".
 | `labels` | Free-form tags, used for filtering in the UI. |
 | `deps` | Ids of cards that **block** this one until they are finished. |
 | `group` | Optional free-text group (e.g. `auth`, `billing`) that clusters related cards, such as the boxes of a grouped backlog. Omitted when empty. |
+| `source` | Optional free-text pointer to the request the card came from — a Jira key or URL, "email from Ana", a Teams thread, a support ticket. A value starting with `http://` or `https://` is a link in the web UI. Omitted when empty. Not synced to a [hosted board](hosted.md) yet. |
 | `notice`, `notice_sent` | A [notice](#card-notice) to pass on once the card is done, and whether you already did. Omitted when there is no notice. |
 
 ### Card notice

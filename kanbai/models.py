@@ -34,6 +34,7 @@ FRONTMATTER_FIELDS = (
     "deps",
     "assignee",
     "group",
+    "source",
     "archived_from",
     "notice",
     "notice_sent",
@@ -69,6 +70,9 @@ class Card(BaseModel):
     # Optional free-text group (e.g. "auth", "billing") used to cluster related cards, such as
     # the boxes of a grouped backlog. Empty means no group; whitespace is stripped on write.
     group: str = ""
+    # Free-text pointer to the request the card came from (a Jira key or URL, "email from Ana",
+    # a Teams thread...). Empty means unset; whitespace is stripped on write.
+    source: str = ""
     # The column a card was in before it was archived (so we know it was, e.g., finished).
     archived_from: str | None = None
     # Free-text heads-up to relay to someone once the card is done (e.g. "tell Ana the bug is
@@ -93,7 +97,7 @@ class Card(BaseModel):
             if field == "version" and value is None:
                 continue
             # Ungrouped cards omit the field, keeping their files unchanged.
-            if field == "group" and not value:
+            if field in ("group", "source") and not value:
                 continue
             # Cards without a notice carry neither field, keeping their files unchanged.
             if field in ("notice", "notice_sent") and not self.notice:

@@ -269,6 +269,9 @@ def add(  # noqa: PLR0913 - one option per card field
         "", "--notice", "-n", help="Heads-up to pass on once the card is done."
     ),
     group: str = typer.Option("", "--group", "-g", help="Group (free text, e.g. 'auth')."),
+    source: str = typer.Option(
+        "", "--source", "-s", help="Where the request came from (Jira key/URL, email, Teams...)."
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit the created card as JSON."),
 ) -> None:
     """Create a new card (defaults to the backlog column)."""
@@ -285,6 +288,7 @@ def add(  # noqa: PLR0913 - one option per card field
         assignee=assignee,
         notice=notice,
         group=group,
+        source=source,
     )
     _emit_card(
         card,
@@ -384,6 +388,7 @@ def show(
             f"priority: {_priority_cell(card.priority)}   order: {card.order}\n"
             f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}   "
             f"version: {card.version or '—'}   group: {escape(card.group) if card.group else '—'}\n"
+            f"source: {escape(card.source) if card.source else '—'}   "
             f"notice: {_notice_cell(card)}"
             f"{body}",
             title=f"card {card.id}",
@@ -485,6 +490,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         help="Mark the notice as passed on (or pending again).",
     ),
     group: str | None = typer.Option(None, "--group", "-g", help="New group (empty clears it)."),
+    source: str | None = typer.Option(None, "--source", "-s", help="New source (empty clears it)."),
     as_json: bool = typer.Option(False, "--json", help="Emit the edited card as JSON."),
 ) -> None:
     """Update fields on a card (only the options you pass change)."""
@@ -503,6 +509,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         notice=notice,
         notice_sent=notice_sent,
         group=group,
+        source=source,
     )
     _emit_card(card, as_json, f"[green]✓[/green] Updated [cyan]{card.id}[/cyan]")
 

@@ -666,3 +666,17 @@ def test_list_filters_by_group(project: Path) -> None:
     runner.invoke(app, ["add", "Plain task"])
     result = runner.invoke(app, ["list", "backlog", "--group", "auth", "--json"])
     assert [c["title"] for c in json.loads(result.output)] == ["Auth task"]
+
+
+def test_add_and_edit_source_show_in_show_and_json(project: Path) -> None:
+    added = runner.invoke(app, ["add", "Task", "-c", "todo", "--source", " PROJ-123 ", "--json"])
+    assert json.loads(added.output)["source"] == "PROJ-123"
+    assert "source: PROJ-123" in runner.invoke(app, ["show", "001"]).output
+
+    assert runner.invoke(app, ["edit", "001", "-s", "email from Ana"]).exit_code == 0
+    shown = json.loads(runner.invoke(app, ["show", "001", "--json"]).output)
+    assert shown["source"] == "email from Ana"
+
+    assert runner.invoke(app, ["edit", "001", "--source", ""]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["source"] == ""
+    assert "source: —" in runner.invoke(app, ["show", "001"]).output

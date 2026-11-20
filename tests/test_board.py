@@ -655,3 +655,28 @@ def test_group_with_rejects_bad_requests_and_changes_nothing(board: Board) -> No
         board.group_with(first.id, "999", "auth")
 
     assert [c.group for c in board.list_column("backlog")] == ["", ""]
+
+
+# --------------------------------------------------------------------------- source
+
+
+def test_add_and_edit_store_a_stripped_source(board: Board) -> None:
+    card = board.add("Task", source="  PROJ-123  ")
+    assert card.source == "PROJ-123"
+    assert board.edit(card.id, source=" email from Ana ").source == "email from Ana"
+    assert board.edit(card.id, title="Renamed").source == "email from Ana"  # None leaves it
+    cleared = board.edit(card.id, source="")
+    assert cleared.source == ""
+    assert "source" not in cleared.frontmatter()
+
+
+def test_source_round_trips_through_the_card_file(board: Board) -> None:
+    card = board.add("Task", source="https://example.com/browse/PROJ-123")
+    assert board.show(card.id).source == "https://example.com/browse/PROJ-123"
+    reloaded = Board.load(board.kanbai_dir.parent).show(card.id)
+    assert reloaded.source == "https://example.com/browse/PROJ-123"
+
+
+def test_cards_without_a_source_keep_their_frontmatter_unchanged(board: Board) -> None:
+    assert "source" not in board.add("Task").frontmatter()
+    assert board.add("Task", source="   ").source == ""
