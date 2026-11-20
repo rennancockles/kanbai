@@ -61,7 +61,7 @@ Support "Sign in with Google".
 | `deps` | Ids of cards that **block** this one until they are finished. |
 | `group` | Optional free-text group (e.g. `auth`, `billing`) that clusters related cards, such as the boxes of a grouped backlog. Omitted when empty. |
 | `source` | Optional free-text pointer to the request the card came from — a Jira key or URL, "email from Ana", a Teams thread, a support ticket. A value starting with `http://` or `https://` is a link in the web UI. Omitted when empty. Not synced to a [hosted board](hosted.md) yet. |
-| `blocked` | Optional free-text reason the card is stuck on something outside the board (missing information, a third party's pending answer). A non-empty value marks the card as blocked: it shows a `blocked` badge (the reason is in the tooltip and in the card details) and `kanbai next` skips it. Unlike `deps`, it is cleared by hand (`kanbai edit <id> --unblock`). Omitted when empty. Not synced to a [hosted board](hosted.md) yet. |
+| `blocked` | Optional free-text reason the card is stuck on something outside the board (missing information, a third party's pending answer). A non-empty value marks the card as blocked: it shows a `blocked` badge (the reason is in the tooltip and in the card details) and `kanbai next` skips it. Unlike `deps`, it is cleared by hand (`kanbai edit <id> --unblock`, or the **Unblock** button in the web UI). Omitted when empty. Not synced to a [hosted board](hosted.md) yet. |
 | `notice`, `notice_sent` | A [notice](#card-notice) to pass on once the card is done, and whether you already did. Omitted when there is no notice. |
 
 ### Card notice

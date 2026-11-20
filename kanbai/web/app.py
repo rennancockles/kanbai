@@ -377,6 +377,12 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
             resolved.edit(card_id, notice_sent=True)
         return render(request, "_board.html", context())
 
+    @app.post("/cards/{card_id}/unblock", response_class=HTMLResponse)
+    def card_unblock(request: Request, card_id: str) -> Response:
+        with contextlib.suppress(KanbaiError):
+            resolved.edit(card_id, blocked="")
+        return render(request, "_board.html", context())
+
     @app.post("/cards/{card_id}/archive", response_class=HTMLResponse)
     def card_archive(request: Request, card_id: str) -> Response:
         with contextlib.suppress(KanbaiError):

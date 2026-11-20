@@ -37,7 +37,7 @@ in one step.
 
 Click any card to open its details — description and acceptance criteria, labels,
 dependencies, type, group, source (a link when it is a URL), the blocked reason, and release version — and **move**, **edit**, **archive**, or **delete**
-it right from the modal.
+it right from the modal. A blocked card also has an **Unblock** button that clears the reason in one click.
 
 ![The card detail modal](assets/card_modal.png)
 

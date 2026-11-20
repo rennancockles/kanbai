@@ -2097,3 +2097,29 @@ def test_blocked_card_gets_the_pending_style_and_free_cards_do_not(tmp_path: Pat
     board.add("Free", column="todo")
     page = TestClient(create_app(board)).get("/").text
     assert page.count("has-pending") == 1
+
+
+def test_blocked_card_can_be_unblocked_in_one_click(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    board.add("Free", column="todo")
+    client = TestClient(create_app(board))
+
+    assert ">Unblock</button>" in client.get("/cards/001").text
+    assert ">Unblock</button>" not in client.get("/cards/002").text
+
+    resp = client.post("/cards/001/unblock")
+    assert resp.status_code == 200
+    assert "has-pending" not in resp.text
+    assert board.show("001").blocked == ""
+    assert ">Unblock</button>" not in client.get("/cards/001").text
+
+
+def test_unblock_unknown_card_leaves_the_board_unchanged(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    resp = TestClient(create_app(board)).post("/cards/999/unblock")
+    assert resp.status_code == 200
+    assert board.show("001").blocked == "waiting on Ana"

@@ -54,6 +54,11 @@
     </label>
 
     <div class="modal-actions">
+      {% if card.blocked %}
+      <button type="button" class="btn-ghost"
+              hx-post="{{ base }}/cards/{{ card.id }}/unblock" hx-target="#board" hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) kanbaiClearDetail()">Unblock</button>
+      {% endif %}
       {% if card.notice and not card.notice_sent %}
       <button type="button" class="btn-ghost"
               hx-post="{{ base }}/cards/{{ card.id }}/notice-sent" hx-target="#board" hx-swap="outerHTML"
