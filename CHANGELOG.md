@@ -11,6 +11,20 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.24.0 (2026-11-20)
+
+### Features
+
+- Botao para desbloquear card em um clique no modal (170)
+  ([`68408d8`](https://github.com/rennancockles/kanbai/commit/68408d82b7dc1ff709b8783426faa5a02626bc58))
+
+- Campo source para registrar a origem do card (167)
+  ([`2beda19`](https://github.com/rennancockles/kanbai/commit/2beda19c9f7f3a7985ed5a9b0d0c1c57b504351c))
+
+- Marcar card como bloqueado por pendencia externa (168)
+  ([`4ef7d62`](https://github.com/rennancockles/kanbai/commit/4ef7d62a236429ce6f3f043e89e6bc5f07137e03))
+
+
 ## v0.23.0 (2026-11-09)
 
 ### Features
