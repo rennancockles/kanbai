@@ -44,6 +44,11 @@
       </datalist>
     </label>
     <label class="field">
+      <span>Blocked</span>
+      <input type="text" name="blocked" value="{{ card.blocked }}"
+             placeholder="Pending item blocking this card (empty = not blocked)" autocomplete="off">
+    </label>
+    <label class="field">
       <span>Source</span>
       <input type="text" name="source" value="{{ card.source }}"
              placeholder="Jira key/URL, email, Teams…" autocomplete="off">

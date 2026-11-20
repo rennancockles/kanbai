@@ -2054,3 +2054,46 @@ def test_card_detail_links_a_url_source_and_shows_text_otherwise(tmp_path: Path)
     assert "email from Ana" in plain
     assert 'href="email' not in plain
     assert '<a href="javascript' not in client.get("/cards/003").text
+
+
+def test_blocked_card_shows_a_badge_with_the_reason_in_the_tooltip(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    board.add("Free", column="todo")
+    page = TestClient(create_app(board)).get("/").text
+    assert page.count('class="card-blocked"') == 1
+    assert 'title="Blocked: waiting on Ana"' in page
+
+
+def test_blocked_reason_shows_in_detail_and_forms(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    board.add("Free", column="todo")
+    client = TestClient(create_app(board))
+    assert "waiting on Ana" in client.get("/cards/001").text
+    assert "<dt>blocked</dt>" not in client.get("/cards/002").text
+    assert 'name="blocked" value="waiting on Ana"' in client.get("/cards/001/edit").text
+    assert 'name="blocked"' in client.get("/cards/new").text
+
+
+def test_create_and_edit_card_persist_blocked(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    client.post("/cards", data={"title": "T", "column": "todo", "blocked": " waiting on Ana "})
+    assert board.show("001").blocked == "waiting on Ana"
+
+    client.post("/cards/001/edit", data={"title": "T", "blocked": ""})
+    assert board.show("001").blocked == ""
+
+
+def test_blocked_card_gets_the_pending_style_and_free_cards_do_not(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    board.add("Free", column="todo")
+    page = TestClient(create_app(board)).get("/").text
+    assert page.count("has-pending") == 1

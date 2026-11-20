@@ -419,6 +419,15 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
   border-radius: 4px;
   padding: 0.05rem 0.35rem;
 }
+.card-blocked { display: inline-flex; vertical-align: middle; margin-left: 0.15rem; color: var(--high); }
+.card-blocked svg { width: 0.95rem; height: 0.95rem; }
+.card.has-pending {
+  background: color-mix(in srgb, var(--high) 9%, var(--surface-2));
+  border-top-color: rgba(255,119,119,0.45);
+  border-right-color: rgba(255,119,119,0.45);
+  border-bottom-color: rgba(255,119,119,0.45);
+}
+.modal-meta dd.meta-blocked { color: var(--high); }
 .field-check { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.7rem; font-size: 0.82rem; color: var(--muted); }
 .card-pri { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .pri-high .card-pri { color: var(--high); }

@@ -352,6 +352,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         notice_sent: str = Form(""),
         group: str = Form(""),
         source: str = Form(""),
+        blocked: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         with contextlib.suppress(KanbaiError):
@@ -366,6 +367,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 notice_sent=notice_sent == "1",
                 group=group,
                 source=source,
+                blocked=blocked,
             )
         return render(request, "_board.html", context())
 
@@ -408,6 +410,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         notice: str = Form(""),
         group: str = Form(""),
         source: str = Form(""),
+        blocked: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
         # invalid column/priority/type — re-render the board unchanged
@@ -422,6 +425,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 notice=notice,
                 group=group,
                 source=source,
+                blocked=blocked,
             )
         return render(request, "_board.html", context())
 

@@ -680,3 +680,45 @@ def test_source_round_trips_through_the_card_file(board: Board) -> None:
 def test_cards_without_a_source_keep_their_frontmatter_unchanged(board: Board) -> None:
     assert "source" not in board.add("Task").frontmatter()
     assert board.add("Task", source="   ").source == ""
+
+
+# --------------------------------------------------------------------------- blocked
+
+
+def test_add_and_edit_store_a_stripped_blocked_reason(board: Board) -> None:
+    card = board.add("Task", blocked="  waiting on Ana  ")
+    assert card.blocked == "waiting on Ana"
+    assert board.edit(card.id, blocked=" legal review ").blocked == "legal review"
+    assert board.edit(card.id, title="Renamed").blocked == "legal review"  # None leaves it
+    cleared = board.edit(card.id, blocked="")
+    assert cleared.blocked == ""
+    assert "blocked" not in cleared.frontmatter()
+
+
+def test_blocked_round_trips_through_the_card_file(board: Board) -> None:
+    card = board.add("Task", blocked="waiting on Ana")
+    assert board.show(card.id).blocked == "waiting on Ana"
+    assert Board.load(board.kanbai_dir.parent).show(card.id).blocked == "waiting on Ana"
+
+
+def test_unblocked_cards_keep_their_frontmatter_unchanged(board: Board) -> None:
+    assert "blocked" not in board.add("Task").frontmatter()
+    assert board.add("Task", blocked="   ").blocked == ""
+
+
+def test_next_skips_cards_blocked_by_a_pending_item(board: Board) -> None:
+    stuck = board.add("Stuck", column="todo", priority="high", blocked="waiting on Ana")
+    free = board.add("Free", column="todo")
+    nxt = board.next()
+    assert nxt is not None
+    assert nxt.id == free.id
+
+    board.edit(stuck.id, blocked="")
+    nxt = board.next()
+    assert nxt is not None
+    assert nxt.id == stuck.id
+
+
+def test_next_is_none_when_every_sprint_card_is_blocked(board: Board) -> None:
+    board.add("Stuck", column="todo", blocked="waiting on Ana")
+    assert board.next() is None

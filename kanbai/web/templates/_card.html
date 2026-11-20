@@ -1,10 +1,14 @@
 {% set is_blocked = blocked is defined and card.id in blocked %}
-<article class="card {{ priority_class[card.priority.value] }}{% if is_blocked %} blocked{% endif %}"
-         data-id="{{ card.id }}" data-group="{{ card.group }}"
+<article class="card {{ priority_class[card.priority.value] }}{% if is_blocked %} blocked{% endif %}{% if card.blocked %} has-pending{% endif %}"
+         {% if card.blocked %}title="Blocked: {{ card.blocked }}" {% endif %}data-id="{{ card.id }}" data-group="{{ card.group }}"
          hx-get="{{ base }}/cards/{{ card.id }}" hx-target="#detail" hx-swap="innerHTML">
   <div class="card-head">
     <span class="card-id">#{{ card.id }}{% if is_blocked %}
-      <span class="card-lock" title="Blocked by unfinished dependencies">🔒</span>{% endif %}</span>
+      <span class="card-lock" title="Blocked by unfinished dependencies">🔒</span>{% endif %}{% if card.blocked %}
+      <span class="card-blocked" role="img" aria-label="Blocked: {{ card.blocked }}"
+            title="Blocked: {{ card.blocked }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </span>{% endif %}</span>
     {% if card.type %}
     <span class="card-type{% if card.type not in type_style %} {{ type_class.get(card.type, 'type-other') }}{% endif %}"
           {% if card.type in type_style %}style="{{ type_style[card.type] }}"{% endif %}>{{ card.type }}</span>

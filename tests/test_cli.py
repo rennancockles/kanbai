@@ -680,3 +680,33 @@ def test_add_and_edit_source_show_in_show_and_json(project: Path) -> None:
     assert runner.invoke(app, ["edit", "001", "--source", ""]).exit_code == 0
     assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["source"] == ""
     assert "source: —" in runner.invoke(app, ["show", "001"]).output
+
+
+def test_add_and_edit_block_show_in_show_json_and_list(project: Path) -> None:
+    added = runner.invoke(
+        app, ["add", "Task", "-c", "todo", "--block", " waiting on Ana ", "--json"]
+    )
+    assert json.loads(added.output)["blocked"] == "waiting on Ana"
+    assert "blocked: waiting on Ana" in runner.invoke(app, ["show", "001"]).output
+    assert "(blocked)" in runner.invoke(app, ["list", "todo"]).output
+
+    assert runner.invoke(app, ["edit", "001", "-b", "legal review"]).exit_code == 0
+    shown = json.loads(runner.invoke(app, ["show", "001", "--json"]).output)
+    assert shown["blocked"] == "legal review"
+
+    assert runner.invoke(app, ["edit", "001", "--unblock"]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["blocked"] == ""
+    assert "blocked: —" in runner.invoke(app, ["show", "001"]).output
+    assert "(blocked)" not in runner.invoke(app, ["list", "todo"]).output
+
+
+def test_edit_rejects_block_together_with_unblock(project: Path) -> None:
+    runner.invoke(app, ["add", "Task", "-c", "todo"])
+    result = runner.invoke(app, ["edit", "001", "--block", "x", "--unblock"])
+    assert result.exit_code != 0
+
+
+def test_next_skips_a_blocked_card(project: Path) -> None:
+    runner.invoke(app, ["add", "Stuck", "-c", "todo", "-b", "waiting on Ana"])
+    runner.invoke(app, ["add", "Free", "-c", "todo"])
+    assert json.loads(runner.invoke(app, ["next", "--json"]).output)["title"] == "Free"

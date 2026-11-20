@@ -35,6 +35,7 @@ FRONTMATTER_FIELDS = (
     "assignee",
     "group",
     "source",
+    "blocked",
     "archived_from",
     "notice",
     "notice_sent",
@@ -73,6 +74,9 @@ class Card(BaseModel):
     # Free-text pointer to the request the card came from (a Jira key or URL, "email from Ana",
     # a Teams thread...). Empty means unset; whitespace is stripped on write.
     source: str = ""
+    # Why the card is stuck on something outside the board (missing info, a third party's
+    # pending answer...). Non-empty means blocked: `next` skips it and the UI flags it.
+    blocked: str = ""
     # The column a card was in before it was archived (so we know it was, e.g., finished).
     archived_from: str | None = None
     # Free-text heads-up to relay to someone once the card is done (e.g. "tell Ana the bug is
@@ -97,7 +101,7 @@ class Card(BaseModel):
             if field == "version" and value is None:
                 continue
             # Ungrouped cards omit the field, keeping their files unchanged.
-            if field in ("group", "source") and not value:
+            if field in ("group", "source", "blocked") and not value:
                 continue
             # Cards without a notice carry neither field, keeping their files unchanged.
             if field in ("notice", "notice_sent") and not self.notice:

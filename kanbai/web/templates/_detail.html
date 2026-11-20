@@ -18,6 +18,9 @@
       {% if card.group %}
       <div><dt>group</dt><dd>{{ card.group }}</dd></div>
       {% endif %}
+      {% if card.blocked %}
+      <div><dt>blocked</dt><dd class="meta-blocked">{{ card.blocked }}</dd></div>
+      {% endif %}
       {% if card.source %}
       <div><dt>source</dt><dd>
         {%- if card.source.startswith(('http://', 'https://')) -%}

@@ -104,6 +104,7 @@ class Board:
         notice: str = "",
         group: str = "",
         source: str = "",
+        blocked: str = "",
     ) -> Card:
         """Create a new card and write it to disk."""
         column = column or self.config.add_column
@@ -129,6 +130,7 @@ class Board:
             notice=notice.strip(),
             group=group.strip(),
             source=source.strip(),
+            blocked=blocked.strip(),
             created=timestamp,
             updated=timestamp,
             body=description,
@@ -257,11 +259,12 @@ class Board:
         The backlog is intentionally not considered — only cards planned into the sprint are
         picked up. A card is actionable when every dependency it lists is already in the done
         column (an unknown dependency id is treated as non-blocking). Cards are considered in
-        column order, so the top of the sprint wins ties.
+        column order, so the top of the sprint wins ties. A card with a ``blocked`` reason (an
+        external pending item) is skipped too.
         """
         location = self._status_by_id()
         for card in storage.read_column(self.kanbai_dir, self.config.sprint_column):
-            if self._deps_met(card, location):
+            if not card.blocked and self._deps_met(card, location):
                 return card
         return None
 
@@ -303,12 +306,14 @@ class Board:
         notice_sent: bool | None = None,
         group: str | None = None,
         source: str | None = None,
+        blocked: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change.
 
         Changing ``notice`` re-arms it (``notice_sent`` goes back to ``False``) unless
         ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group`` and
-        ``source`` are stripped; an empty string clears them and ``None`` leaves them unchanged.
+        ``source`` and ``blocked`` are stripped; an empty string clears them and ``None``
+        leaves them unchanged.
         """
         card, old_path, _ = self._locate(card_id)
         if title is not None:
@@ -332,6 +337,7 @@ class Board:
         self._apply_notice(card, notice, notice_sent)
         card.group = card.group if group is None else group.strip()
         card.source = card.source if source is None else source.strip()
+        card.blocked = card.blocked if blocked is None else blocked.strip()
         card.updated = storage.now()
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
