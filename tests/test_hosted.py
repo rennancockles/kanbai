@@ -1168,3 +1168,48 @@ def test_plan_all_reports_each_board_and_never_changes_one(
     assert by_name["proj"].status == "ok" and plan is not None
     assert len(plan.create) == 1
     assert _remote_titles(remote) == before
+
+
+def test_pull_settings_keeps_tables_kanbai_does_not_manage(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    config_path = kanbai_dir / "config.toml"
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n# Ticket tracker for this board\n"
+            '[integration]\nsystem = "jira"\nstages = ["review", "done"]\n'
+            '\n[plugins.jira]\nproject = "PROJ"\n'
+        )
+    fake_server.boards[remote_config.board_id]["category"] = "Home"
+
+    assert hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir) == ["category"]
+
+    text = config_path.read_text()
+    assert "# Ticket tracker for this board\n[integration]" in text
+    assert 'system = "jira"' in text
+    assert 'stages = ["review", "done"]' in text
+    assert '[plugins.jira]\nproject = "PROJ"' in text
+    assert text.count("[server]") == 1
+    assert text.count("[board]") == 1
+    assert load_config(kanbai_dir).category == "Home"
+    assert load_remote_config(kanbai_dir) == remote_config
+
+
+def test_pull_settings_does_not_duplicate_unmanaged_tables_on_repeat(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    config_path = kanbai_dir / "config.toml"
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write('\n[integration]\nsystem = "jira"\n')
+    board = fake_server.boards[remote_config.board_id]
+
+    board["category"] = "Home"
+    hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir)
+    board["category"] = "Work"
+    hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir)
+
+    assert config_path.read_text().count("[integration]") == 1

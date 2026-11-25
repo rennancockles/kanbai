@@ -13,6 +13,7 @@ left out unless ``archived=True``. ``clone_board`` creates a local board from a 
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -111,18 +112,36 @@ def _remove_section(toml_text: str, name: str) -> str:
     return "".join(kept)
 
 
-def _extract_section(toml_text: str, name: str) -> str:
-    """The top-level ``[name]`` table with its body (up to the next ``[...]``), or ``""``."""
+#: Top-level tables ``render_config`` writes; anything else in ``config.toml`` is the user's.
+_RENDERED_SECTIONS = frozenset({"board", "defaults", "types", "wip", "notifications"})
+_TABLE_HEADER = re.compile(r'^\s*\[\[?\s*("[^"]*"|[^\]\s.]+)')
+
+
+def _unrendered_sections(toml_text: str) -> str:
+    """The top-level tables ``render_config`` does not write (``[server]``, plugin sections...),
+    verbatim and in their original order. A comment block right above a table header stays
+    with that table."""
     kept: list[str] = []
-    inside = False
+    pending: list[str] = []  # comment lines that may belong to the next table
+    keeping = False
     for line in toml_text.splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped == f"[{name}]":
-            inside = True
-        elif inside and stripped.startswith("[") and stripped.endswith("]"):
-            break
-        if inside:
+        match = _TABLE_HEADER.match(line)
+        if match:
+            keeping = match.group(1).strip('"') not in _RENDERED_SECTIONS
+            if keeping:
+                kept.extend(pending)
+            pending = []
+        elif line.strip().startswith("#"):
+            pending.append(line)
+            continue
+        elif pending:
+            if keeping:
+                kept.extend(pending)
+            pending = []
+        if keeping:
             kept.append(line)
+    if keeping:
+        kept.extend(pending)
     return "".join(kept)
 
 
@@ -156,8 +175,9 @@ def push_settings(remote: RemoteBoard, kanbai_dir: Path) -> list[str]:
 def pull_settings(remote: RemoteBoard, kanbai_dir: Path) -> list[str]:
     """Server wins: make ``config.toml``'s settings (not its columns) match the hosted board.
 
-    Rewrites the config from the settings, so comments in the file are not kept; the
-    ``[server]`` connection is. Returns the names of the settings that changed locally.
+    Rewrites the config from the settings, so comments inside the settings tables are not
+    kept; the ``[server]`` connection and any other table kanbai does not manage are.
+    Returns the names of the settings that changed locally.
     """
     local = load_config(kanbai_dir)
     changed = _differing_settings(remote.config, local)
@@ -166,9 +186,9 @@ def pull_settings(remote: RemoteBoard, kanbai_dir: Path) -> list[str]:
     merged = local.model_copy(update=_settings_view(remote.config, local.columns))
     config_path = kanbai_dir / CONFIG_FILENAME
     existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
-    server = _extract_section(existing, "server").strip("\n")
+    preserved = _unrendered_sections(existing).strip("\n")
     text = render_config(merged).rstrip("\n") + "\n"
-    config_path.write_text(f"{text}\n{server}\n" if server else text, encoding="utf-8")
+    config_path.write_text(f"{text}\n{preserved}\n" if preserved else text, encoding="utf-8")
     return changed
 
 
