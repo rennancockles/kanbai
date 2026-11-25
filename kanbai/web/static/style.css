@@ -536,6 +536,15 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .modal-meta dd a { color: var(--accent); text-decoration: none; }
 .modal-meta dd a:hover { text-decoration: underline; }
 
+.modal-history {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.8rem;
+}
+.modal-history li { padding: 0.15rem 0; }
+.modal-history time { color: var(--muted); margin-right: 0.4rem; }
+
 .modal-body {
   white-space: pre-wrap;
   font-size: 0.88rem;

@@ -710,3 +710,31 @@ def test_next_skips_a_blocked_card(project: Path) -> None:
     runner.invoke(app, ["add", "Stuck", "-c", "todo", "-b", "waiting on Ana"])
     runner.invoke(app, ["add", "Free", "-c", "todo"])
     assert json.loads(runner.invoke(app, ["next", "--json"]).output)["title"] == "Free"
+
+
+def test_show_lists_the_movement_history(project: Path) -> None:
+    card = json.loads(runner.invoke(app, ["add", "Task", "--json"]).stdout)
+    runner.invoke(app, ["move", card["id"], "todo"])
+    runner.invoke(app, ["start", card["id"]])
+
+    as_json = json.loads(runner.invoke(app, ["show", card["id"], "--json"]).stdout)
+    assert [(h["from_column"], h["to_column"]) for h in as_json["history"]] == [
+        ("backlog", "todo"),
+        ("todo", "doing"),
+    ]
+    text = runner.invoke(app, ["show", card["id"]]).stdout
+    assert "history:" in text
+    assert "backlog → todo" in text
+    assert "todo → doing" in text
+
+
+def test_show_history_includes_block_and_unblock(project: Path) -> None:
+    card = json.loads(runner.invoke(app, ["add", "Task", "--json"]).stdout)
+    runner.invoke(app, ["edit", card["id"], "--block", "waiting on Ana"])
+    runner.invoke(app, ["edit", card["id"], "--unblock"])
+
+    text = runner.invoke(app, ["show", card["id"]]).stdout
+    assert "blocked in backlog: waiting on Ana" in text
+    assert "unblocked in backlog" in text
+    as_json = json.loads(runner.invoke(app, ["show", card["id"], "--json"]).stdout)
+    assert [h["event"] for h in as_json["history"]] == ["blocked", "unblocked"]

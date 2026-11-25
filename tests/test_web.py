@@ -2123,3 +2123,30 @@ def test_unblock_unknown_card_leaves_the_board_unchanged(tmp_path: Path) -> None
     resp = TestClient(create_app(board)).post("/cards/999/unblock")
     assert resp.status_code == 200
     assert board.show("001").blocked == "waiting on Ana"
+
+
+def test_card_detail_modal_shows_the_movement_history(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task")
+    board.move(card.id, "todo")
+    client = TestClient(create_app(board))
+
+    text = client.get(f"/cards/{card.id}").text
+    assert 'class="modal-history"' in text
+    assert "backlog → todo" in text
+
+    fresh = board.add("Untouched")
+    assert 'class="modal-history"' not in client.get(f"/cards/{fresh.id}").text
+
+
+def test_card_detail_modal_shows_block_and_unblock_in_the_history(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task")
+    board.edit(card.id, blocked="waiting on Ana")
+    client = TestClient(create_app(board))
+    assert "blocked in backlog: waiting on Ana" in client.get(f"/cards/{card.id}").text
+
+    assert client.post(f"/cards/{card.id}/unblock").status_code == 200
+    assert "unblocked in backlog" in client.get(f"/cards/{card.id}").text

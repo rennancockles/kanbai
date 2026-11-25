@@ -34,6 +34,13 @@
       <div><dt>created</dt><dd>{{ card.created }}</dd></div>
       <div><dt>updated</dt><dd>{{ card.updated }}</dd></div>
     </dl>
+    {% if card.history %}
+    <ul class="modal-history" aria-label="Movement history">
+      {% for entry in card.history %}
+      <li><time>{{ entry.at.strftime('%Y-%m-%d %H:%M') }}</time> {{ entry.describe() }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if card.body %}
     <div class="modal-body">{{ card.body }}</div>
     {% else %}

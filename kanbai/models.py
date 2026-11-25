@@ -21,6 +21,29 @@ class Priority(str, Enum):
         return {Priority.high: 0, Priority.medium: 1, Priority.low: 2}[self]
 
 
+class HistoryEntry(BaseModel):
+    """One event in a card's life: a column change, or it being blocked or unblocked.
+
+    A ``move`` carries ``from_column`` and ``to_column``; ``blocked`` and ``unblocked`` carry
+    the ``column`` the card was in (and, for ``blocked``, the ``reason``).
+    """
+
+    event: str = "move"
+    from_column: str = ""
+    to_column: str = ""
+    column: str = ""
+    reason: str = ""
+    at: datetime
+
+    def describe(self) -> str:
+        """One-line plain-text summary, shared by the CLI and the web UI."""
+        if self.event == "blocked":
+            return f"blocked in {self.column}: {self.reason}"
+        if self.event == "unblocked":
+            return f"unblocked in {self.column}"
+        return f"{self.from_column} → {self.to_column}"
+
+
 # Fields that live in the YAML frontmatter, in the order they are written to disk.
 FRONTMATTER_FIELDS = (
     "id",
@@ -39,6 +62,7 @@ FRONTMATTER_FIELDS = (
     "archived_from",
     "notice",
     "notice_sent",
+    "history",
     "created",
     "updated",
 )
@@ -83,9 +107,31 @@ class Card(BaseModel):
     # fixed"). ``notice_sent`` is flipped once the user has passed it on.
     notice: str = ""
     notice_sent: bool = False
+    # Column changes and block/unblock events in chronological order. Cards that predate the
+    # field start empty.
+    history: list[HistoryEntry] = Field(default_factory=list)
     created: datetime
     updated: datetime
     body: str = ""
+
+    def record_move(self, from_column: str, to_column: str, at: datetime) -> None:
+        """Append a column change to the history (no-op when the column didn't change)."""
+        if from_column != to_column:
+            self.history.append(HistoryEntry(from_column=from_column, to_column=to_column, at=at))
+
+    def record_block_change(self, was_blocked: str, at: datetime) -> None:
+        """Append a ``blocked``/``unblocked`` event when the blocked state flipped.
+
+        ``was_blocked`` is the reason before the change; only going from empty to set (or back)
+        counts, so rewording the reason of an already blocked card leaves the history alone.
+        """
+        if bool(was_blocked) == bool(self.blocked):
+            return
+        if self.blocked:
+            entry = HistoryEntry(event="blocked", column=self.status, reason=self.blocked, at=at)
+        else:
+            entry = HistoryEntry(event="unblocked", column=self.status, at=at)
+        self.history.append(entry)
 
     def frontmatter(self) -> dict[str, object]:
         """Return an ordered mapping of the frontmatter fields for serialization."""
@@ -106,6 +152,10 @@ class Card(BaseModel):
             # Cards without a notice carry neither field, keeping their files unchanged.
             if field in ("notice", "notice_sent") and not self.notice:
                 continue
+            if field == "history":
+                if not value:
+                    continue
+                value = [entry.model_dump(exclude_defaults=True) for entry in self.history]
             if isinstance(value, Priority):
                 value = value.value
             data[field] = value

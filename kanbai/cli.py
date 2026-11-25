@@ -385,6 +385,11 @@ def show(
     deps = ", ".join(card.deps) or "—"
     labels = ", ".join(card.labels) or "—"
     body = f"\n\n{card.body}" if card.body else ""
+    history = "".join(
+        f"\n  [dim]{entry.at:%Y-%m-%d %H:%M}[/dim]  {escape(entry.describe())}"
+        for entry in card.history
+    )
+    history = f"\nhistory:{history}" if history else ""
     console.print(
         Panel(
             f"[bold]{card.title}[/bold]\n"
@@ -395,6 +400,7 @@ def show(
             f"source: {escape(card.source) if card.source else '—'}   "
             f"blocked: {'[yellow]' + escape(card.blocked) + '[/yellow]' if card.blocked else '—'}\n"
             f"notice: {_notice_cell(card)}"
+            f"{history}"
             f"{body}",
             title=f"card {card.id}",
             title_align="left",

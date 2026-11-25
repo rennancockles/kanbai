@@ -135,6 +135,7 @@ class Board:
             updated=timestamp,
             body=description,
         )
+        card.record_block_change("", timestamp)
         storage.write_card(self.kanbai_dir, card)
         return card
 
@@ -164,6 +165,7 @@ class Board:
         if position is None and column != old_column:
             card.order = self._next_order(column)
         card.updated = storage.now()
+        card.record_move(old_column, column, card.updated)
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
         if position is not None:
@@ -337,8 +339,10 @@ class Board:
         self._apply_notice(card, notice, notice_sent)
         card.group = card.group if group is None else group.strip()
         card.source = card.source if source is None else source.strip()
+        was_blocked = card.blocked
         card.blocked = card.blocked if blocked is None else blocked.strip()
         card.updated = storage.now()
+        card.record_block_change(was_blocked, card.updated)
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
         return card
@@ -362,6 +366,7 @@ class Board:
             card.archived_from = old_column
         card.status = storage.ARCHIVE_DIRNAME
         card.updated = storage.now()
+        card.record_move(old_column, storage.ARCHIVE_DIRNAME, card.updated)
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
         return card
@@ -386,7 +391,7 @@ class Board:
 
     def restore(self, card_id: str) -> Card:
         """Bring an archived card back to the column it came from (or the backlog)."""
-        card, old_path, _ = self._locate(card_id)
+        card, old_path, old_column = self._locate(card_id)
         target = card.archived_from or self.config.add_column
         if target not in self.columns:
             target = self.config.add_column
@@ -394,6 +399,7 @@ class Board:
         card.order = self._next_order(target)
         card.archived_from = None
         card.updated = storage.now()
+        card.record_move(old_column, target, card.updated)
         storage.delete_card_file(old_path)
         storage.write_card(self.kanbai_dir, card)
         return card

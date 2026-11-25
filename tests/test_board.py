@@ -722,3 +722,92 @@ def test_next_skips_cards_blocked_by_a_pending_item(board: Board) -> None:
 def test_next_is_none_when_every_sprint_card_is_blocked(board: Board) -> None:
     board.add("Stuck", column="todo", blocked="waiting on Ana")
     assert board.next() is None
+
+
+def _trail(board: Board, card_id: str) -> list[tuple[str, str]]:
+    return [(e.from_column, e.to_column) for e in board.show(card_id).history]
+
+
+def test_move_records_history_in_order_and_persists(board: Board) -> None:
+    card = board.add("Task")
+    board.move(card.id, "todo")
+    board.move(card.id, "doing")
+    moved = board.move(card.id, "review")
+
+    expected = [("backlog", "todo"), ("todo", "doing"), ("doing", "review")]
+    assert [(e.from_column, e.to_column) for e in moved.history] == expected
+    assert _trail(board, card.id) == expected
+    stamps = [e.at for e in moved.history]
+    assert stamps == sorted(stamps)
+
+
+def test_new_card_starts_with_empty_history(board: Board) -> None:
+    assert board.add("Task").history == []
+
+
+def test_reordering_within_a_column_does_not_record_history(board: Board) -> None:
+    first = board.add("One", column="todo")
+    board.add("Two", column="todo")
+    board.move(first.id, "todo", position=1)
+    assert _trail(board, first.id) == []
+
+
+def test_archive_and_restore_record_history(board: Board) -> None:
+    card = board.add("Task", column="done")
+    board.archive(card.id)
+    board.restore(card.id)
+    assert _trail(board, card.id) == [("done", "archive"), ("archive", "done")]
+
+
+def test_editing_a_card_does_not_record_history(board: Board) -> None:
+    card = board.add("Task")
+    board.edit(card.id, priority="high", labels=["x"])
+    assert _trail(board, card.id) == []
+
+
+def _events(board: Board, card_id: str) -> list[tuple[str, str, str]]:
+    return [(e.event, e.column, e.reason) for e in board.show(card_id).history]
+
+
+def test_blocking_and_unblocking_record_history_with_the_reason(board: Board) -> None:
+    card = board.add("Task", column="todo")
+    board.edit(card.id, blocked="waiting on Ana")
+    board.edit(card.id, blocked="")
+    assert _events(board, card.id) == [
+        ("blocked", "todo", "waiting on Ana"),
+        ("unblocked", "todo", ""),
+    ]
+    assert [e.describe() for e in board.show(card.id).history] == [
+        "blocked in todo: waiting on Ana",
+        "unblocked in todo",
+    ]
+
+
+def test_rewording_the_reason_or_unblocking_a_free_card_adds_nothing(board: Board) -> None:
+    card = board.add("Task", blocked="first reason")
+    board.edit(card.id, blocked="second reason")
+    board.edit(card.id, blocked="second reason")
+    assert len(board.show(card.id).history) == 1  # only the block at creation
+
+    free = board.add("Free")
+    board.edit(free.id, blocked="")
+    assert board.show(free.id).history == []
+
+
+def test_a_card_created_blocked_starts_with_a_blocked_entry(board: Board) -> None:
+    card = board.add("Task", blocked="no access yet")
+    assert _events(board, card.id) == [("blocked", "backlog", "no access yet")]
+
+
+def test_block_and_move_events_interleave_in_order(board: Board) -> None:
+    card = board.add("Task")
+    board.move(card.id, "todo")
+    board.edit(card.id, blocked="waiting")
+    board.move(card.id, "doing")
+    board.edit(card.id, blocked="")
+    assert [e.describe() for e in board.show(card.id).history] == [
+        "backlog → todo",
+        "blocked in todo: waiting",
+        "todo → doing",
+        "unblocked in doing",
+    ]

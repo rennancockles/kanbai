@@ -119,3 +119,39 @@ def test_version_round_trips_and_is_omitted_when_none(tmp_path: Path) -> None:
 
     # A card without a version carries no version field at all.
     assert "version:" not in storage.dump_card(_make_card())
+
+
+def test_history_round_trips_and_is_omitted_when_empty(tmp_path: Path) -> None:
+    moved = _make_card()
+    moved.record_move("todo", "doing", storage.now())
+    text = storage.dump_card(moved)
+    assert "history:" in text
+    path = tmp_path / "doing" / storage.card_filename(moved)
+    storage.atomic_write(path, text)
+    parsed = storage.parse_card(path, "doing")
+    assert [(e.from_column, e.to_column) for e in parsed.history] == [("todo", "doing")]
+    assert parsed.history[0].at == moved.history[0].at
+
+    # A legacy card with no history carries no history field and still loads.
+    plain = _make_card()
+    assert "history:" not in storage.dump_card(plain)
+    legacy = tmp_path / "todo" / storage.card_filename(plain)
+    storage.atomic_write(legacy, storage.dump_card(plain))
+    assert storage.parse_card(legacy, "todo").history == []
+
+
+def test_block_events_round_trip_with_compact_entries(tmp_path: Path) -> None:
+    card = _make_card()
+    card.blocked = "waiting on Ana"
+    card.record_block_change("", storage.now())
+    card.blocked = ""
+    card.record_block_change("waiting on Ana", storage.now())
+    text = storage.dump_card(card)
+    assert "from_column" not in text  # block entries omit the move-only fields
+    path = tmp_path / "todo" / storage.card_filename(card)
+    storage.atomic_write(path, text)
+    parsed = storage.parse_card(path, "todo")
+    assert [(e.event, e.column, e.reason) for e in parsed.history] == [
+        ("blocked", "todo", "waiting on Ana"),
+        ("unblocked", "todo", ""),
+    ]
