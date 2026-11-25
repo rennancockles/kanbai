@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.25.0 (2026-11-25)
+
+### Features
+
+- Historico de movimentacao e bloqueio dos cards (172)
+  ([`5eb7534`](https://github.com/rennancockles/kanbai/commit/5eb7534c56e0ade2ad08c95b352092a8850aea9f))
+
+
 ## v0.24.0 (2026-11-20)
 
 ### Features
