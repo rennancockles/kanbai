@@ -42,7 +42,7 @@
     </ul>
     {% endif %}
     {% if card.body %}
-    <div class="modal-body">{{ card.body }}</div>
+    <div class="modal-body">{{ card.body | markdown }}</div>
     {% else %}
     <p class="empty">No description</p>
     {% endif %}

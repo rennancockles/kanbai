@@ -546,12 +546,50 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 .modal-history time { color: var(--muted); margin-right: 0.4rem; }
 
 .modal-body {
-  white-space: pre-wrap;
   font-size: 0.88rem;
   line-height: 1.5;
   border-top: 1px solid var(--border);
   padding-top: 0.85rem;
+  overflow-wrap: anywhere;
 }
+.modal-body > :first-child { margin-top: 0; }
+.modal-body > :last-child { margin-bottom: 0; }
+.modal-body p, .modal-body ul, .modal-body ol, .modal-body pre,
+.modal-body blockquote, .modal-body table { margin: 0 0 0.7rem; }
+.modal-body h1, .modal-body h2, .modal-body h3, .modal-body h4 {
+  margin: 1rem 0 0.4rem;
+  line-height: 1.3;
+}
+.modal-body h1 { font-size: 1.1rem; }
+.modal-body h2 { font-size: 1rem; }
+.modal-body h3, .modal-body h4 { font-size: 0.92rem; }
+.modal-body ul, .modal-body ol { padding-left: 1.3rem; }
+.modal-body li > ul, .modal-body li > ol { margin: 0.2rem 0 0; }
+.modal-body a { color: var(--accent); text-decoration: none; }
+.modal-body a:hover { text-decoration: underline; }
+.modal-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+.modal-body pre {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+}
+.modal-body pre code { background: none; padding: 0; white-space: pre; }
+.modal-body blockquote {
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  padding-left: 0.75rem;
+}
+.modal-body hr { border: none; border-top: 1px solid var(--border); margin: 0.9rem 0; }
+.modal-body table { border-collapse: collapse; display: block; overflow-x: auto; }
+.modal-body th, .modal-body td { border: 1px solid var(--border); padding: 0.25rem 0.55rem; }
+.modal-body th { background: var(--surface-2); text-align: left; }
 
 /* edit form inside the modal */
 .field { display: block; margin-bottom: 0.7rem; }

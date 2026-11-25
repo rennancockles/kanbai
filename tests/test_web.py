@@ -2150,3 +2150,51 @@ def test_card_detail_modal_shows_block_and_unblock_in_the_history(tmp_path: Path
 
     assert client.post(f"/cards/{card.id}/unblock").status_code == 200
     assert "unblocked in backlog" in client.get(f"/cards/{card.id}").text
+
+
+def _detail_html(tmp_path: Path, body: str) -> str:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    card = board.add("Task", description=body)
+    return TestClient(create_app(board)).get(f"/cards/{card.id}").text
+
+
+def test_card_detail_renders_the_markdown_body(tmp_path: Path) -> None:
+    text = _detail_html(
+        tmp_path,
+        "## Scope\n- one\n- two\n\nUse `code` and **bold**.\n\n```\nblock\n```\n\n"
+        "| a | b |\n|---|---|\n| 1 | 2 |\n",
+    )
+    assert "<h2>Scope</h2>" in text
+    assert "<li>one</li>" in text
+    assert "<code>code</code>" in text
+    assert "<strong>bold</strong>" in text
+    assert "<pre><code>block" in text
+    assert "<table>" in text
+
+
+def test_card_detail_keeps_single_line_breaks(tmp_path: Path) -> None:
+    assert "first<br" in _detail_html(tmp_path, "first\nsecond")
+
+
+def test_card_detail_does_not_run_html_or_unsafe_links(tmp_path: Path) -> None:
+    text = _detail_html(
+        tmp_path,
+        "<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n"
+        "[bad](javascript:alert(1)) ![pic](https://example.com/x.png)",
+    )
+    assert "<script>alert(1)</script>" not in text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in text
+    assert "<img" not in text
+    assert 'href="javascript:' not in text
+
+
+def test_card_detail_links_open_in_a_new_tab_safely(tmp_path: Path) -> None:
+    text = _detail_html(tmp_path, "see [docs](https://example.com/a?b=1)")
+    assert 'href="https://example.com/a?b=1"' in text
+    assert 'target="_blank"' in text
+    assert 'rel="noopener noreferrer"' in text
+
+
+def test_card_without_a_body_still_says_no_description(tmp_path: Path) -> None:
+    assert "No description" in _detail_html(tmp_path, "")

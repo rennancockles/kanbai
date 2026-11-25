@@ -24,10 +24,12 @@ from ..notifications import Notification
 from ..notify_ntfy import notify_ntfy_background
 from . import watcher
 from .errors import render_http_error
+from .markdown import render_markdown
 from .notify import notify_native
 
 _WEB_DIR = Path(__file__).parent
 _TEMPLATES = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
+_TEMPLATES.env.filters["markdown"] = render_markdown
 
 # Maps a card priority value to the CSS modifier class used by the template.
 PRIORITY_CLASS = {"high": "pri-high", "medium": "pri-medium", "low": "pri-low"}
