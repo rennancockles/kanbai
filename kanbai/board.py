@@ -104,6 +104,7 @@ class Board:
         notice: str = "",
         group: str = "",
         source: str = "",
+        ticket: str = "",
         blocked: str = "",
     ) -> Card:
         """Create a new card and write it to disk."""
@@ -130,6 +131,7 @@ class Board:
             notice=notice.strip(),
             group=group.strip(),
             source=source.strip(),
+            ticket=ticket.strip(),
             blocked=blocked.strip(),
             created=timestamp,
             updated=timestamp,
@@ -308,14 +310,15 @@ class Board:
         notice_sent: bool | None = None,
         group: str | None = None,
         source: str | None = None,
+        ticket: str | None = None,
         blocked: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change.
 
         Changing ``notice`` re-arms it (``notice_sent`` goes back to ``False``) unless
-        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group`` and
-        ``source`` and ``blocked`` are stripped; an empty string clears them and ``None``
-        leaves them unchanged.
+        ``notice_sent`` is passed explicitly; an empty ``notice`` clears it. ``group``,
+        ``source``, ``ticket`` and ``blocked`` are stripped; an empty string clears them and
+        ``None`` leaves them unchanged.
         """
         card, old_path, _ = self._locate(card_id)
         if title is not None:
@@ -339,6 +342,7 @@ class Board:
         self._apply_notice(card, notice, notice_sent)
         card.group = card.group if group is None else group.strip()
         card.source = card.source if source is None else source.strip()
+        card.ticket = card.ticket if ticket is None else ticket.strip()
         was_blocked = card.blocked
         card.blocked = card.blocked if blocked is None else blocked.strip()
         card.updated = storage.now()

@@ -42,6 +42,7 @@ _EDITABLE = (
     "notice",
     "notice_sent",
     "group",
+    "ticket",
 )
 #: Fields the API can only clear with an empty string (``None`` means "leave unchanged").
 _CLEARED_WITH_EMPTY_STRING = ("type", "version")

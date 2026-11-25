@@ -51,7 +51,12 @@
     <label class="field">
       <span>Source</span>
       <input type="text" name="source" value="{{ card.source }}"
-             placeholder="Jira key/URL, email, Teams…" autocomplete="off">
+             placeholder="Email, Teams thread, URL…" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>Ticket</span>
+      <input type="text" name="ticket" value="{{ card.ticket }}"
+             placeholder="Jira key or URL" autocomplete="off">
     </label>
     <label class="field">
       <span>Notice</span>

@@ -354,6 +354,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         notice_sent: str = Form(""),
         group: str = Form(""),
         source: str = Form(""),
+        ticket: str = Form(""),
         blocked: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
@@ -369,6 +370,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 notice_sent=notice_sent == "1",
                 group=group,
                 source=source,
+                ticket=ticket,
                 blocked=blocked,
             )
         return render(request, "_board.html", context())
@@ -418,6 +420,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
         notice: str = Form(""),
         group: str = Form(""),
         source: str = Form(""),
+        ticket: str = Form(""),
         blocked: str = Form(""),
     ) -> Response:
         label_list = [s.strip() for s in labels.split(",") if s.strip()]
@@ -433,6 +436,7 @@ def create_app(  # noqa: C901, PLR0915 - route-registration factory; size == rou
                 notice=notice,
                 group=group,
                 source=source,
+                ticket=ticket,
                 blocked=blocked,
             )
         return render(request, "_board.html", context())

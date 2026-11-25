@@ -738,3 +738,17 @@ def test_show_history_includes_block_and_unblock(project: Path) -> None:
     assert "unblocked in backlog" in text
     as_json = json.loads(runner.invoke(app, ["show", card["id"], "--json"]).stdout)
     assert [h["event"] for h in as_json["history"]] == ["blocked", "unblocked"]
+
+
+def test_add_and_edit_ticket_show_in_show_and_json(project: Path) -> None:
+    added = runner.invoke(app, ["add", "Task", "-c", "todo", "--ticket", " PROJ-123 ", "--json"])
+    assert json.loads(added.output)["ticket"] == "PROJ-123"
+    assert "ticket: PROJ-123" in runner.invoke(app, ["show", "001"]).output
+
+    assert runner.invoke(app, ["edit", "001", "-T", "https://example.com/PROJ-9"]).exit_code == 0
+    shown = json.loads(runner.invoke(app, ["show", "001", "--json"]).output)
+    assert shown["ticket"] == "https://example.com/PROJ-9"
+
+    assert runner.invoke(app, ["edit", "001", "--ticket", ""]).exit_code == 0
+    assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["ticket"] == ""
+    assert "ticket: —" in runner.invoke(app, ["show", "001"]).output

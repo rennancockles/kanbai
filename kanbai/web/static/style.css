@@ -421,6 +421,8 @@ body.hide-backlog #toggle-backlog .icon-eye-off { display: inline; }
 }
 .card-blocked { display: inline-flex; vertical-align: middle; margin-left: 0.15rem; color: var(--high); }
 .card-blocked svg { width: 0.95rem; height: 0.95rem; }
+.card-ticket { display: inline-flex; vertical-align: middle; margin-left: 0.2rem; color: var(--accent); }
+.card-ticket svg { width: 0.85rem; height: 0.85rem; }
 .card.has-pending {
   background: color-mix(in srgb, var(--high) 9%, var(--surface-2));
   border-top-color: rgba(255,119,119,0.45);

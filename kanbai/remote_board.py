@@ -163,6 +163,7 @@ class RemoteBoard:
         assignee: str | None = None,
         notice: str = "",
         group: str = "",
+        ticket: str = "",
         card_id: str | None = None,
     ) -> Card:
         """Create a new card on the hosted board.
@@ -188,6 +189,7 @@ class RemoteBoard:
                 "assignee": assignee,
                 "notice": notice,
                 "group": group,
+                "ticket": ticket,
             },
         )
         card = Card.model_validate(data)
@@ -280,6 +282,7 @@ class RemoteBoard:
         notice: str | None = None,
         notice_sent: bool | None = None,
         group: str | None = None,
+        ticket: str | None = None,
     ) -> Card:
         """Update fields on a card. Only provided fields change."""
         resolved_priority = priority.value if isinstance(priority, Priority) else priority
@@ -299,6 +302,7 @@ class RemoteBoard:
                 "notice": notice,
                 "notice_sent": notice_sent,
                 "group": group,
+                "ticket": ticket,
             },
         )
         return Card.model_validate(data)

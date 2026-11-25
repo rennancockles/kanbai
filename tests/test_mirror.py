@@ -329,3 +329,15 @@ def test_group_with_is_applied_locally_and_replicated(project: tuple[Path, _Fake
     local = Board.load(project_dir)
     assert (local.show(target).group, local.show(dragged).group) == ("auth", "auth")
     assert (_host(server)[target]["group"], _host(server)[dragged]["group"]) == ("auth", "auth")
+
+
+def test_ticket_is_replicated_to_the_host(project: tuple[Path, _FakeServer]) -> None:
+    result = runner.invoke(app, ["add", "Ticketed", "-c", "todo", "-T", "PROJ-1", "--json"])
+    card_id = str(json.loads(result.output)["id"])
+    assert _host(project[1])[card_id]["ticket"] == "PROJ-1"
+
+    assert runner.invoke(app, ["edit", card_id, "-T", "PROJ-2"]).exit_code == 0
+    assert _host(project[1])[card_id]["ticket"] == "PROJ-2"
+
+    assert runner.invoke(app, ["edit", card_id, "-T", ""]).exit_code == 0
+    assert _host(project[1])[card_id]["ticket"] == ""

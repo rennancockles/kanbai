@@ -270,7 +270,10 @@ def add(  # noqa: PLR0913 - one option per card field
     ),
     group: str = typer.Option("", "--group", "-g", help="Group (free text, e.g. 'auth')."),
     source: str = typer.Option(
-        "", "--source", "-s", help="Where the request came from (Jira key/URL, email, Teams...)."
+        "", "--source", "-s", help="Where the request came from (email, Teams thread, URL...)."
+    ),
+    ticket: str = typer.Option(
+        "", "--ticket", "-T", help="The card's ticket in an external tracker (Jira key or URL)."
     ),
     blocked: str = typer.Option(
         "", "--block", "-b", help="Start the card blocked by this pending item."
@@ -292,6 +295,7 @@ def add(  # noqa: PLR0913 - one option per card field
         notice=notice,
         group=group,
         source=source,
+        ticket=ticket,
         blocked=blocked,
     )
     _emit_card(
@@ -398,6 +402,7 @@ def show(
             f"labels: {labels}   deps: {deps}   assignee: {card.assignee or '—'}   "
             f"version: {card.version or '—'}   group: {escape(card.group) if card.group else '—'}\n"
             f"source: {escape(card.source) if card.source else '—'}   "
+            f"ticket: {escape(card.ticket) if card.ticket else '—'}   "
             f"blocked: {'[yellow]' + escape(card.blocked) + '[/yellow]' if card.blocked else '—'}\n"
             f"notice: {_notice_cell(card)}"
             f"{history}"
@@ -502,6 +507,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
     ),
     group: str | None = typer.Option(None, "--group", "-g", help="New group (empty clears it)."),
     source: str | None = typer.Option(None, "--source", "-s", help="New source (empty clears it)."),
+    ticket: str | None = typer.Option(None, "--ticket", "-T", help="New ticket (empty clears it)."),
     blocked: str | None = typer.Option(
         None,
         "--block",
@@ -530,6 +536,7 @@ def edit(  # noqa: PLR0913 - one option per editable card field
         notice_sent=notice_sent,
         group=group,
         source=source,
+        ticket=ticket,
         blocked="" if unblock else blocked,
     )
     _emit_card(card, as_json, f"[green]✓[/green] Updated [cyan]{card.id}[/cyan]")

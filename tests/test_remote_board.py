@@ -69,6 +69,7 @@ class _FakeServer:
             "deps": [],
             "assignee": None,
             "group": "",
+            "ticket": "",
             "archived_from": None,
             "notice": "",
             "notice_sent": False,
@@ -214,6 +215,7 @@ class _FakeServer:
             deps=body.get("deps") or [],
             assignee=body.get("assignee"),
             group=(body.get("group") or "").strip(),
+            ticket=(body.get("ticket") or "").strip(),
             notice=body.get("notice") or "",
             body=body.get("description") or "",
         )
@@ -241,7 +243,17 @@ class _FakeServer:
             cards[card_id]["status"] = cards[card_id]["archived_from"] or "backlog"
             cards[card_id]["archived_from"] = None
         elif method == "PATCH":
-            fields = ("title", "priority", "type", "version", "labels", "deps", "assignee", "group")
+            fields = (
+                "title",
+                "priority",
+                "type",
+                "version",
+                "labels",
+                "deps",
+                "assignee",
+                "group",
+                "ticket",
+            )
             for field in fields:
                 if body.get(field) is not None:
                     cards[card_id][field] = body[field]
@@ -590,3 +602,13 @@ def test_move_to_done_notifies_a_pending_notice(remote_board: RemoteBoard) -> No
     assert (f"{remote_board.config.name}: card {card.id} done, pass on the notice", "Tell Ana") in (
         notifications
     )
+
+
+def test_add_and_edit_send_the_ticket(remote_board: RemoteBoard) -> None:
+    card = remote_board.add("Task", ticket="PROJ-123")
+    assert card.ticket == "PROJ-123"
+    assert remote_board.edit(card.id, ticket="https://example.com/PROJ-9").ticket == (
+        "https://example.com/PROJ-9"
+    )
+    assert remote_board.edit(card.id, title="Renamed").ticket.endswith("PROJ-9")  # null: unchanged
+    assert remote_board.edit(card.id, ticket="").ticket == ""

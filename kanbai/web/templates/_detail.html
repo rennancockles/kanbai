@@ -28,6 +28,13 @@
         {%- else -%}{{ card.source }}{%- endif -%}
       </dd></div>
       {% endif %}
+      {% if card.ticket %}
+      <div><dt>ticket</dt><dd>
+        {%- if card.ticket.startswith(('http://', 'https://')) -%}
+        <a href="{{ card.ticket }}" target="_blank" rel="noopener noreferrer">{{ card.ticket }}</a>
+        {%- else -%}{{ card.ticket }}{%- endif -%}
+      </dd></div>
+      {% endif %}
       {% if card.notice %}
       <div><dt>notice</dt><dd>{{ card.notice }} ({{ 'sent' if card.notice_sent else 'pending' }})</dd></div>
       {% endif %}

@@ -83,7 +83,8 @@ kanbai add "Ship the release" -v v1.2.0
 | `-a`, `--assignee` | Assignee. |
 | `-n`, `--notice` | [Notice](concepts.md#card-notice) to pass on once the card is done. |
 | `-g`, `--group` | Group the card belongs to (free text, e.g. `auth`; see [Card fields](concepts.md#cards)). |
-| `-s`, `--source` | Where the request came from (free text: a Jira key or URL, an email, a Teams thread...; see [Card fields](concepts.md#cards)). |
+| `-s`, `--source` | Where the request came from (free text: an email, a Teams thread, a URL...; see [Card fields](concepts.md#cards)). |
+| `-T`, `--ticket` | The card's ticket in an external tracker (a Jira key or URL; not the same as `--source`). |
 | `-b`, `--block` | Start the card blocked by this pending item (see [Card fields](concepts.md#cards)). |
 | `--json` | Emit the created card as JSON. |
 
@@ -189,6 +190,7 @@ kanbai edit 001 --dep 002 --dep 003     # replace the blocking ids
 | `--notice-sent` / `--no-notice-sent` | Mark the notice as passed on, or pending again. |
 | `-g`, `--group` | New group (pass an empty string to clear it). |
 | `-s`, `--source` | New source (pass an empty string to clear it). |
+| `-T`, `--ticket` | New ticket (pass an empty string to clear it). |
 | `-b`, `--block` | Mark the card blocked by this pending item (replaces the reason). `kanbai next` skips blocked cards. |
 | `--unblock` | Clear the blocked mark. Cannot be combined with `--block`. |
 

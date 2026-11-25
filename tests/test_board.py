@@ -811,3 +811,30 @@ def test_block_and_move_events_interleave_in_order(board: Board) -> None:
         "todo → doing",
         "unblocked in doing",
     ]
+
+
+# --------------------------------------------------------------------------- ticket
+
+
+def test_add_and_edit_store_a_stripped_ticket(board: Board) -> None:
+    card = board.add("Task", ticket="  PROJ-123  ")
+    assert card.ticket == "PROJ-123"
+    assert board.edit(card.id, ticket=" https://example.com/browse/PROJ-9 ").ticket == (
+        "https://example.com/browse/PROJ-9"
+    )
+    assert board.edit(card.id, title="Renamed").ticket.endswith("PROJ-9")  # None leaves it
+    cleared = board.edit(card.id, ticket="")
+    assert cleared.ticket == ""
+    assert "ticket" not in cleared.frontmatter()
+
+
+def test_ticket_is_independent_from_source(board: Board) -> None:
+    card = board.add("Task", source="Teams thread", ticket="PROJ-123")
+    reloaded = Board.load(board.kanbai_dir.parent).show(card.id)
+    assert (reloaded.source, reloaded.ticket) == ("Teams thread", "PROJ-123")
+    assert board.edit(card.id, source="").ticket == "PROJ-123"
+
+
+def test_cards_without_a_ticket_keep_their_frontmatter_unchanged(board: Board) -> None:
+    assert "ticket" not in board.add("Task").frontmatter()
+    assert board.add("Task", ticket="   ").ticket == ""

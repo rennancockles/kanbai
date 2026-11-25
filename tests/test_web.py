@@ -2198,3 +2198,57 @@ def test_card_detail_links_open_in_a_new_tab_safely(tmp_path: Path) -> None:
 
 def test_card_without_a_body_still_says_no_description(tmp_path: Path) -> None:
     assert "No description" in _detail_html(tmp_path, "")
+
+
+def test_new_and_edit_forms_have_a_ticket_field(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Task", column="todo", ticket="PROJ-123")
+    client = TestClient(create_app(board))
+    assert 'name="ticket"' in client.get("/cards/new").text
+    assert 'name="ticket" value="PROJ-123"' in client.get("/cards/001/edit").text
+
+
+def test_create_and_edit_card_persist_ticket(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    client = TestClient(create_app(board))
+
+    client.post("/cards", data={"title": "T", "column": "todo", "ticket": " PROJ-1 "})
+    assert board.show("001").ticket == "PROJ-1"
+
+    client.post("/cards/001/edit", data={"title": "T", "ticket": "PROJ-2"})
+    assert board.show("001").ticket == "PROJ-2"
+    client.post("/cards/001/edit", data={"title": "T", "ticket": ""})
+    assert board.show("001").ticket == ""
+
+
+def test_card_detail_links_a_url_ticket_and_shows_text_otherwise(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Linked", column="todo", ticket="https://example.com/browse/PROJ-1")
+    board.add("Plain", column="todo", ticket="PROJ-2")
+    board.add("Unsafe", column="todo", ticket="javascript:alert(1)")
+    board.add("None", column="todo")
+    client = TestClient(create_app(board))
+
+    assert '<a href="https://example.com/browse/PROJ-1" target="_blank"' in (
+        client.get("/cards/001").text
+    )
+    plain = client.get("/cards/002").text
+    assert "<dt>ticket</dt><dd>PROJ-2</dd>" in plain
+    assert 'href="PROJ' not in plain
+    assert '<a href="javascript' not in client.get("/cards/003").text
+    assert "<dt>ticket</dt>" not in client.get("/cards/004").text
+
+
+def test_card_with_a_ticket_shows_an_icon_with_the_ticket_in_the_tooltip(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    board = Board.load(tmp_path)
+    board.add("Ticketed", column="todo", ticket="PROJ-123")
+    board.add("Plain", column="todo")
+    board.add("Tricky", column="todo", ticket='"><script>alert(1)</script>')
+    page = TestClient(create_app(board)).get("/").text
+    assert page.count('class="card-ticket"') == 2
+    assert 'title="Ticket: PROJ-123"' in page
+    assert "<script>alert(1)</script>" not in page

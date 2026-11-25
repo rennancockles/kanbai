@@ -302,6 +302,7 @@ def _create_remote(remote: RemoteBoard, card: Card, add_column: str) -> None:
         assignee=card.assignee,
         notice=card.notice,
         group=card.group,
+        ticket=card.ticket,
     )
     if card.notice_sent:
         remote.edit(uploaded.id, notice_sent=True)
@@ -322,6 +323,7 @@ def _update_remote(remote: RemoteBoard, card: Card, current: Card) -> None:
         notice=card.notice,
         notice_sent=card.notice_sent,
         group=card.group,
+        ticket=card.ticket,
     )
     if card.status == current.status:
         if card.status == storage.ARCHIVE_DIRNAME:
