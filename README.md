@@ -126,7 +126,9 @@ Claude then works one card at a time:
 5. You review it: approve and Claude runs `kanbai done <id>` (and commits) right away; ask
    for a change and it moves the card back to `doing` and repeats from step 3.
 
-Allow the CLI without prompts by adding `Bash(kanbai *)` to your `.claude/settings.json`.
+`kanbai init` already allows the CLI and the skills without prompts (it adds `Bash(kanbai *)` and
+`Skill(kanbai-*)` to your `.claude/settings.json`). After upgrading kanbai, run `kanbai init --update`
+to refresh the rule and skills.
 
 Using another assistant (Cursor, Windsurf, Aider, Copilot, …)? The board is harness-agnostic
 — see [docs/other-harnesses.md](https://github.com/rennancockles/kanbai/blob/main/docs/other-harnesses.md).

@@ -214,13 +214,15 @@ dependencies.
 class ScaffoldResult:
     """What `init_board` produced.
 
-    ``created`` and ``skipped`` (already present) together with ``failed`` — files that
+    ``created`` (new files), ``updated`` (existing files rewritten with different content)
+    and ``skipped`` (already present and left alone) together with ``failed`` — files that
     could not be written and why — let callers report a partial init honestly instead of
     crashing on the first unwritable path.
     """
 
     kanbai_dir: Path
     created: list[str] = field(default_factory=list)
+    updated: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
 
@@ -230,23 +232,28 @@ def _write(
     content: str,
     root: Path,
     result: ScaffoldResult,
-    force: bool,
+    overwrite: bool,
     *,
     optional: bool = False,
 ) -> None:
     """Write a scaffold file, recording the outcome on ``result``.
 
-    Existing files are left untouched (recorded as skipped) unless ``force`` is set, which
-    makes ``init`` idempotent: re-running fills in whatever is missing. When ``optional`` is
-    set, a filesystem error (e.g. a sandbox denying ``.claude/skills``) is recorded as a
-    failure and swallowed so the rest of the scaffold still completes; otherwise it
-    propagates, since the board itself could not be created.
+    Existing files are left untouched (recorded as skipped) unless ``overwrite`` is set, which
+    makes ``init`` idempotent: re-running fills in whatever is missing. An overwrite that would
+    write the same content is also recorded as skipped. When ``optional`` is set, a filesystem
+    error (e.g. a sandbox denying ``.claude/skills``) is recorded as a failure and swallowed so
+    the rest of the scaffold still completes; otherwise it propagates, since the board itself
+    could not be created.
     """
     rel = str(path.relative_to(root))
-    if path.exists() and not force:
+    existed = path.exists()
+    if existed and not overwrite:
         result.skipped.append(rel)
         return
     try:
+        if existed and path.read_text(encoding="utf-8") == content:
+            result.skipped.append(rel)
+            return
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
     except OSError as exc:
@@ -254,7 +261,7 @@ def _write(
             raise
         result.failed.append((rel, exc.strerror or str(exc)))
         return
-    result.created.append(rel)
+    (result.updated if existed else result.created).append(rel)
 
 
 def _has_kanbai_notify_hook(notifications: list[object]) -> bool:
@@ -347,13 +354,14 @@ def _merge_settings(root: Path, result: ScaffoldResult, *, force: bool = False) 
         result.skipped.append(rel)
         return
 
+    existed = path.exists()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     except OSError as exc:
         result.failed.append((rel, exc.strerror or str(exc)))
         return
-    result.created.append(rel)
+    (result.updated if existed else result.created).append(rel)
 
 
 GITIGNORE_ENTRY = f"{storage.KANBAI_DIRNAME}/"
@@ -410,10 +418,19 @@ def init_board(
     name: str | None = None,
     config: BoardConfig | None = None,
     gitignore: bool = True,
+    update: bool = False,
 ) -> ScaffoldResult:
     """Create the `.kanbai/` board and Claude integration files under ``root``.
 
-    Idempotent: running it again creates only what is missing (pass ``force`` to overwrite).
+    Idempotent: running it again creates only what is missing. Two ways to go further:
+
+    - ``update`` refreshes the Claude integration (the rule and the skills; settings.json only
+      gets what is missing) to this kanbai version and leaves ``config.toml`` and the cards
+      alone. It is the safe way to bring an existing board up to date.
+    - ``force`` is a reset: it also rewrites ``config.toml`` with the defaults (discarding the
+      board's settings, including a hosted connection) and replaces kanbai's settings.json
+      hook. Cards are never touched.
+
     The `.claude/` integration files are optional — if they cannot be written they are
     recorded in the result rather than aborting the board setup. ``config`` seeds the board
     from an existing configuration (e.g. a hosted board being cloned) instead of the defaults.
@@ -431,13 +448,14 @@ def init_board(
         _write(kanbai_dir / column / ".gitkeep", "", root, result, force)
 
     # Claude Code integration (optional — degrade gracefully if unwritable).
-    _write(root / ".claude" / "rules" / "kanbai.md", RULE_DOC, root, result, force, optional=True)
+    refresh = force or update
+    _write(root / ".claude" / "rules" / "kanbai.md", RULE_DOC, root, result, refresh, optional=True)
     _write(
         root / ".claude" / "skills" / "kanbai-next" / "SKILL.md",
         SKILL_NEXT,
         root,
         result,
-        force,
+        refresh,
         optional=True,
     )
     _write(
@@ -445,7 +463,7 @@ def init_board(
         SKILL_SPRINT,
         root,
         result,
-        force,
+        refresh,
         optional=True,
     )
     _write(
@@ -453,7 +471,7 @@ def init_board(
         SKILL_STATUS,
         root,
         result,
-        force,
+        refresh,
         optional=True,
     )
     _merge_settings(root, result, force=force)

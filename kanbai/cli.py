@@ -205,7 +205,23 @@ def _render_column_table(column: str, cards: list[Card]) -> Table:
 
 @app.command()
 def init(
-    force: bool = typer.Option(False, "--force", help="Overwrite existing files."),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help=(
+            "Reset everything init generates: config.toml goes back to the defaults (your "
+            "settings and any hosted connection are lost) and the Claude rule and skills are "
+            "rewritten. Cards are untouched. To only refresh the rule and skills, use --update."
+        ),
+    ),
+    update: bool = typer.Option(
+        False,
+        "--update",
+        help=(
+            "Refresh the Claude rule and skills to this kanbai version, keeping config.toml "
+            "and your cards."
+        ),
+    ),
     name: str | None = typer.Option(None, "--name", help="Board name for config.toml."),
     gitignore: bool = typer.Option(
         True,
@@ -215,18 +231,33 @@ def init(
 ) -> None:
     """Scaffold a `.kanbai/` board and install the Claude Code integration.
 
-    Safe to re-run: it only creates what is missing (use --force to overwrite).
+    Safe to re-run: it only creates what is missing. Use --update to bring the Claude rule and
+    skills of an existing board up to date, or --force to reset everything init generates.
     """
+    if force and update:
+        raise typer.BadParameter("Use either --force or --update, not both.")
+    if update and name is not None:
+        raise typer.BadParameter("--name only applies when the board is created.")
     try:
-        result = scaffold.init_board(Path.cwd(), force=force, name=name, gitignore=gitignore)
+        result = scaffold.init_board(
+            Path.cwd(), force=force, update=update, name=name, gitignore=gitignore
+        )
     except OSError as exc:
         err_console.print(f"[red]error:[/red] could not create the board: {exc}")
         raise typer.Exit(code=1) from exc
 
-    if result.created:
+    _print_init_result(result)
+    _print_next_steps(result)
+
+
+def _print_init_result(result: scaffold.ScaffoldResult) -> None:
+    """Say what `init` created or updated, and which Claude files it could not write."""
+    if result.created or result.updated:
         console.print(f"[green]✓[/green] {APP_NAME} board at [cyan]{result.kanbai_dir}[/cyan]")
         for line in result.created:
             console.print(f"  [dim]created[/dim] {line}")
+        for line in result.updated:
+            console.print(f"  [dim]updated[/dim] {line}")
     else:
         console.print(
             f"[green]✓[/green] {APP_NAME} board already up to date at "
@@ -245,13 +276,22 @@ def init(
             "Re-run [cyan]kanbai init[/cyan] from an unrestricted shell to install them."
         )
 
-    console.print(
-        "\nNext steps:\n"
-        "  1. Allow the CLI for Claude without prompts by adding "
-        '[cyan]Bash(kanbai *)[/cyan] to .claude/settings.json "permissions.allow".\n'
-        '  2. Create your first card: [cyan]kanbai add "My first task"[/cyan]\n'
-        f"  3. In Claude Code, ask it to work through the {APP_NAME} board."
-    )
+
+def _print_next_steps(result: scaffold.ScaffoldResult) -> None:
+    """Getting-started hints, only for a brand-new board (not a re-run, update or reset)."""
+    if Path(".kanbai", "config.toml") not in map(Path, result.created):
+        return
+    steps = []
+    if Path(".claude", "settings.json") in {Path(path) for path, _ in result.failed}:
+        steps.append(
+            "Allow the CLI for Claude without prompts by adding "
+            '[cyan]Bash(kanbai *)[/cyan] to .claude/settings.json "permissions.allow".'
+        )
+    steps.append('Create your first card: [cyan]kanbai add "My first task"[/cyan]')
+    steps.append(f"In Claude Code, ask it to work through the {APP_NAME} board.")
+    console.print("\nNext steps:")
+    for number, step in enumerate(steps, start=1):
+        console.print(f"  {number}. {step}")
 
 
 @app.command()

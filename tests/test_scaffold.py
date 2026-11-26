@@ -50,7 +50,8 @@ def test_init_force_reinitializes(tmp_path: Path) -> None:
     scaffold.init_board(tmp_path)
     result = scaffold.init_board(tmp_path, force=True, name="Renamed")
     assert 'name = "Renamed"' in (tmp_path / ".kanbai" / "config.toml").read_text()
-    assert result.created  # force overwrites, so files are (re)created
+    assert result.updated  # force rewrites what already exists
+    assert not result.created
 
 
 def test_init_degrades_when_integration_unwritable(tmp_path: Path) -> None:
@@ -335,3 +336,146 @@ def test_init_ignores_a_similarly_named_entry_and_still_adds_the_board(tmp_path:
     scaffold.init_board(tmp_path)
 
     assert ".kanbai/" in (tmp_path / ".gitignore").read_text().splitlines()
+
+
+# --------------------------------------------------------------------------- update / force
+
+
+def _customize_board(root: Path) -> str:
+    """Give the board a config only a human would have written, and one card; return the config."""
+    config_path = root / ".kanbai" / "config.toml"
+    config_path.write_text(
+        config_path.read_text().replace(f'name = "{root.resolve().name}"', 'name = "Team board"')
+        + '\n[wip]\ndoing = 2\n\n[integration]\nsystem = "jira"\n\n'
+        '[server]\nurl = "https://host"\ntoken = "secret"\nboard_id = "b1"\n',
+        encoding="utf-8",
+    )
+    (root / ".kanbai" / "todo" / "001-task.md").write_text("---\nid: '001'\n---\n", "utf-8")
+    return config_path.read_text()
+
+
+def test_update_refreshes_the_integration_and_keeps_config_and_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    custom = _customize_board(tmp_path)
+    rule = tmp_path / ".claude" / "rules" / "kanbai.md"
+    skill = tmp_path / ".claude" / "skills" / "kanbai-next" / "SKILL.md"
+    rule.write_text("stale rule")
+    skill.write_text("stale skill")
+
+    result = scaffold.init_board(tmp_path, update=True)
+
+    assert rule.read_text() == scaffold.RULE_DOC
+    assert skill.read_text() == scaffold.SKILL_NEXT
+    assert {".claude/rules/kanbai.md", ".claude/skills/kanbai-next/SKILL.md"} <= set(result.updated)
+    assert (tmp_path / ".kanbai" / "config.toml").read_text() == custom
+    assert ".kanbai/config.toml" in result.skipped
+    assert (tmp_path / ".kanbai" / "todo" / "001-task.md").exists()
+    assert not result.created
+
+
+def test_update_is_a_no_op_when_everything_is_current(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+
+    result = scaffold.init_board(tmp_path, update=True)
+
+    assert result.created == []
+    assert result.updated == []
+    assert not result.failed
+
+
+def test_update_on_a_fresh_directory_creates_the_board(tmp_path: Path) -> None:
+    result = scaffold.init_board(tmp_path, update=True)
+
+    assert (tmp_path / ".kanbai" / "config.toml").exists()
+    assert (tmp_path / ".claude" / "rules" / "kanbai.md").exists()
+    assert result.created
+
+
+def test_update_adds_missing_permissions_without_touching_other_settings(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.write_text(
+        json.dumps({"env": {"X": "1"}, "permissions": {"allow": ["Bash(ls)"]}, "hooks": {}})
+    )
+
+    scaffold.init_board(tmp_path, update=True)
+
+    settings = json.loads(settings_path.read_text())
+    assert settings["env"] == {"X": "1"}
+    assert "Bash(ls)" in settings["permissions"]["allow"]
+    assert set(scaffold.KANBAI_PERMISSIONS) <= set(settings["permissions"]["allow"])
+    assert _kanbai_hook_count(settings) == 1
+
+
+def test_force_resets_the_config_but_never_touches_cards(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    _customize_board(tmp_path)
+
+    result = scaffold.init_board(tmp_path, force=True)
+
+    config = (tmp_path / ".kanbai" / "config.toml").read_text()
+    assert 'name = "Team board"' not in config
+    assert "[server]" not in config
+    assert "[integration]" not in config
+    assert ".kanbai/config.toml" in result.updated
+    assert (tmp_path / ".kanbai" / "todo" / "001-task.md").exists()
+
+
+def test_cli_update_keeps_the_config_and_refreshes_the_rule(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    assert runner.invoke(app, ["init", "--name", "Demo"]).exit_code == 0
+    custom = _customize_board(tmp_path)
+    (tmp_path / ".claude" / "rules" / "kanbai.md").write_text("stale")
+
+    result = runner.invoke(app, ["init", "--update"])
+
+    assert result.exit_code == 0, result.output
+    assert "updated" in result.output
+    assert (tmp_path / ".claude" / "rules" / "kanbai.md").read_text() == scaffold.RULE_DOC
+    assert (tmp_path / ".kanbai" / "config.toml").read_text() == custom
+
+
+@pytest.mark.parametrize(
+    "args", [["init", "--force", "--update"], ["init", "--update", "--name", "X"]]
+)
+def test_cli_rejects_conflicting_init_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, args: list[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code > 0
+    assert not (tmp_path / ".kanbai").exists()
+
+
+def test_next_steps_are_shown_only_for_a_brand_new_board(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["init"]).output
+    assert "Next steps" in first
+    assert "Create your first card" in first
+    assert "Allow the CLI" not in first  # init already adds the permission to settings.json
+
+    for args in (["init"], ["init", "--update"], ["init", "--force"]):
+        output = runner.invoke(app, args).output
+        assert "Next steps" not in output, args
+
+
+def test_next_steps_ask_for_the_permission_when_settings_json_could_not_be_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".claude").write_text("not a directory")  # blocks every .claude/** write
+
+    output = CliRunner().invoke(app, ["init"]).output
+
+    assert "Next steps" in output
+    assert "1. Allow the CLI for Claude" in output
+    assert "2. Create your first card" in output

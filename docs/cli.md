@@ -43,7 +43,8 @@ kanbai --version
 ## init
 
 Scaffold a `.kanbai/` board in the current directory and install the
-[Claude Code integration](claude-code.md). Safe to re-run — it only creates what's missing.
+[Claude Code integration](claude-code.md). Safe to re-run — it only creates what's missing and never
+overwrites what is already there.
 This also merges a [`Notification` hook](claude-code.md#notified-when-claude-needs-you) into
 `.claude/settings.json` (pointed at the hidden `notify-hook` command), without touching any
 other keys or hooks already there.
@@ -55,9 +56,22 @@ if needed, never duplicating the line), so the board isn't committed by accident
 ```bash
 kanbai init                      # scaffold in the current directory
 kanbai init --name my-project    # set the board name in config.toml
-kanbai init --force              # overwrite existing files
+kanbai init --update             # refresh the Claude rule and skills; keeps config.toml and cards
+kanbai init --force              # reset everything init generates (see below)
 kanbai init --no-gitignore       # don't touch .gitignore (version the board in git)
 ```
+
+- **`--update`** brings the Claude rule (`.claude/rules/kanbai.md`) and the `kanbai-*` skills of an
+  existing board up to the installed kanbai version, and adds any missing entries to
+  `.claude/settings.json`. It leaves `config.toml` and your cards alone — run it after upgrading
+  kanbai. It lists the files it updated; nothing is listed when everything is already current.
+- **`--force`** is a reset, like `git reset --hard`: it rewrites everything `init` generates —
+  `config.toml` goes back to the defaults (your board name, WIP limits, types, notifications and
+  any [hosted connection](hosted.md), token included, are lost) and the rule and skills are
+  replaced. **Your cards are never touched.** If you only want newer rules and skills, use
+  `--update`.
+- `--force` and `--update` can't be combined, and `--name` only applies when the board is
+  created.
 
 ## add
 
