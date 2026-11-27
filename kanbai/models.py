@@ -2,10 +2,42 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
+
+_TICKET_KEY = re.compile(r"[A-Z][A-Z0-9]+-[0-9]+")
+_BARE_TICKET_KEY = re.compile(r"[A-Za-z][A-Za-z0-9]+-[0-9]+")
+
+
+def ticket_key(reference: str) -> str | None:
+    """The tracker key in a ticket reference (``PROJ-123``, or a URL ending in it), if any.
+
+    A bare key is matched ignoring case; inside a longer text (a URL) only upper-case keys count,
+    so a slug like ``/my-page-1`` is not mistaken for one. The last key in the text wins.
+    """
+    text = reference.strip()
+    if _BARE_TICKET_KEY.fullmatch(text):
+        return text.upper()
+    keys = _TICKET_KEY.findall(text)
+    return keys[-1] if keys else None
+
+
+def tickets_match(card_ticket: str, wanted: str) -> bool:
+    """True when two ticket references (keys or URLs) point to the same ticket.
+
+    References with a key are compared by key (so ``PROJ-1`` matches ``https://x/browse/PROJ-1``
+    but not ``PROJ-12``); references without one are compared as text, ignoring case and spaces.
+    An empty reference matches nothing.
+    """
+    if not card_ticket.strip() or not wanted.strip():
+        return False
+    key, wanted_key = ticket_key(card_ticket), ticket_key(wanted)
+    if key and wanted_key:
+        return key == wanted_key
+    return card_ticket.strip().lower() == wanted.strip().lower()
 
 
 class Priority(str, Enum):

@@ -752,3 +752,60 @@ def test_add_and_edit_ticket_show_in_show_and_json(project: Path) -> None:
     assert runner.invoke(app, ["edit", "001", "--ticket", ""]).exit_code == 0
     assert json.loads(runner.invoke(app, ["show", "001", "--json"]).output)["ticket"] == ""
     assert "ticket: —" in runner.invoke(app, ["show", "001"]).output
+
+
+def _ids(output: str) -> list[str]:
+    data = json.loads(output)
+    if isinstance(data, dict):
+        return sorted(card["id"] for cards in data.values() for card in cards)
+    return sorted(card["id"] for card in data)
+
+
+def test_list_filters_cards_by_ticket_key_or_url(project: Path) -> None:
+    runner.invoke(app, ["add", "A", "-c", "todo", "-T", "PROJ-1"])
+    runner.invoke(app, ["add", "B", "-c", "doing", "-T", "https://jira.example.com/browse/PROJ-1"])
+    runner.invoke(app, ["add", "C", "-c", "todo", "-T", "PROJ-12"])
+    runner.invoke(app, ["add", "D", "-c", "todo"])
+
+    by_key = runner.invoke(app, ["list", "--ticket", "PROJ-1", "--json"])
+    assert _ids(by_key.output) == ["001", "002"]  # the URL form matches, PROJ-12 does not
+    assert _ids(
+        runner.invoke(app, ["list", "-T", "https://x/browse/PROJ-12", "--json"]).output
+    ) == ["003"]
+    assert _ids(runner.invoke(app, ["list", "-T", "NOPE-1", "--json"]).output) == []
+
+
+def test_list_ticket_combines_with_a_column_and_other_filters(project: Path) -> None:
+    runner.invoke(app, ["add", "A", "-c", "todo", "-T", "PROJ-1", "-t", "bug"])
+    runner.invoke(app, ["add", "B", "-c", "todo", "-T", "PROJ-1", "-t", "feature"])
+    runner.invoke(app, ["add", "C", "-c", "doing", "-T", "PROJ-1"])
+
+    assert _ids(runner.invoke(app, ["list", "todo", "-T", "PROJ-1", "--json"]).output) == [
+        "001",
+        "002",
+    ]
+    only_bug = runner.invoke(app, ["list", "todo", "-T", "PROJ-1", "-t", "bug", "--json"])
+    assert _ids(only_bug.output) == ["001"]
+
+
+def test_list_ticket_finds_archived_cards(project: Path) -> None:
+    runner.invoke(app, ["add", "Done one", "-c", "done", "-T", "PROJ-1"])
+    runner.invoke(app, ["add", "Other", "-c", "done", "-T", "PROJ-2"])
+    runner.invoke(app, ["archive", "001"])
+    runner.invoke(app, ["archive", "002"])
+
+    archived = runner.invoke(app, ["list", "archive", "-T", "PROJ-1", "--json"])
+    assert _ids(archived.output) == ["001"]
+    assert json.loads(archived.output)[0]["archived_from"] == "done"
+    assert _ids(runner.invoke(app, ["list", "-T", "PROJ-1", "--json"]).output) == []  # board only
+
+
+def test_list_ticket_text_output_shows_only_the_matching_cards(project: Path) -> None:
+    runner.invoke(app, ["add", "Linked card", "-c", "todo", "-T", "PROJ-1"])
+    runner.invoke(app, ["add", "Unrelated card", "-c", "todo"])
+
+    result = runner.invoke(app, ["list", "todo", "-T", "PROJ-1"])
+
+    assert result.exit_code == 0
+    assert "Linked card" in result.output
+    assert "Unrelated card" not in result.output

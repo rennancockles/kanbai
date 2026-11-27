@@ -33,7 +33,7 @@ from .board import Board
 from .config import RemoteConfig, load_remote_config
 from .errors import KanbaiError, RemoteAPIError
 from .mirror import AnyBoard, MirrorBoard, mirror_if_hosted
-from .models import BoardConfig, Card, Priority
+from .models import BoardConfig, Card, Priority, tickets_match
 from .notifications import Notification, hook_notification
 from .notify_ntfy import notify_ntfy
 from .remote_board import RemoteBoard, list_remote_boards, login
@@ -352,17 +352,26 @@ def list_cards(
     column: str | None = typer.Argument(None, help="Only show this column."),
     type: str | None = typer.Option(None, "--type", "-t", help="Only show cards of this type."),  # noqa: A002
     group: str | None = typer.Option(None, "--group", "-g", help="Only show cards in this group."),
+    ticket: str | None = typer.Option(
+        None,
+        "--ticket",
+        "-T",
+        help="Only show cards linked to this ticket (a key or a URL, matched by key).",
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit the board as JSON."),
 ) -> None:
     """Show the board, a single column, or the ``archive``."""
     board = _load()
 
+    def keep(card: Card) -> bool:
+        if type and card.type != type:
+            return False
+        if group is not None and card.group != group.strip():
+            return False
+        return ticket is None or tickets_match(card.ticket, ticket)
+
     def filtered(cards: list[Card]) -> list[Card]:
-        return [
-            c
-            for c in cards
-            if (not type or c.type == type) and (group is None or c.group == group.strip())
-        ]
+        return [c for c in cards if keep(c)]
 
     if column is not None:
         cards = filtered(

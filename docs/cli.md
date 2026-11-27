@@ -112,8 +112,14 @@ kanbai list todo         # only the sprint column
 kanbai list archive      # archived cards
 kanbai list --type bug   # only cards of a given type, in any column filter above
 kanbai list -g auth      # only cards in the "auth" group
+kanbai list -T PROJ-123  # only cards linked to a ticket (key or URL), in the board or the archive
 kanbai list --json       # machine-readable board
 ```
+
+`--ticket` / `-T` matches the card's [`ticket`](concepts.md#cards) by its key, so `PROJ-123` also finds
+a card whose ticket is `https://jira.example.com/browse/PROJ-123` (and never `PROJ-1234`); a ticket without a
+key is compared as text, ignoring case. Several cards can share one ticket, and it combines with a column
+(`kanbai list todo -T PROJ-123`, `kanbai list archive -T PROJ-123`) and with `--type` and `--group`.
 
 ## next
 
