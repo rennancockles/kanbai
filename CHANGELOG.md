@@ -11,6 +11,39 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.26.0 (2026-11-28)
+
+### Bug Fixes
+
+- Hosted pull --settings preserva secoes desconhecidas do config.toml (175)
+  ([`c467d0a`](https://github.com/rennancockles/kanbai/commit/c467d0a76408b7a2f8fc2605efc0664389ed0630))
+
+### Chores
+
+- Add .jira to .gitignore
+  ([`27596f6`](https://github.com/rennancockles/kanbai/commit/27596f680ce460a483e9f5e252d03f8607e5a7af))
+
+### Features
+
+- Campo ticket para registrar o ticket externo do card (176)
+  ([`7ec4368`](https://github.com/rennancockles/kanbai/commit/7ec4368d4f8aa6c249907c3343288f3860b5440f))
+
+- Init --update para atualizar regra e skills sem perder o config (180)
+  ([`15af19a`](https://github.com/rennancockles/kanbai/commit/15af19a64289160deb58c9531faab50fec188b2a))
+
+- Integracao do kanbai com o tracker via [integration] e regra kanbai-tickets (177)
+  ([`8a95f1a`](https://github.com/rennancockles/kanbai/commit/8a95f1addf9651a8fa753dd5e775c194c40318a6))
+
+- Kanbai list --ticket para filtrar cards por ticket (181)
+  ([`e72a34a`](https://github.com/rennancockles/kanbai/commit/e72a34a7f0d038a5adcdd4a6e8a49c31691c3d15))
+
+- Regra manda ligar todos os cards de um ticket ao mesmo ticket
+  ([`036a081`](https://github.com/rennancockles/kanbai/commit/036a081b71238c872abc11dbb2db84831ad266ea))
+
+- Renderizar markdown no detalhe do card na UI (178)
+  ([`4a7b329`](https://github.com/rennancockles/kanbai/commit/4a7b329890bc09be50a8829480556ecb692c3dfa))
+
+
 ## v0.25.0 (2026-11-25)
 
 ### Features
