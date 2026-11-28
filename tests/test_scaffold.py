@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
-import tomllib
 from kanbai import scaffold
 from kanbai.cli import app
 from typer.testing import CliRunner
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - exercised only on Python 3.10
+    import tomli as tomllib
 
 
 def test_init_creates_board_and_integration(tmp_path: Path) -> None:

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-import tomllib
 from kanbai import hosted, scaffold
 from kanbai.board import Board
 from kanbai.config import RemoteConfig, load_config, load_remote_config
@@ -14,6 +14,11 @@ from kanbai.errors import KanbaiError, RemoteAPIError
 from kanbai.remote_board import RemoteBoard, login
 
 from test_remote_board import ADMIN_EMAIL, ADMIN_PASSWORD, _FakeServer, patch_transport
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - exercised only on Python 3.10
+    import tomli as tomllib
 
 
 @pytest.fixture

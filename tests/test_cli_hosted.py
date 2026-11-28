@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import httpx2 as httpx
 import pytest
-import tomllib
 from kanbai import cli, credentials, hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
@@ -23,6 +23,11 @@ from test_remote_board import (
     _FakeServer,
     patch_transport,
 )
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - exercised only on Python 3.10
+    import tomli as tomllib
 
 runner = CliRunner()
 URL = "https://kanbai.example.com"

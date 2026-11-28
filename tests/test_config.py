@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-import tomllib
 from kanbai import scaffold
 from kanbai.config import load_config, render_config
 from kanbai.models import BoardConfig
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - exercised only on Python 3.10
+    import tomli as tomllib
 
 
 def test_default_columns_include_review() -> None:
