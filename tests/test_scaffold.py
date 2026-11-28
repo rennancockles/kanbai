@@ -505,6 +505,8 @@ def test_tickets_rule_describes_the_one_ticket_many_cards_flow() -> None:
         assert stage in rule
     assert "every" in rule and "no other linked card has started" in rule
     assert "a card without a `ticket`" in rule  # cards without a ticket are unaffected
+    flat = " ".join(rule.split())
+    assert 'give every card the same ticket** (`kanbai add "..." --ticket <KEY>`)' in flat
 
 
 def test_tickets_rule_is_driven_by_the_board_config_and_names_no_skill() -> None:

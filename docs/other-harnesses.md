@@ -49,7 +49,8 @@ bring the ticket to a stage and it finds the tracker's status itself. `stages` l
 start (a card enters doing), review, done; a stage that is not listed does nothing to the ticket, and
 without `stages` all three act.
 
-One ticket can be linked to several cards, so the ticket follows the cards together. Find them with
+One ticket can be linked to several cards, so the ticket follows the cards together; when you split a
+ticket into cards, give every card the same ticket (`kanbai add "..." --ticket KEY`). Find them with
 `kanbai list --ticket KEY --json` (and `kanbai list archive --ticket KEY --json`); a card is done when it
 is in `done` or was archived from `done`, anything else is pending. For a stage that acts:
 - a card enters `doing` and no other linked card has started -> ticket to the start stage + a comment;

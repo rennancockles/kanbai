@@ -138,11 +138,13 @@ stages = ["start", "done"]  # which stages act: start (enters doing), review, do
 ## Counting the cards of a ticket
 
 One ticket can be linked to **several cards** (a large ticket split into smaller cards that all
-point to the same `ticket`), so the ticket follows the cards together, never a single card. Run
-`kanbai list --ticket <KEY> --json` (the board) and `kanbai list archive --ticket <KEY> --json`
-(archived cards); `<KEY>` is the card's ticket key (the key inside a URL works too). A card is
-**done** when it is in `done` or was archived from `done` (`archived_from`); a card in any other
-column is **pending**. Deleted cards are gone and do not count.
+point to the same `ticket`), so the ticket follows the cards together, never a single card.
+**When you split a ticket into cards, give every card the same ticket** (`kanbai add "..." --ticket
+<KEY>`). Run `kanbai list --ticket <KEY> --json` (the board) and
+`kanbai list archive --ticket <KEY> --json` (archived cards); `<KEY>` is the card's ticket key
+(the key inside a URL works too). A card is **done** when it is in `done` or was archived from
+`done` (`archived_from`); a card in any other column is **pending**. Deleted cards are gone and
+do not count.
 
 ## What to do when a linked card changes stage
 

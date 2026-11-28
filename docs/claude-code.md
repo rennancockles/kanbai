@@ -23,7 +23,8 @@ skill itself knows what the ticket's statuses are called. Without that section, 
 ticket, nothing happens.
 
 One ticket can be linked to **several cards** — a large ticket split into smaller cards that all
-share the same `ticket` — so the ticket follows the cards together. For the stages that are turned on:
+share the same `ticket` — so the ticket follows the cards together. When Claude splits a ticket into
+cards it gives every card the same `--ticket`. For the stages that are turned on:
 
 | A linked card… | The ticket… |
 |---|---|
