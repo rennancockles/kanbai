@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
+import tomllib
 from kanbai import hosted, scaffold
 from kanbai.board import Board
 from kanbai.config import RemoteConfig, load_config, load_remote_config
@@ -1212,4 +1213,31 @@ def test_pull_settings_does_not_duplicate_unmanaged_tables_on_repeat(
     board["category"] = "Work"
     hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir)
 
-    assert config_path.read_text().count("[integration]") == 1
+    text = config_path.read_text()
+    assert tomllib.loads(text)["integration"] == {"system": "jira"}
+    assert text.count("\n[integration]\n") == 1  # one real table, however many pulls
+
+
+def test_pull_settings_keeps_the_integration_section(
+    local_project: Path, fake_server: _FakeServer
+) -> None:
+    kanbai_dir = local_project / ".kanbai"
+    remote_config = _publish(kanbai_dir, "https://kanbai.example.com", ADMIN_EMAIL, ADMIN_PASSWORD)
+    config_path = kanbai_dir / "config.toml"
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            '\n[integration]\ntool = "jira"\nskill = "jira-workflow"\nstages = ["start", "done"]\n'
+        )
+    fake_server.boards[remote_config.board_id]["category"] = "Home"
+
+    hosted.pull_settings(RemoteBoard(remote_config), kanbai_dir)
+
+    text = config_path.read_text()
+    kept = tomllib.loads(text)["integration"]
+    assert kept == {
+        "tool": "jira",
+        "skill": "jira-workflow",
+        "stages": ["start", "done"],
+    }
+    assert text.count("\n[integration]\n") == 1  # kept once; the documented copy stays commented
+    assert load_config(kanbai_dir).category == "Home"

@@ -114,6 +114,7 @@ Then open a Claude Code session and ask it to *"work through the KanbAI board"*.
 `kanbai init` installs the integration into `.claude/`:
 
 - **`.claude/rules/kanbai.md`** — teaches Claude the board convention, loaded every session.
+- **`.claude/rules/kanbai-tickets.md`** — keeps an external ticket (Jira...) in step with the cards linked to it.
 - **Skills** — `kanbai-next` (work one card and stop), `kanbai-sprint` (work the whole
   sprint), and `kanbai-status` (summarize the board).
 

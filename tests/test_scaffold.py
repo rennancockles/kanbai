@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
+import tomllib
 from kanbai import scaffold
 from kanbai.cli import app
 from typer.testing import CliRunner
@@ -415,8 +417,9 @@ def test_force_resets_the_config_but_never_touches_cards(tmp_path: Path) -> None
 
     config = (tmp_path / ".kanbai" / "config.toml").read_text()
     assert 'name = "Team board"' not in config
-    assert "[server]" not in config
-    assert "[integration]" not in config
+    parsed = tomllib.loads(config)
+    assert "server" not in parsed  # the hosted connection is reset too
+    assert "integration" not in parsed  # only the commented example is left
     assert ".kanbai/config.toml" in result.updated
     assert (tmp_path / ".kanbai" / "todo" / "001-task.md").exists()
 
@@ -479,3 +482,70 @@ def test_next_steps_ask_for_the_permission_when_settings_json_could_not_be_writt
     assert "Next steps" in output
     assert "1. Allow the CLI for Claude" in output
     assert "2. Create your first card" in output
+
+
+# --------------------------------------------------------------------------- tickets rule
+
+
+def test_init_installs_the_tickets_rule(tmp_path: Path) -> None:
+    result = scaffold.init_board(tmp_path)
+
+    rule = tmp_path / ".claude" / "rules" / "kanbai-tickets.md"
+    assert rule.read_text() == scaffold.RULE_TICKETS
+    assert ".claude/rules/kanbai-tickets.md" in result.created
+    assert "kanbai-tickets.md" in scaffold.RULE_DOC  # the main rule points to it
+
+
+def test_tickets_rule_describes_the_one_ticket_many_cards_flow() -> None:
+    rule = scaffold.RULE_TICKETS
+    assert "kanbai list --ticket" in rule
+    assert "kanbai list archive --ticket" in rule
+    assert "several cards" in rule  # one ticket can be linked to several cards
+    for stage in ("enters `doing`", "enters `review`", "enters `done`"):
+        assert stage in rule
+    assert "every" in rule and "no other linked card has started" in rule
+    assert "a card without a `ticket`" in rule  # cards without a ticket are unaffected
+
+
+def test_tickets_rule_is_driven_by_the_board_config_and_names_no_skill() -> None:
+    rule = scaffold.RULE_TICKETS
+    block = re.search(r"```toml\n(.*?)```", rule, re.S)
+    assert block is not None
+    example = tomllib.loads(block.group(1))["integration"]  # the documented example is valid TOML
+    assert set(example) >= {"tool", "skill", "stages"}
+    assert set(example["stages"]) <= {"start", "review", "done"}
+
+    assert "`[integration]` section of `.kanbai/config.toml`" in rule
+    flat = " ".join(rule.split())  # the rule wraps lines; compare the text, not the line breaks
+    assert "does nothing to the ticket" in flat  # a stage that is not listed is ignored
+    assert "map" not in example  # kanbai does not map statuses: the skill does
+    assert "that is the skill's job" in flat  # the tracker's status names are not kanbai's concern
+    assert "enabled" in rule  # the integration can be paused
+    # the skill name only appears inside the documented example, never as an instruction
+    assert rule.count(example["skill"]) == 1
+    assert "jira-workflow" not in scaffold.RULE_DOC
+
+
+def test_rerun_keeps_a_customized_tickets_rule_but_update_refreshes_it(tmp_path: Path) -> None:
+    scaffold.init_board(tmp_path)
+    rule = tmp_path / ".claude" / "rules" / "kanbai-tickets.md"
+    rule.write_text("my own version")
+
+    scaffold.init_board(tmp_path)
+    assert rule.read_text() == "my own version"  # a plain init never overwrites
+
+    result = scaffold.init_board(tmp_path, update=True)
+    assert rule.read_text() == scaffold.RULE_TICKETS
+    assert ".claude/rules/kanbai-tickets.md" in result.updated
+
+
+def test_update_installs_the_tickets_rule_on_a_board_created_before_it_existed(
+    tmp_path: Path,
+) -> None:
+    scaffold.init_board(tmp_path)
+    (tmp_path / ".claude" / "rules" / "kanbai-tickets.md").unlink()
+
+    result = scaffold.init_board(tmp_path, update=True)
+
+    assert (tmp_path / ".claude" / "rules" / "kanbai-tickets.md").exists()
+    assert ".claude/rules/kanbai-tickets.md" in result.created

@@ -123,6 +123,40 @@ notification is sent by the machine running the CLI.
     guesses) your topic name receives your notifications. Pick something unguessable, not
     e.g. `my-project`.
 
+## `[integration]`
+
+Keep an external ticket (Jira, for example) in step with the cards linked to it — a card's
+[`ticket`](concepts.md#cards). It is **off** unless this section exists, and it only affects cards that
+have a `ticket`.
+
+```toml
+[integration]
+tool = "jira"               # the tracker the tickets live in
+skill = "jira-workflow"     # the skill (or tool) that carries out every ticket update
+stages = ["start", "done"]  # which stages act on the ticket: start, review, done
+# enabled = false           # pause the integration without deleting the section
+```
+
+- `tool` — the tracker. It is informational: it tells the agent which system `skill` talks to.
+- `skill` — what carries out the updates (moving the ticket, commenting). The rule never names a skill
+  itself, so any tracker and any skill can be plugged in. If the agent does not have it, it says so once
+  and leaves the ticket alone.
+- `stages` — **in which stages** the ticket is touched: `start` (a card enters `doing`), `review` (a card
+  enters `review`) and `done` (a card enters `done`). **A stage that is not listed does nothing** (no
+  move, no comment); leave `review` out to never touch the ticket on review. Without `stages`, all three
+  act.
+
+kanbai does **not** know what the ticket's statuses are called. It asks the skill to bring the ticket to a
+stage, and the skill maps the stage to the tracker's real status with its own settings (for the Jira
+skill, `[stages]` in `.jira/config.toml`: `review = "In Review"`, and so on). That is how one side can say
+"move the ticket on review" while the other says what review is called.
+
+When several cards share one ticket, the ticket only reaches `review` and `done` once **every** linked
+card has got there, and `start` when the **first** one starts. The agent reads this section as the
+`bypass_review` setting is read; the rule that explains the flow is `.claude/rules/kanbai-tickets.md`
+(see [Working with Claude Code](claude-code.md#cards-linked-to-a-ticket)). The section is yours: kanbai
+never rewrites it, and `hosted pull --settings` keeps it.
+
 ## `[server]`
 
 Written by [`kanbai hosted connect`](cli.md#hosted) (or `clone`); its presence is what connects

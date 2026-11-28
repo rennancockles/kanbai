@@ -5,10 +5,36 @@ writes everything Claude needs into `.claude/`:
 
 - **`.claude/rules/kanbai.md`** — teaches Claude the board convention and workflow. Loaded
   every session, so Claude always knows how to drive the board.
+- **`.claude/rules/kanbai-tickets.md`** — what Claude does for cards linked to an external ticket
+  (see [Cards linked to a ticket](#cards-linked-to-a-ticket)).
 - **Skills** — installed under `.claude/skills/`:
     - `kanbai-next` — work **one** card and stop.
     - `kanbai-sprint` — work the **whole** sprint back-to-back.
     - `kanbai-status` — summarize the current board.
+
+## Cards linked to a ticket
+
+A card can carry a [`ticket`](concepts.md#cards) — the key or URL of its record in an external
+tracker such as Jira. `.claude/rules/kanbai-tickets.md` tells Claude to keep that ticket up to date
+as the card moves, **when the board turns it on** with an
+[`[integration]`](configuration.md#integration) section in `.kanbai/config.toml`: which tracker, which
+skill carries out the updates, and in which stages (`start`, `review`, `done`) the ticket is touched. The
+skill itself knows what the ticket's statuses are called. Without that section, or for a card without a
+ticket, nothing happens.
+
+One ticket can be linked to **several cards** — a large ticket split into smaller cards that all
+share the same `ticket` — so the ticket follows the cards together. For the stages that are turned on:
+
+| A linked card… | The ticket… |
+|---|---|
+| is the **first** to enter `doing` (stage `start`) | moves to the start stage, with a comment |
+| enters `review` | gets a progress comment; reaches the review stage only when **every** linked card is in `review` or done |
+| enters `done` | reaches the done stage only when **every** linked card is done; before that it gets a progress comment ("2 of 3 cards done") |
+
+A stage that is not listed does nothing to the ticket. Claude counts the cards with
+[`kanbai list --ticket KEY`](cli.md#list). The skill named in the config keeps its own rules (what it
+may touch, whether it asks first). This only happens when Claude moves the card through the CLI:
+dragging a card in the web UI, or running `kanbai move` yourself, does not touch the ticket.
 
 ## The one-card-at-a-time loop
 

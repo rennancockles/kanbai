@@ -98,6 +98,76 @@ Other useful commands:
 
 - `kanbai list --json` — the whole board.
 - `kanbai move <id> <column>` — move a card to any column.
+
+Cards linked to an external ticket (a `ticket` field): see `kanbai-tickets.md` in this folder.
+"""
+
+RULE_TICKETS = """# kanbai cards and external tickets
+
+A card can carry a `ticket`: the key or URL of the card's record in an external tracker (Jira,
+for example). This rule keeps that ticket in step with the cards, and it only does anything when
+the board turns it on in `.kanbai/config.toml`. For a card without a `ticket`, or a board without
+the setting, nothing below applies — do not mention it.
+
+## Turned on by the board config
+
+Read the `[integration]` section of `.kanbai/config.toml`:
+
+```toml
+[integration]
+tool = "jira"              # the tracker the tickets live in
+skill = "jira-workflow"    # the skill (or tool) that carries out every ticket update
+stages = ["start", "done"]  # which stages act: start (enters doing), review, done
+# enabled = false          # optional: pause the integration without deleting the section
+```
+
+- The integration is **on** only when the section exists, `enabled` is not `false`, and it has a
+  `skill`. Otherwise do nothing.
+- Do every ticket update through the `skill` named there — do not use another skill or reach the
+  tracker some other way. If you do not have that skill, say so once and leave the ticket alone.
+  Its own rules (scope, confirmation, language, whose tickets you may touch) take precedence over
+  this file. `tool` tells you which tracker it is.
+- `stages` says **which stages act on the ticket**: `start` (a card enters `doing`), `review`
+  (a card enters `review`) and `done` (a card enters `done`). **A stage that is not listed does
+  nothing to the ticket** — no move and no comment — so a board that does not want the ticket
+  touched on review leaves `review` out. Without `stages`, all three act.
+- The config does **not** say what the ticket's statuses are called: that is the skill's job. Ask
+  it to bring the ticket to the stage (start, review or done) and it finds the matching status in
+  the tracker with its own settings.
+
+## Counting the cards of a ticket
+
+One ticket can be linked to **several cards** (a large ticket split into smaller cards that all
+point to the same `ticket`), so the ticket follows the cards together, never a single card. Run
+`kanbai list --ticket <KEY> --json` (the board) and `kanbai list archive --ticket <KEY> --json`
+(archived cards); `<KEY>` is the card's ticket key (the key inside a URL works too). A card is
+**done** when it is in `done` or was archived from `done` (`archived_from`); a card in any other
+column is **pending**. Deleted cards are gone and do not count.
+
+## What to do when a linked card changes stage
+
+Only for a stage that acts (see `stages`):
+
+- The card **enters `doing`** (stage `start`): if **no other linked card has started** (none is in
+  `doing`, `review` or done), bring the ticket to the `start` stage and comment that work started,
+  naming the card. Otherwise do nothing to the status.
+- The card **enters `review`** (stage `review`): comment what was done on this card. Bring the
+  ticket to the `review` stage only when **every** linked card is in `review` or done.
+- The card **enters `done`** (stage `done`): if **every** linked card is done, bring the ticket to
+  the `done` stage and comment the outcome. Otherwise comment the progress ("2 of 3 cards done")
+  and leave the status alone.
+
+Always:
+
+- Never repeat a status the ticket already has or has gone past.
+- If a card moves **back** (for example `review` → `doing`) and the ticket is already ahead of it,
+  propose moving the ticket back, and ask first.
+- A new card linked to a ticket that is already done: ask before reopening the ticket.
+- If the tracker answers with an error, show the message and stop. The card move already
+  happened; do not undo it.
+
+This only happens when **you** move the card through the `kanbai` CLI. Dragging a card in the web
+UI or running `kanbai move` by hand does not touch the ticket.
 """
 
 SKILL_NEXT = """---
@@ -450,6 +520,14 @@ def init_board(
     # Claude Code integration (optional — degrade gracefully if unwritable).
     refresh = force or update
     _write(root / ".claude" / "rules" / "kanbai.md", RULE_DOC, root, result, refresh, optional=True)
+    _write(
+        root / ".claude" / "rules" / "kanbai-tickets.md",
+        RULE_TICKETS,
+        root,
+        result,
+        refresh,
+        optional=True,
+    )
     _write(
         root / ".claude" / "skills" / "kanbai-next" / "SKILL.md",
         SKILL_NEXT,

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx2 as httpx
 import pytest
+import tomllib
 from kanbai import cli, credentials, hosted, registry, scaffold
 from kanbai.board import Board
 from kanbai.cli import app
@@ -641,7 +642,8 @@ def test_disable_keeps_the_connection_and_enable_restores_it(
         if line.startswith(("url", "token", "board_id")):
             assert line in config_while_disabled
     assert enabled.exit_code == 0, enabled.output
-    assert "enabled" not in (local_project / ".kanbai" / "config.toml").read_text()
+    restored = tomllib.loads((local_project / ".kanbai" / "config.toml").read_text())
+    assert "enabled" not in restored["server"]  # the flag is dropped once it is back on
 
 
 def test_sync_commands_work_regardless_of_the_flag(

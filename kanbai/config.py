@@ -162,6 +162,16 @@ def render_config(config: BoardConfig) -> str:
         "# [notifications]\n"
         "# native = false\n"
         '# ntfy_topic = "my-kanbai-topic"\n'
+        "\n"
+        "# Keep an external ticket (Jira...) in step with the cards linked to it (a card's\n"
+        "# `ticket`). The section turns it on (`enabled = false` pauses it); `skill` is what\n"
+        "# carries out the updates and `stages` says which stages act on the ticket: `start`\n"
+        "# (a card enters doing), `review` and `done`. A stage that is not listed does nothing\n"
+        "# to the ticket. The skill knows what the ticket's statuses are called.\n"
+        "# [integration]\n"
+        '# tool = "jira"\n'
+        '# skill = "jira-workflow"\n'
+        '# stages = ["start", "done"]\n'
     )
     if config.bypass_review:
         text = text.replace("# bypass_review = true\n", "bypass_review = true\n", 1)

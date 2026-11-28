@@ -61,7 +61,7 @@ kanbai init --force              # reset everything init generates (see below)
 kanbai init --no-gitignore       # don't touch .gitignore (version the board in git)
 ```
 
-- **`--update`** brings the Claude rule (`.claude/rules/kanbai.md`) and the `kanbai-*` skills of an
+- **`--update`** brings the Claude rules (`.claude/rules/kanbai.md` and `kanbai-tickets.md`) and the `kanbai-*` skills of an
   existing board up to the installed kanbai version, and adds any missing entries to
   `.claude/settings.json`. It leaves `config.toml` and your cards alone — run it after upgrading
   kanbai. It lists the files it updated; nothing is listed when everything is already current.

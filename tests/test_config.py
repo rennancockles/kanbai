@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tomllib
 from kanbai import scaffold
 from kanbai.config import load_config, render_config
 from kanbai.models import BoardConfig
@@ -239,3 +240,16 @@ def test_render_config_writes_notification_settings_that_are_set(tmp_path: Path)
 
 def test_render_config_keeps_default_notifications_commented_out() -> None:
     assert "\n[notifications]" not in render_config(BoardConfig())
+
+
+def test_rendered_config_documents_the_integration_section_as_a_comment() -> None:
+    text = render_config(BoardConfig(name="demo"))
+
+    assert "# [integration]" in text
+    assert "[integration]" not in text.replace("# [integration]", "")  # nothing is switched on
+    assert "integration" not in tomllib.loads(text)  # it parses, and the section stays off
+    block = text[text.index("# [integration]") :]
+    uncommented = "\n".join(line[2:] for line in block.splitlines() if line.startswith("# "))
+    parsed = tomllib.loads(uncommented)["integration"]
+    assert parsed["skill"] and parsed["stages"] == ["start", "done"]
+    assert "map" not in parsed  # status names belong to the tracker skill, not to kanbai
