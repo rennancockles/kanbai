@@ -11,6 +11,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- version list -->
 
+## v0.26.1 (2026-11-28)
+
+### Bug Fixes
+
+- Testes usam tomli no python 3.10
+  ([`778adb8`](https://github.com/rennancockles/kanbai/commit/778adb8404188df4efa8136f608ed2d1f15361ec))
+
+
 ## v0.26.0 (2026-11-28)
 
 ### Bug Fixes
